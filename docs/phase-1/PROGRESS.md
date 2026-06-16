@@ -53,8 +53,8 @@ Installed the Flutter SDK (`D:\flutter`) and built the **Malayalam-first onboard
 
 ### ⏳ Not buildable here — external gate dependencies
 These need real-world resources, not more code, to close the Phase 1 gate:
-1. **Real VKYC vendor**: swap `MockVkycProvider` → Signzy/HyperVerge (needs a signed vendor contract + sandbox creds). The adapter seam is ready.
-2. **Postgres/AWS**: provision RDS + run the Prisma schema; swap in-memory repos → DB repos.
+1. **Real VKYC vendor**: Didit free plan is signed up. `DiditVkycProvider` is scaffolded behind `VKYC_PROVIDER=didit`; it creates hosted Didit sessions, fetches decision signals, and keeps the API key backend-only. Remaining: create/publish the KYC workflow in Didit, put `DIDIT_API_KEY` + `DIDIT_WORKFLOW_ID` in local `.env`, configure webhook/callback, and run a live sandbox check.
+2. **Postgres/AWS**: free AWS account exists. Remaining: provision the first dev stack (RDS/Postgres, KMS/Secrets Manager, S3, least-privilege IAM) + run the Prisma schema; swap in-memory repos → DB repos.
 3. **Device run-through**: run the Flutter app on a real mid-range Android phone, in Malayalam, end-to-end (needs a device/emulator).
 4. **Security sign-off**: Security Sentinel review of the PII vault + admin RBAC (formal Phase 7 hardening, but a first pass now).
 
@@ -67,4 +67,4 @@ These need real-world resources, not more code, to close the Phase 1 gate:
 ## Phase 1 gate (from the roadmap)
 > A real worker in Kerala completes VKYC end-to-end on a mid-range Android phone, in Malayalam; a Verification Officer reviews and approves it in the admin panel; PII handled per rules. Security Sentinel signs off on the PII vault.
 
-Backend logic for this gate is done and tested. Remaining: the Flutter VKYC UI, the admin queue UI, the real vendor integration, and a device run-through.
+Backend logic for this gate is done and tested. Remaining: live Didit workflow credentials + webhook/callback, AWS/Postgres persistence, and a real-device run-through.

@@ -10,6 +10,8 @@ import {
   VERIFICATION_REPOSITORY,
   VerificationRepository,
 } from './verification.repository';
+import { ConfigService } from '@nestjs/config';
+import { DiditVkycProvider } from './vkyc/didit-vkyc-provider';
 import { MockVkycProvider } from './vkyc/mock-vkyc-provider';
 import { VKYC_PROVIDER, VkycProvider } from './vkyc/vkyc-provider';
 import { PII_VAULT, PiiVault } from '../common/pii/pii-vault';
@@ -30,7 +32,23 @@ import { WorkerProfileRepository } from '../identity/identity.repository';
   providers: [
     { provide: VERIFICATION_REPOSITORY, useClass: InMemoryVerificationRepository },
     { provide: CONSENT_REPOSITORY, useClass: InMemoryConsentRepository },
-    { provide: VKYC_PROVIDER, useClass: MockVkycProvider },
+    {
+      provide: VKYC_PROVIDER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService): VkycProvider => {
+        const provider = config.get<string>('VKYC_PROVIDER') ?? 'mock';
+        if (provider === 'didit') {
+          return new DiditVkycProvider({
+            apiKey: config.get<string>('DIDIT_API_KEY') ?? '',
+            workflowId: config.get<string>('DIDIT_WORKFLOW_ID') ?? '',
+            baseUrl: config.get<string>('DIDIT_BASE_URL'),
+            callbackUrl: config.get<string>('DIDIT_CALLBACK_URL'),
+            languageFallback: config.get<string>('DIDIT_LANGUAGE_FALLBACK') ?? 'en',
+          });
+        }
+        return new MockVkycProvider();
+      },
+    },
     {
       provide: VerificationService,
       inject: [
