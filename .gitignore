@@ -39,6 +39,7 @@ apps/admin-web/.next/
 
 # Local dev runtime
 .dev-pids
+.didit-smoke.json
 
 # OS / editor
 .DS_Store
