@@ -1,0 +1,48 @@
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { IsOptional, IsString } from 'class-validator';
+import { VerificationService } from './verification.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators';
+import { AuthPrincipal } from '../auth/auth.types';
+
+class StartDto {
+  @IsOptional() @IsString() locale?: string;
+}
+class ResultDto {
+  @IsString() sessionId!: string;
+}
+
+/**
+ * Worker-facing VKYC endpoints. The worker grants consent, starts the live
+ * session, and the vendor result is ingested (POST /result here simulates the
+ * vendor webhook in dev; production validates a signed vendor callback).
+ */
+@Controller('verification')
+@UseGuards(JwtAuthGuard)
+export class VerificationController {
+  constructor(private readonly verification: VerificationService) {}
+
+  /** DPDP consent for VKYC — required before starting. */
+  @Post('consent')
+  consent(@CurrentUser() p: AuthPrincipal) {
+    return this.verification.recordConsent(p.sub, 'vkyc');
+  }
+
+  /** Start a live VKYC session; returns the vendor launch token for the app. */
+  @Post('start')
+  start(@CurrentUser() p: AuthPrincipal, @Body() dto: StartDto) {
+    return this.verification.start(p.sub, dto.locale ?? 'ml');
+  }
+
+  /** DEV/webhook: ingest the vendor's VKYC result for a session. */
+  @Post('result')
+  result(@Body() dto: ResultDto) {
+    return this.verification.handleVendorResult(dto.sessionId);
+  }
+
+  /** The worker's current verification status + apply eligibility. */
+  @Get('status')
+  status(@CurrentUser() p: AuthPrincipal) {
+    return this.verification.statusFor(p.sub);
+  }
+}

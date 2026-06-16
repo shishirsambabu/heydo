@@ -1,0 +1,263 @@
+// Heydo — PostgreSQL schema (reference for deployment).
+//
+// This is the production persistence model matching docs/phase-0/02-data-model.md.
+// Phase 1 runs on in-memory repositories; this schema is wired when AWS/RDS is
+// provisioned (the repository interfaces already match these shapes).
+//
+// Rules baked in: append-only ledger (no updates to postings), PII stored as
+// vault references only (no raw Aadhaar column), money in integer paisa.
+// See .claude/rules/money.md and .claude/rules/pii_and_privacy.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity ----------
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique // PII — encrypted at rest; never logged
+  roles     String[] // ['worker','giver']
+  locale    String   @default("ml")
+  status    String   @default("active") // active|suspended|deleted
+  createdAt DateTime @default(now())
+
+  worker        WorkerProfile?
+  giver         GiverProfile?
+  verifications Verification[]
+  consents      Consent[]
+}
+
+model WorkerProfile {
+  userId             String   @id
+  user               User     @relation(fields: [userId], references: [id])
+  displayName        String
+  bioMl              String?
+  bioEn              String?
+  photoUrl           String?
+  skills             String[]
+  categoryIds        String[]
+  serviceAreaLabel   String?
+  verificationStatus String   @default("unverified")
+  heydoScore         Float?
+  proSubscription    Boolean  @default(false)
+  createdAt          DateTime @default(now())
+}
+
+model GiverProfile {
+  userId            String   @id
+  user              User     @relation(fields: [userId], references: [id])
+  displayName       String
+  defaultLocation   String?
+  ratingAsGiver     Float?
+  status            String   @default("active") // active|deactivated_abusive
+  createdAt         DateTime @default(now())
+}
+
+// ---------- Verification (VKYC) ----------
+
+model Verification {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  vendor          String
+  sessionId       String    @unique
+  status          String    @default("pending") // unverified|pending|approved|rejected|expired
+  livenessPassed  Boolean?
+  aadhaarMatch    Boolean?
+  faceMatchScore  Float?
+  vendorResultAt  DateTime?
+  aadhaarVaultRef String? // PII vault reference — NOT the Aadhaar number
+  mediaVaultRef   String? // PII vault reference — NOT the media
+  reviewedBy      String?
+  decisionReason  String?
+  decisionAt      DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([status, vendorResultAt])
+  @@index([userId])
+}
+
+model Consent {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  purpose       String // vkyc|payments|notifications
+  policyVersion String
+  grantedAt     DateTime  @default(now())
+  revokedAt     DateTime?
+
+  @@index([userId, purpose])
+}
+
+// ---------- Marketplace (Phase 2) ----------
+
+model Category {
+  id      String  @id @default(cuid())
+  nameMl  String
+  nameEn  String
+  group   String // home_services|creative|lifestyle|events
+  active  Boolean @default(true)
+}
+
+model Gig {
+  id             String   @id @default(cuid())
+  giverId        String
+  categoryId     String
+  title          String
+  description    String
+  location       String
+  scheduledAt    DateTime
+  budgetAmount   Int // paisa
+  currency       String   @default("INR")
+  status         String   @default("posted")
+  bundleParentId String?
+  createdAt      DateTime @default(now())
+
+  applications Application[]
+
+  @@index([status])
+  @@index([categoryId])
+}
+
+model Application {
+  id            String   @id @default(cuid())
+  gigId         String
+  gig           Gig      @relation(fields: [gigId], references: [id])
+  workerId      String
+  messageMl     String?
+  proposedPrice Int?
+  status        String   @default("applied") // applied|withdrawn|selected|rejected
+  createdAt     DateTime @default(now())
+
+  @@unique([gigId, workerId])
+}
+
+model Assignment {
+  id            String   @id @default(cuid())
+  gigId         String   @unique
+  workerId      String
+  applicationId String
+  selectedAt    DateTime @default(now())
+}
+
+// ---------- Reputation (Phase 4) ----------
+
+model Rating {
+  id        String   @id @default(cuid())
+  gigId     String
+  raterId   String
+  rateeId   String
+  direction String // giver_to_worker|worker_to_giver
+  stars     Int
+  tags      Json?
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@unique([gigId, direction])
+}
+
+model Badge {
+  id       String   @id @default(cuid())
+  workerId String
+  type     String
+  level    Int      @default(1)
+  earnedAt DateTime @default(now())
+}
+
+model Dispute {
+  id             String    @id @default(cuid())
+  gigId          String
+  raisedBy       String
+  reason         String
+  status         String    @default("open") // open|under_review|resolved
+  resolution     String?
+  escrowAction   String? // release_to_worker|refund_to_giver|split
+  resolvedBy     String?
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+}
+
+// ---------- Money: double-entry, append-only (Phase 3) ----------
+
+model Account {
+  id        String  @id @default(cuid())
+  ownerType String // platform|giver|worker|escrow|partner
+  ownerId   String
+  type      String // cash|escrow|payable|revenue
+  currency  String  @default("INR")
+
+  postings LedgerPosting[]
+
+  @@index([ownerType, ownerId])
+}
+
+model LedgerTransaction {
+  id             String   @id @default(cuid())
+  type           String // escrow_lock|escrow_release|payout|refund|commission|insurance_premium|adjustment
+  gigId          String?
+  idempotencyKey String   @unique
+  status         String   @default("posted") // pending|posted|failed
+  createdAt      DateTime @default(now())
+
+  postings LedgerPosting[]
+}
+
+model LedgerPosting {
+  id            String            @id @default(cuid())
+  transactionId String
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id])
+  accountId     String
+  account       Account           @relation(fields: [accountId], references: [id])
+  direction     String // debit|credit
+  amount        Int // paisa
+  currency      String            @default("INR")
+  // NOTE: postings are append-only. Corrections are new transactions, never updates.
+
+  @@index([transactionId])
+  @@index([accountId])
+}
+
+model EscrowHold {
+  id          String   @id @default(cuid())
+  gigId       String   @unique
+  amount      Int // paisa
+  status      String   @default("held") // held|released|refunded
+  providerRef String?
+  createdAt   DateTime @default(now())
+}
+
+model Payout {
+  id             String   @id @default(cuid())
+  workerId       String
+  gigId          String
+  amount         Int // paisa (= 85% of gig)
+  status         String   @default("initiated") // initiated|completed|failed
+  providerRef    String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+}
+
+// ---------- Audit (append-only) ----------
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actorRole  String
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json? // signals/references only — NO raw PII
+  ip         String?
+  requestId  String?
+  at         DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([actorId])
+}

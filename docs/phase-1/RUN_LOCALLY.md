@@ -1,0 +1,83 @@
+# Run Heydo locally (Phase 1)
+
+> How to see the Phase 1 build with your own eyes: the **admin panel** (in your browser) and the
+> **Flutter app** (on an emulator/device). Everything runs on your machine.
+
+## Prerequisites
+- **Node.js 20+** (you have v22). Check: `node --version`
+- **Flutter SDK** — installed at `D:\flutter`. Add to PATH: `D:\flutter\bin`
+- For the app: an **Android emulator** or a phone with USB debugging (or Chrome for a quick web preview).
+
+---
+
+## 1. The admin panel + backend (fastest — pure browser)
+
+### One command (recommended)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\dev-up.ps1
+```
+This builds + starts the backend (`:3000`), starts the admin (`:3001`), and seeds a few workers awaiting VKYC review.
+
+Then open **http://localhost:3001** and:
+1. You'll land on **Officer sign-in**. Enter any name, keep the secret **`dev-admin-secret`**, sign in.
+2. You'll see the **VKYC Verification Queue** with the seeded workers — liveness ✓, Aadhaar match ✓, face-match %.
+3. Click **Approve** or **Reject** (with a reason). The item leaves the queue; the decision is audited.
+
+Stop it with:
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\dev-down.ps1
+```
+
+### Manual (two terminals), if you prefer
+```powershell
+# Terminal 1 — backend
+cd D:\heydo\apps\backend
+node dist\main.js            # (run `npm run build` first if dist is missing)
+
+# Terminal 2 — admin
+cd D:\heydo\apps\admin-web
+npx next start -p 3001
+
+# Terminal 3 — seed demo workers into the queue
+node D:\heydo\scripts\seed-demo.mjs
+```
+
+> The backend uses **in-memory storage** in dev, so data resets on restart. Re-run the seed script anytime to repopulate the queue.
+
+---
+
+## 2. The Flutter app (the worker/giver experience)
+
+The app talks to the backend on `:3000`.
+
+```powershell
+$env:Path = "D:\flutter\bin;$env:Path"
+cd D:\heydo\apps\mobile
+
+flutter devices            # list emulators/devices
+flutter run                # launches on the selected device
+```
+
+**Walk through:** choose **മലയാളം** → enter a phone → tap **OTP അയയ്ക്കുക** → the demo OTP shows on screen (mock SMS) → verify → pick **തൊഴിലാളി (Worker)** + name → tick consent → **വീഡിയോ പരിശോധന തുടങ്ങുക** → **പരിശോധന പൂർത്തിയാക്കുക (demo)** → you're now **"Under review"**. Approve that worker in the admin panel and pull-to-refresh status → **"Verified ✓ · can apply to gigs."**
+
+### Networking note (important)
+The app's API base is set for the **Android emulator** (`http://10.0.2.2:3000`, which maps to your PC's localhost).
+- **Physical phone:** edit `apps/mobile/lib/src/api.dart` → set `baseUrl` to your PC's LAN IP (e.g. `http://192.168.1.20:3000`), and make sure the phone is on the same Wi-Fi.
+- **Quick web preview (no emulator):** `flutter run -d chrome`, and set `baseUrl` to `http://localhost:3000`. (CORS may need enabling on the backend for web — fine for a quick look.)
+
+---
+
+## 3. The full demo loop (app + admin together)
+1. Start the stack (`dev-up.ps1`) and open the admin.
+2. `flutter run` the app, complete VKYC for a new worker → they appear in the admin queue.
+3. Approve them in the admin → refresh status in the app → the worker is verified and can apply.
+
+That's the Phase 1 trust loop, end to end, across both surfaces.
+
+---
+
+## Troubleshooting
+- **Port already in use:** run `scripts\dev-down.ps1`, or kill stray `node` processes.
+- **Admin says "Could not find a production build":** run `npx next build` inside `apps/admin-web` first (must run from that folder).
+- **Queue is empty:** run `node scripts\seed-demo.mjs` (backend must be running).
+- **App can't reach backend:** check the `baseUrl` note above; confirm `http://localhost:3000/health` responds.

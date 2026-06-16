@@ -1,0 +1,17 @@
+{
+  "name": "heydo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Heydo — trust-first gig marketplace for Kerala. Monorepo: Flutter app + NestJS backend + Next.js admin.",
+  "workspaces": [
+    "apps/backend"
+  ],
+  "scripts": {
+    "test": "npm run test --workspace apps/backend",
+    "build": "npm run build --workspace apps/backend",
+    "start:backend": "npm run start --workspace apps/backend"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

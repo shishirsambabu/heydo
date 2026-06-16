@@ -1,0 +1,118 @@
+/* Heydo Admin — brand tokens (mirrors .claude/context/brand.md). */
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-VariableFont.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Plus Jakarta Sans';
+  src: url('/fonts/PlusJakartaSans-VariableFont.ttf') format('truetype');
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+:root {
+  --heydo-green: #1d9e75;
+  --trust-green: #0f6e56;
+  --deep-forest: #04342c;
+  --mint-surface: #e1f5ee;
+  --clean-white: #ffffff;
+  --rich-black: #1c1c1a;
+  --border: #e2e8e5;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 400;
+  color: var(--rich-black);
+  background: #f6faf8;
+}
+
+h1, h2, h3, .display {
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  font-weight: 800;
+  color: var(--deep-forest);
+}
+
+.topbar {
+  background: var(--deep-forest);
+  color: var(--clean-white);
+  padding: 16px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar .brand {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+}
+.topbar .brand .accent { color: var(--heydo-green); }
+.topbar .who { font-size: 13px; opacity: 0.85; }
+
+.container { max-width: 980px; margin: 0 auto; padding: 28px; }
+.page-title { font-size: 24px; margin-bottom: 4px; }
+.page-sub { color: #5b6b65; font-size: 14px; margin-bottom: 22px; }
+
+.card {
+  background: var(--clean-white);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+}
+.row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.muted { color: #5b6b65; font-size: 13px; }
+.label { font-weight: 500; font-size: 13px; color: #5b6b65; }
+
+.signals { display: flex; gap: 18px; margin: 10px 0; flex-wrap: wrap; }
+.signal { font-size: 13px; }
+.signal b { font-family: 'Plus Jakarta Sans', sans-serif; }
+
+.pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.pill.ok { background: var(--mint-surface); color: var(--trust-green); }
+.pill.bad { background: #fdecea; color: #b3261e; }
+
+.btn {
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-primary { background: var(--trust-green); color: #fff; }
+.btn-outline { background: #fff; color: var(--trust-green); border: 1.5px solid var(--trust-green); }
+.btn-danger { background: #fff; color: #b3261e; border: 1.5px solid #b3261e; }
+
+.actions { display: flex; gap: 10px; }
+
+input.field {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: 'Inter', sans-serif;
+  margin-bottom: 12px;
+}
+
+.empty { text-align: center; color: #5b6b65; padding: 40px; }
+.error { color: #b3261e; font-size: 14px; margin-top: 10px; }
+.login-wrap { max-width: 380px; margin: 80px auto; }

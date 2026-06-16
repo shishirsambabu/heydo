@@ -1,0 +1,73 @@
+// Client for the Heydo backend admin API (browser-side).
+
+const BASE = process.env.NEXT_PUBLIC_API_BASE ?? 'http://localhost:3000';
+
+const TOKEN_KEY = 'heydo_admin_token';
+const NAME_KEY = 'heydo_admin_name';
+
+export function saveSession(token: string, name: string) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(NAME_KEY, name);
+}
+export function getToken(): string | null {
+  return typeof window === 'undefined' ? null : localStorage.getItem(TOKEN_KEY);
+}
+export function getOfficerName(): string {
+  return (typeof window === 'undefined' ? null : localStorage.getItem(NAME_KEY)) ?? 'officer';
+}
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(NAME_KEY);
+}
+
+async function authed(path: string, init?: RequestInit) {
+  const token = getToken();
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.status === 201 || res.status === 200 ? res.json().catch(() => ({})) : {};
+}
+
+export interface PendingVerification {
+  id: string;
+  userId: string;
+  vendor: string;
+  status: string;
+  livenessPassed?: boolean;
+  aadhaarMatch?: boolean;
+  faceMatchScore?: number;
+  vendorResultAt?: string;
+  // NOTE: aadhaarToken / media are NEVER in this payload — PII stays in the vault.
+}
+
+// --- Admin auth (dev login; SSO+MFA in Phase 7) ---
+export async function devLogin(adminId: string, secret: string): Promise<string> {
+  const res = await fetch(`${BASE}/admin/auth/dev-login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ adminId, secret, roles: ['verification_officer'] }),
+  });
+  if (!res.ok) throw new Error(`Login failed (HTTP ${res.status})`);
+  const data = await res.json();
+  return data.token as string;
+}
+
+// --- Verification queue ---
+export function listPending(): Promise<PendingVerification[]> {
+  return authed('/admin/verifications/pending') as Promise<PendingVerification[]>;
+}
+export function approve(id: string) {
+  return authed(`/admin/verifications/${id}/approve`, { method: 'POST' });
+}
+export function reject(id: string, reason: string) {
+  return authed(`/admin/verifications/${id}/reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
