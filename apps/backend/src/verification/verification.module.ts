@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { VerificationService } from './verification.service';
 import { VerificationController } from './verification.controller';
 import { AdminVerificationController } from './admin-verification.controller';
+import { DiditWebhookController } from './didit-webhook.controller';
 import {
   CONSENT_REPOSITORY,
   ConsentRepository,
@@ -33,7 +34,7 @@ import { WorkerProfileRepository } from '../identity/identity.repository';
  */
 @Module({
   imports: [SecurityModule, IdentityModule, DatabaseModule],
-  controllers: [VerificationController, AdminVerificationController],
+  controllers: [VerificationController, AdminVerificationController, DiditWebhookController],
   providers: [
     {
       provide: VERIFICATION_REPOSITORY,

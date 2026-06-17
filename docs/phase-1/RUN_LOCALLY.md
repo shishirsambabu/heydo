@@ -96,6 +96,24 @@ That's the Phase 1 trust loop, end to end, across both surfaces.
 
 ---
 
+## 4. Didit webhook destination
+
+For deployed environments, configure Didit to send webhooks to:
+
+```text
+POST https://YOUR_API_HOST/webhooks/didit
+```
+
+In Didit Business Console → API & Webhooks, create a destination with:
+
+- Webhook version: `v3`
+- Subscribed events: `status.updated`, `data.updated`
+- Secret shared key: store as `DIDIT_WEBHOOK_SECRET`
+
+The backend verifies `X-Signature-V2` first and falls back to `X-Signature-Simple`. Simple signatures only authenticate the envelope, so the backend re-fetches the final decision from Didit before changing verification state.
+
+---
+
 ## Troubleshooting
 - **Port already in use:** run `scripts\dev-down.ps1`, or kill stray `node` processes.
 - **Admin says "Could not find a production build":** run `npx next build` inside `apps/admin-web` first (must run from that folder).
