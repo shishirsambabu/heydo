@@ -44,6 +44,18 @@ node D:\heydo\scripts\seed-demo.mjs
 
 > The backend uses **in-memory storage** in dev, so data resets on restart. Re-run the seed script anytime to repopulate the queue.
 
+### Optional: Postgres persistence
+Local dev defaults to `PERSISTENCE=memory`. To keep VKYC sessions across backend restarts or Didit callback windows, use Postgres:
+
+```powershell
+# apps/backend/.env or repo-root .env.local
+PERSISTENCE=postgres
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/heydo
+DATABASE_SSL=false
+```
+
+The tables must match `apps/backend/prisma/schema.prisma`. On AWS RDS, set `DATABASE_SSL=true`.
+
 ---
 
 ## 2. The Flutter app (the worker/giver experience)

@@ -14,6 +14,11 @@ import { ConfigService } from '@nestjs/config';
 import { DiditVkycProvider } from './vkyc/didit-vkyc-provider';
 import { MockVkycProvider } from './vkyc/mock-vkyc-provider';
 import { VKYC_PROVIDER, VkycProvider } from './vkyc/vkyc-provider';
+import {
+  PostgresConsentRepository,
+  PostgresVerificationRepository,
+} from './postgres-verification.repository';
+import { DatabaseModule } from '../common/database/database.module';
 import { PII_VAULT, PiiVault } from '../common/pii/pii-vault';
 import { AuditService } from '../common/audit/audit.service';
 import { SecurityModule } from '../auth/security.module';
@@ -27,11 +32,27 @@ import { WorkerProfileRepository } from '../identity/identity.repository';
  * WorkerVerificationSink so a worker's status stays in sync.
  */
 @Module({
-  imports: [SecurityModule, IdentityModule],
+  imports: [SecurityModule, IdentityModule, DatabaseModule],
   controllers: [VerificationController, AdminVerificationController],
   providers: [
-    { provide: VERIFICATION_REPOSITORY, useClass: InMemoryVerificationRepository },
-    { provide: CONSENT_REPOSITORY, useClass: InMemoryConsentRepository },
+    {
+      provide: VERIFICATION_REPOSITORY,
+      inject: [ConfigService, PostgresVerificationRepository],
+      useFactory: (config: ConfigService, postgres: PostgresVerificationRepository) =>
+        config.get<string>('PERSISTENCE') === 'postgres'
+          ? postgres
+          : new InMemoryVerificationRepository(),
+    },
+    {
+      provide: CONSENT_REPOSITORY,
+      inject: [ConfigService, PostgresConsentRepository],
+      useFactory: (config: ConfigService, postgres: PostgresConsentRepository) =>
+        config.get<string>('PERSISTENCE') === 'postgres'
+          ? postgres
+          : new InMemoryConsentRepository(),
+    },
+    PostgresVerificationRepository,
+    PostgresConsentRepository,
     {
       provide: VKYC_PROVIDER,
       inject: [ConfigService],
