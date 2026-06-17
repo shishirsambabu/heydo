@@ -9,6 +9,7 @@ import { GiverProfileRepository } from '../identity/identity.repository';
 import { VerificationModule } from '../verification/verification.module';
 import { VerificationService } from '../verification/verification.service';
 import { MarketplaceController } from './marketplace.controller';
+import { AdminMarketplaceController } from './admin-marketplace.controller';
 import {
   ApplicationRepository,
   AssignmentRepository,
@@ -33,7 +34,7 @@ import { MarketplaceService } from './marketplace.service';
 
 @Module({
   imports: [SecurityModule, CommonModule, DatabaseModule, IdentityModule, VerificationModule],
-  controllers: [MarketplaceController],
+  controllers: [MarketplaceController, AdminMarketplaceController],
   providers: [
     {
       provide: CATEGORY_REPOSITORY,

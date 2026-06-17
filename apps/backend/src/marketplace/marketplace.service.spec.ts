@@ -52,6 +52,63 @@ describe('MarketplaceService', () => {
     });
   });
 
+  it('holds suspicious gigs for review and blocks worker applications until approval', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Late night cleaning',
+      description: 'Need cleaning help late night alone at a quiet house',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+
+    expect(gig.visibilityStatus).toBe('pending_review');
+    expect(gig.riskLevel).toBe('medium');
+    expect(gig.safetyFlags).toContain('unsafe_or_isolating');
+    await expect(svc.listGigs()).resolves.toEqual([]);
+    await expect(svc.apply(gig.id, 'worker_1', { messageMl: 'ഞാൻ വരാം' })).rejects.toMatchObject({
+      code: 'gig_not_visible',
+    });
+
+    await expect(svc.moderateGig(gig.id, 'fraud_admin', 'approve', 'Called giver')).resolves.toMatchObject({
+      visibilityStatus: 'visible',
+      moderatedBy: 'fraud_admin',
+    });
+    await expect(svc.apply(gig.id, 'worker_1', { messageMl: 'ഇപ്പോൾ സുരക്ഷിതമാണ്' })).resolves.toMatchObject({
+      status: 'applied',
+    });
+  });
+
+  it('auto-rejects clearly unsafe gig requests', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_event_help',
+      title: 'Private service',
+      description: 'Need adult service for a private party',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 5000,
+    });
+
+    expect(gig.visibilityStatus).toBe('rejected');
+    expect(gig.riskLevel).toBe('high');
+    expect(gig.safetyFlags).toContain('sexual_or_exploitative');
+    await expect(svc.listGigsForAdmin({ visibilityStatus: 'rejected' })).resolves.toHaveLength(1);
+  });
+
   it('runs post -> apply -> choose -> start -> complete', async () => {
     const { svc, givers } = service();
     await givers.save({

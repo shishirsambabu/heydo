@@ -76,6 +76,7 @@ export class MarketplaceService {
     if (this.now() > Date.parse(input.scheduledAt)) {
       throw new MarketplaceError('Gig must be scheduled in the future', 'invalid_schedule');
     }
+    const review = screenGigRequest(input);
     const gig: Gig = {
       id: `gig_${this.id()}`,
       giverId,
@@ -87,21 +88,37 @@ export class MarketplaceService {
       budgetAmount: input.budgetAmount,
       currency: 'INR',
       status: 'posted',
+      visibilityStatus: review.visibilityStatus,
+      riskLevel: review.riskLevel,
+      safetyFlags: review.safetyFlags,
+      moderatedBy: review.autoModerated ? 'system' : undefined,
+      moderatedAt: review.autoModerated ? new Date(this.now()).toISOString() : undefined,
+      moderationReason: review.reason,
       createdAt: new Date(this.now()).toISOString(),
     };
     await this.gigs.save(gig);
     this.audit.record({
       actorId: giverId,
       actorRole: 'giver',
-      action: 'gig.posted',
+      action: gig.visibilityStatus === 'visible' ? 'gig.posted' : 'gig.safety_reviewed',
       targetType: 'gig',
       targetId: gig.id,
-      metadata: { categoryId: gig.categoryId, budgetAmount: gig.budgetAmount },
+      metadata: {
+        categoryId: gig.categoryId,
+        budgetAmount: gig.budgetAmount,
+        visibilityStatus: gig.visibilityStatus,
+        riskLevel: gig.riskLevel,
+        safetyFlags: gig.safetyFlags,
+      },
     });
     return gig;
   }
 
-  listGigs(filters?: GigFilters): Promise<Gig[]> {
+  listGigs(filters: GigFilters = {}): Promise<Gig[]> {
+    return this.gigs.list({ ...filters, visibilityStatus: filters.visibilityStatus ?? 'visible' });
+  }
+
+  listGigsForAdmin(filters?: GigFilters): Promise<Gig[]> {
     return this.gigs.list(filters);
   }
 
@@ -113,6 +130,9 @@ export class MarketplaceService {
 
   async apply(gigId: string, workerId: string, input: ApplyInput): Promise<GigApplication> {
     const gig = await this.getGig(gigId);
+    if (gig.visibilityStatus !== 'visible') {
+      throw new MarketplaceError('Gig is not visible to workers yet', 'gig_not_visible');
+    }
     if (gig.status !== 'posted' && gig.status !== 'applied') {
       throw new MarketplaceError('Gig is not accepting applications', 'gig_not_open');
     }
@@ -204,6 +224,41 @@ export class MarketplaceService {
     };
   }
 
+  async moderateGig(
+    gigId: string,
+    officerId: string,
+    decision: 'approve' | 'reject' | 'flag',
+    reason: string,
+  ): Promise<Gig> {
+    const gig = await this.getGig(gigId);
+    const visibilityStatus =
+      decision === 'approve' ? 'visible' : decision === 'reject' ? 'rejected' : 'flagged';
+    const riskLevel = decision === 'approve' && gig.riskLevel === 'high' ? 'medium' : gig.riskLevel;
+    const updated: Gig = {
+      ...gig,
+      visibilityStatus,
+      riskLevel,
+      moderatedBy: officerId,
+      moderatedAt: new Date(this.now()).toISOString(),
+      moderationReason: reason,
+    };
+    await this.gigs.save(updated);
+    this.audit.record({
+      actorId: officerId,
+      actorRole: 'fraud_analyst',
+      action: `gig.moderation_${decision}`,
+      targetType: 'gig',
+      targetId: gigId,
+      metadata: {
+        previousVisibilityStatus: gig.visibilityStatus,
+        visibilityStatus,
+        riskLevel,
+        safetyFlags: updated.safetyFlags,
+      },
+    });
+    return updated;
+  }
+
   async transitionGig(gigId: string, actorId: string, next: Extract<GigStatus, 'in_progress' | 'completed' | 'cancelled'>): Promise<Gig> {
     const gig = await this.getGig(gigId);
     const assignment = await this.assignments.findByGig(gigId);
@@ -252,4 +307,88 @@ export class MarketplaceService {
 
 function randomId(): string {
   return randomBytes(10).toString('hex');
+}
+
+function screenGigRequest(input: PostGigInput): {
+  visibilityStatus: Gig['visibilityStatus'];
+  riskLevel: Gig['riskLevel'];
+  safetyFlags: string[];
+  autoModerated: boolean;
+  reason?: string;
+} {
+  const text = `${input.title} ${input.description} ${input.location}`.toLowerCase();
+  const flags = new Set<string>();
+
+  flagWhen(text, flags, 'illegal_request', [
+    'illegal',
+    'fake id',
+    'forged',
+    'weapon',
+    'gun',
+    'knife fight',
+    'drug',
+  ]);
+  flagWhen(text, flags, 'sexual_or_exploitative', [
+    'sexual',
+    'massage alone',
+    'adult service',
+    'escort',
+    'private service',
+  ]);
+  flagWhen(text, flags, 'unsafe_or_isolating', [
+    'come alone',
+    'secret location',
+    'late night alone',
+    'no questions',
+  ]);
+  flagWhen(text, flags, 'off_platform_payment', [
+    'pay outside',
+    'direct payment',
+    'avoid app',
+    'cash only no app',
+  ]);
+  flagWhen(text, flags, 'minor_or_medical_risk', [
+    'child care overnight',
+    'minor',
+    'injection',
+    'medicine',
+    'nurse',
+  ]);
+
+  if (input.budgetAmount < 100) flags.add('budget_too_low');
+  if (input.budgetAmount > 100000) flags.add('budget_unusually_high');
+  if (input.description.trim().length < 20) flags.add('description_too_vague');
+
+  const safetyFlags = [...flags].sort();
+  const hardBlock = safetyFlags.some((flag) =>
+    ['illegal_request', 'sexual_or_exploitative'].includes(flag),
+  );
+  if (hardBlock) {
+    return {
+      visibilityStatus: 'rejected',
+      riskLevel: 'high',
+      safetyFlags,
+      autoModerated: true,
+      reason: 'Automatically rejected by gig safety policy',
+    };
+  }
+  if (safetyFlags.length) {
+    return {
+      visibilityStatus: 'pending_review',
+      riskLevel: 'medium',
+      safetyFlags,
+      autoModerated: false,
+    };
+  }
+  return {
+    visibilityStatus: 'visible',
+    riskLevel: 'low',
+    safetyFlags,
+    autoModerated: true,
+    reason: 'Automatically approved by low-risk safety screen',
+  };
+}
+
+function flagWhen(text: string, flags: Set<string>, flag: string, patterns: string[]): void {
+  if (patterns.some((pattern) => text.includes(pattern))) flags.add(flag);
 }

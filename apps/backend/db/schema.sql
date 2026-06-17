@@ -100,12 +100,26 @@ CREATE TABLE IF NOT EXISTS "Gig" (
   "budgetAmount" integer NOT NULL,
   currency text NOT NULL DEFAULT 'INR',
   status text NOT NULL DEFAULT 'posted',
+  "visibilityStatus" text NOT NULL DEFAULT 'pending_review',
+  "riskLevel" text NOT NULL DEFAULT 'medium',
+  "safetyFlags" text[] NOT NULL DEFAULT '{}',
+  "moderatedBy" text,
+  "moderatedAt" timestamptz,
+  "moderationReason" text,
   "bundleParentId" text,
   "createdAt" timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE "Gig" ADD COLUMN IF NOT EXISTS "visibilityStatus" text NOT NULL DEFAULT 'pending_review';
+ALTER TABLE "Gig" ADD COLUMN IF NOT EXISTS "riskLevel" text NOT NULL DEFAULT 'medium';
+ALTER TABLE "Gig" ADD COLUMN IF NOT EXISTS "safetyFlags" text[] NOT NULL DEFAULT '{}';
+ALTER TABLE "Gig" ADD COLUMN IF NOT EXISTS "moderatedBy" text;
+ALTER TABLE "Gig" ADD COLUMN IF NOT EXISTS "moderatedAt" timestamptz;
+ALTER TABLE "Gig" ADD COLUMN IF NOT EXISTS "moderationReason" text;
+
 CREATE INDEX IF NOT EXISTS "Gig_status_idx" ON "Gig"(status);
 CREATE INDEX IF NOT EXISTS "Gig_categoryId_idx" ON "Gig"("categoryId");
+CREATE INDEX IF NOT EXISTS "Gig_visibilityStatus_idx" ON "Gig"("visibilityStatus");
 
 CREATE TABLE IF NOT EXISTS "Application" (
   id text PRIMARY KEY,

@@ -1,0 +1,89 @@
+import {
+  BadRequestException,
+  Body,
+  ConflictException,
+  Controller,
+  ForbiddenException,
+  Get,
+  NotFoundException,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
+import { IsString, MinLength } from 'class-validator';
+import { AuthPrincipal } from '../auth/auth.types';
+import { CurrentUser, Roles } from '../auth/decorators';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { MarketplaceError, MarketplaceService } from './marketplace.service';
+
+class ModerationDto {
+  @IsString() @MinLength(3) reason!: string;
+}
+
+@Controller('admin/marketplace')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('fraud_analyst', 'support', 'super_admin')
+export class AdminMarketplaceController {
+  constructor(private readonly marketplace: MarketplaceService) {}
+
+  @Get('gigs')
+  adminGigs(@Query('visibilityStatus') visibilityStatus?: string, @Query('status') status?: string) {
+    return this.marketplace.listGigsForAdmin({ visibilityStatus, status });
+  }
+
+  @Get('gigs/pending-review')
+  pendingReview() {
+    return this.marketplace.listGigsForAdmin({ visibilityStatus: 'pending_review' });
+  }
+
+  @Post('gigs/:gigId/approve')
+  approve(
+    @Param('gigId') gigId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: ModerationDto,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.moderateGig(gigId, principal.sub, 'approve', dto.reason),
+    );
+  }
+
+  @Post('gigs/:gigId/reject')
+  reject(
+    @Param('gigId') gigId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: ModerationDto,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.moderateGig(gigId, principal.sub, 'reject', dto.reason),
+    );
+  }
+
+  @Post('gigs/:gigId/flag')
+  flag(
+    @Param('gigId') gigId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: ModerationDto,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.moderateGig(gigId, principal.sub, 'flag', dto.reason),
+    );
+  }
+
+  private async wrap<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (error instanceof MarketplaceError) {
+        if (error.code === 'not_found') throw new NotFoundException(error.message);
+        if (error.code === 'forbidden') throw new ForbiddenException(error.message);
+        if (['invalid_state', 'already_assigned'].includes(error.code)) {
+          throw new ConflictException({ code: error.code, message: error.message });
+        }
+        throw new BadRequestException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+}

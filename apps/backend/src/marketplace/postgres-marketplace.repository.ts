@@ -34,6 +34,12 @@ interface GigRow {
   budgetAmount: number;
   currency: 'INR';
   status: Gig['status'];
+  visibilityStatus: Gig['visibilityStatus'];
+  riskLevel: Gig['riskLevel'];
+  safetyFlags: string[];
+  moderatedBy: string | null;
+  moderatedAt: Date | null;
+  moderationReason: string | null;
   createdAt: Date;
 }
 
@@ -109,8 +115,10 @@ export class PostgresGigRepository implements GigRepository {
     await this.pg.query(
       `INSERT INTO "Gig"
         (id, "giverId", "categoryId", title, description, location,
-         "scheduledAt", "budgetAmount", currency, status, "createdAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         "scheduledAt", "budgetAmount", currency, status, "visibilityStatus",
+         "riskLevel", "safetyFlags", "moderatedBy", "moderatedAt",
+         "moderationReason", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        ON CONFLICT (id) DO UPDATE SET
          "categoryId" = EXCLUDED."categoryId",
          title = EXCLUDED.title,
@@ -119,7 +127,13 @@ export class PostgresGigRepository implements GigRepository {
          "scheduledAt" = EXCLUDED."scheduledAt",
          "budgetAmount" = EXCLUDED."budgetAmount",
          currency = EXCLUDED.currency,
-         status = EXCLUDED.status`,
+         status = EXCLUDED.status,
+         "visibilityStatus" = EXCLUDED."visibilityStatus",
+         "riskLevel" = EXCLUDED."riskLevel",
+         "safetyFlags" = EXCLUDED."safetyFlags",
+         "moderatedBy" = EXCLUDED."moderatedBy",
+         "moderatedAt" = EXCLUDED."moderatedAt",
+         "moderationReason" = EXCLUDED."moderationReason"`,
       [
         gig.id,
         gig.giverId,
@@ -131,6 +145,12 @@ export class PostgresGigRepository implements GigRepository {
         gig.budgetAmount,
         gig.currency,
         gig.status,
+        gig.visibilityStatus,
+        gig.riskLevel,
+        gig.safetyFlags,
+        gig.moderatedBy ?? null,
+        gig.moderatedAt ?? null,
+        gig.moderationReason ?? null,
         gig.createdAt,
       ],
     );
@@ -151,6 +171,10 @@ export class PostgresGigRepository implements GigRepository {
     if (filters.categoryId) {
       params.push(filters.categoryId);
       clauses.push(`"categoryId" = $${params.length}`);
+    }
+    if (filters.visibilityStatus) {
+      params.push(filters.visibilityStatus);
+      clauses.push(`"visibilityStatus" = $${params.length}`);
     }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.pg.query<GigRow>(
@@ -245,7 +269,9 @@ export class PostgresAssignmentRepository implements AssignmentRepository {
 
 function selectGig(): string {
   return `SELECT id, "giverId", "categoryId", title, description, location,
-                 "scheduledAt", "budgetAmount", currency, status, "createdAt"
+                 "scheduledAt", "budgetAmount", currency, status, "visibilityStatus",
+                 "riskLevel", "safetyFlags", "moderatedBy", "moderatedAt",
+                 "moderationReason", "createdAt"
           FROM "Gig"`;
 }
 
@@ -276,6 +302,12 @@ function toGig(row: GigRow): Gig {
     budgetAmount: row.budgetAmount,
     currency: row.currency,
     status: row.status,
+    visibilityStatus: row.visibilityStatus,
+    riskLevel: row.riskLevel,
+    safetyFlags: row.safetyFlags ?? [],
+    moderatedBy: row.moderatedBy ?? undefined,
+    moderatedAt: row.moderatedAt?.toISOString(),
+    moderationReason: row.moderationReason ?? undefined,
     createdAt: row.createdAt.toISOString(),
   };
 }

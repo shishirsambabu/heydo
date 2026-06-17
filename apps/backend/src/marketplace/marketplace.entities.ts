@@ -1,5 +1,7 @@
 export type GigStatus = 'posted' | 'applied' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
 export type ApplicationStatus = 'applied' | 'withdrawn' | 'selected' | 'rejected';
+export type GigVisibilityStatus = 'pending_review' | 'visible' | 'rejected' | 'flagged';
+export type GigRiskLevel = 'low' | 'medium' | 'high';
 
 export interface Category {
   id: string;
@@ -20,6 +22,12 @@ export interface Gig {
   budgetAmount: number;
   currency: 'INR';
   status: GigStatus;
+  visibilityStatus: GigVisibilityStatus;
+  riskLevel: GigRiskLevel;
+  safetyFlags: string[];
+  moderatedBy?: string;
+  moderatedAt?: string;
+  moderationReason?: string;
   createdAt: string;
 }
 

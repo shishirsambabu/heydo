@@ -34,7 +34,7 @@ class ApplyDto {
 @Controller('marketplace')
 @UseGuards(JwtAuthGuard)
 export class MarketplaceController {
-  constructor(private readonly marketplace: MarketplaceService) {}
+  constructor(protected readonly marketplace: MarketplaceService) {}
 
   @Get('categories')
   categories() {
@@ -94,7 +94,7 @@ export class MarketplaceController {
     return this.wrap(() => this.marketplace.transitionGig(gigId, principal.sub, 'cancelled'));
   }
 
-  private async wrap<T>(fn: () => Promise<T>): Promise<T> {
+  protected async wrap<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();
     } catch (error) {
@@ -104,6 +104,7 @@ export class MarketplaceController {
         if (
           [
             'worker_not_verified',
+            'gig_not_visible',
             'gig_not_open',
             'invalid_state',
             'already_assigned',
