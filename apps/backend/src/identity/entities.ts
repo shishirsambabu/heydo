@@ -13,6 +13,13 @@ export type VerificationStatus =
   | 'rejected'
   | 'expired';
 
+export type GiverVerificationStatus =
+  | 'unverified'
+  | 'pending_review'
+  | 'approved'
+  | 'rejected'
+  | 'reverification_required';
+
 export interface User {
   id: string;
   /** PII — stored here for Phase 1 dev; masked in all logs. */
@@ -42,5 +49,13 @@ export interface GiverProfile {
   displayName: string;
   defaultLocationLabel?: string;
   status: 'active' | 'deactivated_abusive';
+  verificationStatus: GiverVerificationStatus;
+  locationEvidenceLabel?: string;
+  addressEvidenceVaultRef?: string;
+  selfieLivenessSessionId?: string;
+  verificationNotes?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  reverificationReason?: string;
   createdAt: string;
 }

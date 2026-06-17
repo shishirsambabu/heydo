@@ -1,6 +1,12 @@
 import { randomBytes } from 'crypto';
 import { Injectable } from '@nestjs/common';
-import { GiverProfile, User, UserRole, WorkerProfile } from './entities';
+import {
+  GiverProfile,
+  GiverVerificationStatus,
+  User,
+  UserRole,
+  WorkerProfile,
+} from './entities';
 import {
   GiverProfileRepository,
   UserRepository,
@@ -59,6 +65,7 @@ export class IdentityService {
         userId,
         displayName,
         status: 'active',
+        verificationStatus: 'unverified',
         createdAt: new Date().toISOString(),
       };
       await this.givers.save(profile);
@@ -79,5 +86,66 @@ export class IdentityService {
 
   async getWorkerProfile(userId: string): Promise<WorkerProfile | null> {
     return this.workers.findByUser(userId);
+  }
+
+  async getGiverProfile(userId: string): Promise<GiverProfile | null> {
+    return this.givers.findByUser(userId);
+  }
+
+  async submitGiverVerification(
+    userId: string,
+    patch: {
+      defaultLocationLabel?: string;
+      locationEvidenceLabel: string;
+      addressEvidenceVaultRef: string;
+      selfieLivenessSessionId: string;
+    },
+  ): Promise<GiverProfile> {
+    const p = await this.givers.findByUser(userId);
+    if (!p) throw new Error('Giver profile not found');
+    const updated: GiverProfile = {
+      ...p,
+      defaultLocationLabel: patch.defaultLocationLabel ?? p.defaultLocationLabel,
+      locationEvidenceLabel: patch.locationEvidenceLabel.trim(),
+      addressEvidenceVaultRef: patch.addressEvidenceVaultRef.trim(),
+      selfieLivenessSessionId: patch.selfieLivenessSessionId.trim(),
+      verificationStatus: 'pending_review',
+      verificationNotes: undefined,
+      verifiedBy: undefined,
+      verifiedAt: undefined,
+      reverificationReason: undefined,
+    };
+    await this.givers.save(updated);
+    return updated;
+  }
+
+  listGiverVerifications(status?: GiverVerificationStatus): Promise<GiverProfile[]> {
+    return this.givers.listForAdmin(status);
+  }
+
+  async reviewGiverVerification(
+    userId: string,
+    reviewerId: string,
+    decision: 'approve' | 'reject' | 'require_reverification',
+    notes: string,
+  ): Promise<GiverProfile> {
+    const p = await this.givers.findByUser(userId);
+    if (!p) throw new Error('Giver profile not found');
+    const verificationStatus: GiverVerificationStatus =
+      decision === 'approve'
+        ? 'approved'
+        : decision === 'reject'
+          ? 'rejected'
+          : 'reverification_required';
+    const updated: GiverProfile = {
+      ...p,
+      verificationStatus,
+      verificationNotes: notes.trim(),
+      verifiedBy: reviewerId,
+      verifiedAt: new Date().toISOString(),
+      reverificationReason: decision === 'require_reverification' ? notes.trim() : undefined,
+    };
+    await this.givers.save(updated);
+    return updated;
   }
 }

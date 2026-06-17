@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PgService } from '../common/database/pg.service';
-import { GiverProfile, User, UserRole, VerificationStatus, WorkerProfile } from './entities';
+import {
+  GiverProfile,
+  GiverVerificationStatus,
+  User,
+  UserRole,
+  VerificationStatus,
+  WorkerProfile,
+} from './entities';
 import { WorkerVerificationSink } from '../verification/verification.service';
 
 interface UserRow {
@@ -31,6 +38,14 @@ interface GiverProfileRow {
   displayName: string;
   defaultLocation: string | null;
   status: string;
+  verificationStatus: GiverVerificationStatus;
+  locationEvidenceLabel: string | null;
+  addressEvidenceVaultRef: string | null;
+  selfieLivenessSessionId: string | null;
+  verificationNotes: string | null;
+  verifiedBy: string | null;
+  verifiedAt: Date | null;
+  reverificationReason: string | null;
   createdAt: Date;
 }
 
@@ -129,17 +144,35 @@ export class PostgresGiverProfileRepository {
   async save(p: GiverProfile): Promise<void> {
     await this.pg.query(
       `INSERT INTO "GiverProfile"
-        ("userId", "displayName", "defaultLocation", status, "createdAt")
-       VALUES ($1, $2, $3, $4, $5)
+        ("userId", "displayName", "defaultLocation", status, "verificationStatus",
+         "locationEvidenceLabel", "addressEvidenceVaultRef", "selfieLivenessSessionId",
+         "verificationNotes", "verifiedBy", "verifiedAt", "reverificationReason", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        ON CONFLICT ("userId") DO UPDATE SET
          "displayName" = EXCLUDED."displayName",
          "defaultLocation" = EXCLUDED."defaultLocation",
-         status = EXCLUDED.status`,
+         status = EXCLUDED.status,
+         "verificationStatus" = EXCLUDED."verificationStatus",
+         "locationEvidenceLabel" = EXCLUDED."locationEvidenceLabel",
+         "addressEvidenceVaultRef" = EXCLUDED."addressEvidenceVaultRef",
+         "selfieLivenessSessionId" = EXCLUDED."selfieLivenessSessionId",
+         "verificationNotes" = EXCLUDED."verificationNotes",
+         "verifiedBy" = EXCLUDED."verifiedBy",
+         "verifiedAt" = EXCLUDED."verifiedAt",
+         "reverificationReason" = EXCLUDED."reverificationReason"`,
       [
         p.userId,
         p.displayName,
         p.defaultLocationLabel ?? null,
         p.status,
+        p.verificationStatus,
+        p.locationEvidenceLabel ?? null,
+        p.addressEvidenceVaultRef ?? null,
+        p.selfieLivenessSessionId ?? null,
+        p.verificationNotes ?? null,
+        p.verifiedBy ?? null,
+        p.verifiedAt ?? null,
+        p.reverificationReason ?? null,
         p.createdAt,
       ],
     );
@@ -147,11 +180,26 @@ export class PostgresGiverProfileRepository {
 
   async findByUser(userId: string): Promise<GiverProfile | null> {
     const [row] = await this.pg.query<GiverProfileRow>(
-      `SELECT "userId", "displayName", "defaultLocation", status, "createdAt"
+      `SELECT "userId", "displayName", "defaultLocation", status, "verificationStatus",
+              "locationEvidenceLabel", "addressEvidenceVaultRef", "selfieLivenessSessionId",
+              "verificationNotes", "verifiedBy", "verifiedAt", "reverificationReason", "createdAt"
        FROM "GiverProfile" WHERE "userId" = $1`,
       [userId],
     );
     return row ? toGiver(row) : null;
+  }
+
+  async listForAdmin(status?: GiverVerificationStatus): Promise<GiverProfile[]> {
+    const rows = await this.pg.query<GiverProfileRow>(
+      `SELECT "userId", "displayName", "defaultLocation", status, "verificationStatus",
+              "locationEvidenceLabel", "addressEvidenceVaultRef", "selfieLivenessSessionId",
+              "verificationNotes", "verifiedBy", "verifiedAt", "reverificationReason", "createdAt"
+       FROM "GiverProfile"
+       WHERE ($1::text IS NULL OR "verificationStatus" = $1)
+       ORDER BY "createdAt" ASC`,
+      [status ?? null],
+    );
+    return rows.map(toGiver);
   }
 }
 
@@ -188,6 +236,14 @@ function toGiver(row: GiverProfileRow): GiverProfile {
     displayName: row.displayName,
     defaultLocationLabel: row.defaultLocation ?? undefined,
     status: row.status as GiverProfile['status'],
+    verificationStatus: row.verificationStatus,
+    locationEvidenceLabel: row.locationEvidenceLabel ?? undefined,
+    addressEvidenceVaultRef: row.addressEvidenceVaultRef ?? undefined,
+    selfieLivenessSessionId: row.selfieLivenessSessionId ?? undefined,
+    verificationNotes: row.verificationNotes ?? undefined,
+    verifiedBy: row.verifiedBy ?? undefined,
+    verifiedAt: row.verifiedAt?.toISOString(),
+    reverificationReason: row.reverificationReason ?? undefined,
     createdAt: row.createdAt.toISOString(),
   };
 }

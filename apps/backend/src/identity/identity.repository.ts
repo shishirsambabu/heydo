@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { GiverProfile, User, UserRole, VerificationStatus, WorkerProfile } from './entities';
+import {
+  GiverProfile,
+  GiverVerificationStatus,
+  User,
+  UserRole,
+  VerificationStatus,
+  WorkerProfile,
+} from './entities';
 import { WorkerVerificationSink } from '../verification/verification.service';
 
 /**
@@ -59,6 +66,13 @@ export class GiverProfileRepository {
   async findByUser(userId: string): Promise<GiverProfile | null> {
     const p = this.byUser.get(userId);
     return p ? { ...p } : null;
+  }
+
+  async listForAdmin(status?: GiverVerificationStatus): Promise<GiverProfile[]> {
+    return [...this.byUser.values()]
+      .filter((p) => !status || p.verificationStatus === status)
+      .map((p) => ({ ...p }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 }
 

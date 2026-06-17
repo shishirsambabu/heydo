@@ -39,9 +39,40 @@ CREATE TABLE IF NOT EXISTS "GiverProfile" (
   "defaultLocation" text,
   "ratingAsGiver" double precision,
   status text NOT NULL DEFAULT 'active',
+  "verificationStatus" text NOT NULL DEFAULT 'unverified',
+  "locationEvidenceLabel" text,
+  "addressEvidenceVaultRef" text,
+  "selfieLivenessSessionId" text,
+  "verificationNotes" text,
+  "verifiedBy" text,
+  "verifiedAt" timestamptz,
+  "reverificationReason" text,
   "createdAt" timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT "GiverProfile_status_check" CHECK (status IN ('active', 'deactivated_abusive'))
+  CONSTRAINT "GiverProfile_status_check" CHECK (status IN ('active', 'deactivated_abusive')),
+  CONSTRAINT "GiverProfile_verificationStatus_check"
+    CHECK ("verificationStatus" IN ('unverified', 'pending_review', 'approved', 'rejected', 'reverification_required'))
 );
+
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "verificationStatus" text NOT NULL DEFAULT 'unverified';
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "locationEvidenceLabel" text;
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "addressEvidenceVaultRef" text;
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "selfieLivenessSessionId" text;
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "verificationNotes" text;
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "verifiedBy" text;
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "verifiedAt" timestamptz;
+ALTER TABLE "GiverProfile" ADD COLUMN IF NOT EXISTS "reverificationReason" text;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'GiverProfile_verificationStatus_check'
+  ) THEN
+    ALTER TABLE "GiverProfile"
+      ADD CONSTRAINT "GiverProfile_verificationStatus_check"
+      CHECK ("verificationStatus" IN ('unverified', 'pending_review', 'approved', 'rejected', 'reverification_required'));
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS "GiverProfile_verificationStatus_idx"
+  ON "GiverProfile"("verificationStatus");
 
 CREATE TABLE IF NOT EXISTS "Verification" (
   id text PRIMARY KEY,

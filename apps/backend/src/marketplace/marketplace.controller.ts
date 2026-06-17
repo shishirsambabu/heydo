@@ -50,6 +50,11 @@ export class MarketplaceController {
     return this.marketplace.listCategories();
   }
 
+  @Get('pricing-guides')
+  pricingGuides() {
+    return this.marketplace.listPricingGuides();
+  }
+
   @Post('gigs')
   async postGig(@CurrentUser() principal: AuthPrincipal, @Body() dto: PostGigDto) {
     return this.wrap(() => this.marketplace.postGig(principal.sub, dto));
@@ -128,6 +133,7 @@ export class MarketplaceController {
             'already_assigned',
             'application_not_selectable',
             'own_gig',
+            'giver_kyc_required',
           ].includes(error.code)
         ) {
           throw new ConflictException({ code: error.code, message: error.message });

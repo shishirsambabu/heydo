@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   approve,
@@ -80,6 +81,9 @@ export default function VerificationsPage() {
           </p>
         </div>
         <div className="actions">
+          <Link className="btn btn-outline" href="/marketplace">
+            Marketplace safety
+          </Link>
           <button className="btn btn-outline" onClick={() => void load()}>
             Refresh
           </button>

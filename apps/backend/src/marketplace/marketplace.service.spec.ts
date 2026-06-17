@@ -30,12 +30,61 @@ function service(canApply: (workerId: string) => Promise<boolean> = async () => 
 }
 
 describe('MarketplaceService', () => {
+  it('blocks unverified givers from posting gigs', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'pending_review',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+
+    await expect(
+      svc.postGig('giver_1', {
+        categoryId: 'cat_plumbing',
+        title: 'Pipe leak repair',
+        description: 'Kitchen pipe is leaking and needs repair',
+        location: 'Thrissur',
+        scheduledAt: '2026-06-18T10:00:00.000Z',
+        budgetAmount: 1000,
+      }),
+    ).rejects.toMatchObject<Partial<MarketplaceError>>({
+      code: 'giver_kyc_required',
+    });
+  });
+
+  it('holds underpriced gigs for admin review instead of publishing unfair work', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 300,
+    });
+
+    expect(gig.visibilityStatus).toBe('pending_review');
+    expect(gig.safetyFlags).toContain('budget_below_fair_minimum');
+    await expect(svc.listGigs()).resolves.toEqual([]);
+  });
+
   it('blocks unverified workers from applying to gigs', async () => {
     const { svc, givers } = service(async () => false);
     await givers.save({
       userId: 'giver_1',
       displayName: 'Giver',
       status: 'active',
+      verificationStatus: 'approved',
       createdAt: '2026-06-17T10:00:00.000Z',
     });
     const gig = await svc.postGig('giver_1', {
@@ -60,6 +109,7 @@ describe('MarketplaceService', () => {
       userId: 'giver_1',
       displayName: 'Giver',
       status: 'active',
+      verificationStatus: 'approved',
       createdAt: '2026-06-17T10:00:00.000Z',
     });
     const gig = await svc.postGig('giver_1', {
@@ -94,6 +144,7 @@ describe('MarketplaceService', () => {
       userId: 'giver_1',
       displayName: 'Giver',
       status: 'active',
+      verificationStatus: 'approved',
       createdAt: '2026-06-17T10:00:00.000Z',
     });
     const gig = await svc.postGig('giver_1', {
@@ -117,6 +168,7 @@ describe('MarketplaceService', () => {
       userId: 'giver_1',
       displayName: 'Giver',
       status: 'active',
+      verificationStatus: 'approved',
       createdAt: '2026-06-17T10:00:00.000Z',
     });
     const gig = await svc.postGig('giver_1', {
@@ -165,6 +217,7 @@ describe('MarketplaceService', () => {
       userId: 'giver_1',
       displayName: 'Giver',
       status: 'active',
+      verificationStatus: 'approved',
       createdAt: '2026-06-17T10:00:00.000Z',
     });
     const gig = await svc.postGig('giver_1', {
@@ -175,12 +228,18 @@ describe('MarketplaceService', () => {
       scheduledAt: '2026-06-19T10:00:00.000Z',
       budgetAmount: 2500,
     });
-    const first = await svc.apply(gig.id, 'worker_1', { messageMl: 'ഞാൻ ചെയ്യാം' });
+    const first = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'ഞാൻ ചെയ്യാം',
+      proposedPrice: 3200,
+    });
     const second = await svc.apply(gig.id, 'worker_2', { messageMl: 'സമയം ശരിയാണ്' });
 
     const selected = await svc.selectApplicant(gig.id, first.id, 'giver_1');
     expect(selected.gig.status).toBe('assigned');
     expect(selected.assignment.workerId).toBe('worker_1');
+    expect(selected.applications).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: first.id, proposedPrice: 3200 })]),
+    );
     expect(selected.applications).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: first.id, status: 'selected' }),

@@ -59,6 +59,7 @@ h1, h2, h3, .display {
 .topbar .who { font-size: 13px; opacity: 0.85; }
 
 .container { max-width: 980px; margin: 0 auto; padding: 28px; }
+.container.wide { max-width: 1180px; }
 .page-title { font-size: 24px; margin-bottom: 4px; }
 .page-sub { color: #5b6b65; font-size: 14px; margin-bottom: 22px; }
 
@@ -70,8 +71,11 @@ h1, h2, h3, .display {
   margin-bottom: 14px;
 }
 .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.row.align-start { align-items: flex-start; }
 .muted { color: #5b6b65; font-size: 13px; }
 .label { font-weight: 500; font-size: 13px; color: #5b6b65; }
+.display.compact { font-size: 18px; line-height: 1.25; }
+.body-copy { margin-top: 10px; color: #26352f; font-size: 14px; line-height: 1.5; max-width: 720px; }
 
 .signals { display: flex; gap: 18px; margin: 10px 0; flex-wrap: wrap; }
 .signal { font-size: 13px; }
@@ -86,6 +90,7 @@ h1, h2, h3, .display {
 }
 .pill.ok { background: var(--mint-surface); color: var(--trust-green); }
 .pill.bad { background: #fdecea; color: #b3261e; }
+.pill.warn { background: #fff4d6; color: #8a5a00; }
 
 .btn {
   font-family: 'Inter', sans-serif;
@@ -102,6 +107,44 @@ h1, h2, h3, .display {
 .btn-danger { background: #fff; color: #b3261e; border: 1.5px solid #b3261e; }
 
 .actions { display: flex; gap: 10px; }
+.actions .btn { white-space: nowrap; }
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 18px;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  appearance: none;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  color: #52635d;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 14px;
+}
+.tabs button.active {
+  border-bottom-color: var(--trust-green);
+  color: var(--deep-forest);
+}
+.tabs span {
+  background: #edf4f1;
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 12px;
+  margin-left: 6px;
+  min-width: 24px;
+  padding: 2px 8px;
+}
+
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+}
 
 input.field {
   width: 100%;
@@ -116,3 +159,17 @@ input.field {
 .empty { text-align: center; color: #5b6b65; padding: 40px; }
 .error { color: #b3261e; font-size: 14px; margin-top: 10px; }
 .login-wrap { max-width: 380px; margin: 80px auto; }
+
+@media (max-width: 760px) {
+  .row,
+  .row.align-start {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .actions {
+    flex-wrap: wrap;
+  }
+  .tabs {
+    overflow-x: auto;
+  }
+}

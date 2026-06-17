@@ -6,9 +6,11 @@ import { VerificationService } from '../verification/verification.service';
 import {
   Assignment,
   Category,
+  DEFAULT_PRICING_GUIDES,
   Gig,
   GigApplication,
   GigStatus,
+  PricingGuide,
   SafetyReport,
   SafetyReportReason,
   SafetyReportSeverity,
@@ -79,10 +81,17 @@ export class MarketplaceService {
     return this.categories.listActive();
   }
 
+  listPricingGuides(): PricingGuide[] {
+    return DEFAULT_PRICING_GUIDES;
+  }
+
   async postGig(giverId: string, input: PostGigInput): Promise<Gig> {
     const giver = await this.givers.findByUser(giverId);
     if (!giver || giver.status !== 'active') {
       throw new MarketplaceError('Active giver profile required', 'giver_required');
+    }
+    if (giver.verificationStatus !== 'approved') {
+      throw new MarketplaceError('Giver must complete KYC before posting gigs', 'giver_kyc_required');
     }
     const category = await this.categories.findById(input.categoryId);
     if (!category?.active) {
@@ -91,7 +100,7 @@ export class MarketplaceService {
     if (this.now() > Date.parse(input.scheduledAt)) {
       throw new MarketplaceError('Gig must be scheduled in the future', 'invalid_schedule');
     }
-    const review = screenGigRequest(input);
+    const review = screenGigRequest(input, pricingGuideFor(input.categoryId));
     const gig: Gig = {
       id: `gig_${this.id()}`,
       giverId,
@@ -412,7 +421,11 @@ function randomId(): string {
   return randomBytes(10).toString('hex');
 }
 
-function screenGigRequest(input: PostGigInput): {
+function pricingGuideFor(categoryId: string): PricingGuide | undefined {
+  return DEFAULT_PRICING_GUIDES.find((guide) => guide.categoryId === categoryId);
+}
+
+function screenGigRequest(input: PostGigInput, pricingGuide?: PricingGuide): {
   visibilityStatus: Gig['visibilityStatus'];
   riskLevel: Gig['riskLevel'];
   safetyFlags: string[];
@@ -458,8 +471,14 @@ function screenGigRequest(input: PostGigInput): {
     'nurse',
   ]);
 
-  if (input.budgetAmount < 100) flags.add('budget_too_low');
-  if (input.budgetAmount > 100000) flags.add('budget_unusually_high');
+  if (pricingGuide && input.budgetAmount < pricingGuide.minBudgetAmount) {
+    flags.add('budget_below_fair_minimum');
+  }
+  if (pricingGuide && input.budgetAmount > pricingGuide.highReviewAmount) {
+    flags.add('budget_unusually_high');
+  }
+  if (!pricingGuide && input.budgetAmount < 100) flags.add('budget_too_low');
+  if (!pricingGuide && input.budgetAmount > 100000) flags.add('budget_unusually_high');
   if (input.description.trim().length < 20) flags.add('description_too_vague');
 
   const safetyFlags = [...flags].sort();

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IdentityService } from './identity.service';
 import { IdentityController } from './identity.controller';
+import { AdminGiverVerificationController } from './admin-giver-verification.controller';
 import { SecurityModule } from '../auth/security.module';
 import {
   GiverProfileRepository,
@@ -23,7 +24,7 @@ import {
  */
 @Module({
   imports: [SecurityModule, DatabaseModule],
-  controllers: [IdentityController],
+  controllers: [IdentityController, AdminGiverVerificationController],
   providers: [
     IdentityService,
     {
