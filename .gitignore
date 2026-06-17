@@ -40,6 +40,7 @@ apps/admin-web/.next/
 # Local dev runtime
 .dev-pids
 .didit-smoke.json
+.local-webhook-pids
 .aws-rds-global-bundle.pem
 
 # OS / editor
