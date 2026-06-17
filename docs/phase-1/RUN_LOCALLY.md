@@ -56,6 +56,14 @@ DATABASE_SSL=false
 
 The tables must match `apps/backend/prisma/schema.prisma`. On AWS RDS, set `DATABASE_SSL=true`.
 
+Apply the schema:
+
+```powershell
+npm run db:schema:apply
+```
+
+The command reads `DATABASE_URL` from repo-root `.env.local`, repo-root `.env`, `apps/backend/.env.local`, or `apps/backend/.env` and does not print the connection string.
+
 ---
 
 ## 2. The Flutter app (the worker/giver experience)

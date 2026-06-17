@@ -9,6 +9,7 @@
   "scripts": {
     "test": "npm run test --workspace apps/backend",
     "build": "npm run build --workspace apps/backend",
+    "db:schema:apply": "npm run db:schema:apply --workspace apps/backend",
     "start:backend": "npm run start --workspace apps/backend"
   },
   "engines": {
