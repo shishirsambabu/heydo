@@ -5,6 +5,7 @@ import { CommonModule } from './common/common.module';
 import { AuthModule } from './auth/auth.module';
 import { IdentityModule } from './identity/identity.module';
 import { VerificationModule } from './verification/verification.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
 
 /**
  * Root module — Phase 1 (Identity Loop / VKYC).
@@ -20,6 +21,7 @@ import { VerificationModule } from './verification/verification.module';
     AuthModule,
     IdentityModule,
     VerificationModule,
+    MarketplaceModule,
   ],
   controllers: [HealthController],
 })

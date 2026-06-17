@@ -4,6 +4,6 @@ import { Controller, Get } from '@nestjs/common';
 export class HealthController {
   @Get()
   check(): { status: string; service: string; phase: string } {
-    return { status: 'ok', service: 'heydo-backend', phase: 'phase-1-identity' };
+    return { status: 'ok', service: 'heydo-backend', phase: 'phase-2-marketplace' };
   }
 }
