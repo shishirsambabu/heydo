@@ -6,6 +6,7 @@ import {
   DEFAULT_CATEGORIES,
   Gig,
   GigApplication,
+  SafetyReport,
 } from './marketplace.entities';
 import {
   ApplicationRepository,
@@ -13,6 +14,7 @@ import {
   CategoryRepository,
   GigFilters,
   GigRepository,
+  SafetyReportRepository,
 } from './marketplace.repository';
 
 interface CategoryRow {
@@ -59,6 +61,23 @@ interface AssignmentRow {
   workerId: string;
   applicationId: string;
   selectedAt: Date;
+}
+
+interface SafetyReportRow {
+  id: string;
+  gigId: string;
+  reporterId: string;
+  reportedUserId: string | null;
+  reason: SafetyReport['reason'];
+  severity: SafetyReport['severity'];
+  description: string;
+  evidenceVaultRefs: string[];
+  status: SafetyReport['status'];
+  actionTaken: string | null;
+  reviewedBy: string | null;
+  reviewedAt: Date | null;
+  lawEnforcementRef: string | null;
+  createdAt: Date;
 }
 
 @Injectable()
@@ -267,6 +286,69 @@ export class PostgresAssignmentRepository implements AssignmentRepository {
   }
 }
 
+@Injectable()
+export class PostgresSafetyReportRepository implements SafetyReportRepository {
+  constructor(private readonly pg: PgService) {}
+
+  async save(report: SafetyReport): Promise<void> {
+    await this.pg.query(
+      `INSERT INTO "SafetyReport"
+        (id, "gigId", "reporterId", "reportedUserId", reason, severity, description,
+         "evidenceVaultRefs", status, "actionTaken", "reviewedBy", "reviewedAt",
+         "lawEnforcementRef", "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       ON CONFLICT (id) DO UPDATE SET
+         status = EXCLUDED.status,
+         "actionTaken" = EXCLUDED."actionTaken",
+         "reviewedBy" = EXCLUDED."reviewedBy",
+         "reviewedAt" = EXCLUDED."reviewedAt",
+         "lawEnforcementRef" = EXCLUDED."lawEnforcementRef"`,
+      [
+        report.id,
+        report.gigId,
+        report.reporterId,
+        report.reportedUserId ?? null,
+        report.reason,
+        report.severity,
+        report.description,
+        report.evidenceVaultRefs,
+        report.status,
+        report.actionTaken ?? null,
+        report.reviewedBy ?? null,
+        report.reviewedAt ?? null,
+        report.lawEnforcementRef ?? null,
+        report.createdAt,
+      ],
+    );
+  }
+
+  async findById(id: string): Promise<SafetyReport | null> {
+    const [row] = await this.pg.query<SafetyReportRow>(`${selectSafetyReport()} WHERE id = $1`, [
+      id,
+    ]);
+    return row ? toSafetyReport(row) : null;
+  }
+
+  async list(filters: { status?: string; gigId?: string } = {}): Promise<SafetyReport[]> {
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+    if (filters.status) {
+      params.push(filters.status);
+      clauses.push(`status = $${params.length}`);
+    }
+    if (filters.gigId) {
+      params.push(filters.gigId);
+      clauses.push(`"gigId" = $${params.length}`);
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
+    const rows = await this.pg.query<SafetyReportRow>(
+      `${selectSafetyReport()} ${where} ORDER BY "createdAt" ASC`,
+      params,
+    );
+    return rows.map(toSafetyReport);
+  }
+}
+
 function selectGig(): string {
   return `SELECT id, "giverId", "categoryId", title, description, location,
                  "scheduledAt", "budgetAmount", currency, status, "visibilityStatus",
@@ -331,5 +413,31 @@ function toAssignment(row: AssignmentRow): Assignment {
     workerId: row.workerId,
     applicationId: row.applicationId,
     selectedAt: row.selectedAt.toISOString(),
+  };
+}
+
+function selectSafetyReport(): string {
+  return `SELECT id, "gigId", "reporterId", "reportedUserId", reason, severity,
+                 description, "evidenceVaultRefs", status, "actionTaken", "reviewedBy",
+                 "reviewedAt", "lawEnforcementRef", "createdAt"
+          FROM "SafetyReport"`;
+}
+
+function toSafetyReport(row: SafetyReportRow): SafetyReport {
+  return {
+    id: row.id,
+    gigId: row.gigId,
+    reporterId: row.reporterId,
+    reportedUserId: row.reportedUserId ?? undefined,
+    reason: row.reason,
+    severity: row.severity,
+    description: row.description,
+    evidenceVaultRefs: row.evidenceVaultRefs ?? [],
+    status: row.status,
+    actionTaken: row.actionTaken ?? undefined,
+    reviewedBy: row.reviewedBy ?? undefined,
+    reviewedAt: row.reviewedAt?.toISOString(),
+    lawEnforcementRef: row.lawEnforcementRef ?? undefined,
+    createdAt: row.createdAt.toISOString(),
   };
 }

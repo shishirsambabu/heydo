@@ -4,6 +4,7 @@ import {
   DEFAULT_CATEGORIES,
   Gig,
   GigApplication,
+  SafetyReport,
 } from './marketplace.entities';
 
 export interface GigFilters {
@@ -36,10 +37,17 @@ export interface AssignmentRepository {
   findByGig(gigId: string): Promise<Assignment | null>;
 }
 
+export interface SafetyReportRepository {
+  save(report: SafetyReport): Promise<void>;
+  findById(id: string): Promise<SafetyReport | null>;
+  list(filters?: { status?: string; gigId?: string }): Promise<SafetyReport[]>;
+}
+
 export const CATEGORY_REPOSITORY = Symbol('CATEGORY_REPOSITORY');
 export const GIG_REPOSITORY = Symbol('GIG_REPOSITORY');
 export const APPLICATION_REPOSITORY = Symbol('APPLICATION_REPOSITORY');
 export const ASSIGNMENT_REPOSITORY = Symbol('ASSIGNMENT_REPOSITORY');
+export const SAFETY_REPORT_REPOSITORY = Symbol('SAFETY_REPORT_REPOSITORY');
 
 export class InMemoryCategoryRepository implements CategoryRepository {
   private readonly items = new Map(DEFAULT_CATEGORIES.map((category) => [category.id, category]));
@@ -119,5 +127,26 @@ export class InMemoryAssignmentRepository implements AssignmentRepository {
   async findByGig(gigId: string): Promise<Assignment | null> {
     const assignment = this.byGig.get(gigId);
     return assignment ? { ...assignment } : null;
+  }
+}
+
+export class InMemorySafetyReportRepository implements SafetyReportRepository {
+  private readonly items = new Map<string, SafetyReport>();
+
+  async save(report: SafetyReport): Promise<void> {
+    this.items.set(report.id, { ...report, evidenceVaultRefs: [...report.evidenceVaultRefs] });
+  }
+
+  async findById(id: string): Promise<SafetyReport | null> {
+    const report = this.items.get(id);
+    return report ? { ...report, evidenceVaultRefs: [...report.evidenceVaultRefs] } : null;
+  }
+
+  async list(filters: { status?: string; gigId?: string } = {}): Promise<SafetyReport[]> {
+    return [...this.items.values()]
+      .filter((report) => !filters.status || report.status === filters.status)
+      .filter((report) => !filters.gigId || report.gigId === filters.gigId)
+      .map((report) => ({ ...report, evidenceVaultRefs: [...report.evidenceVaultRefs] }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 }

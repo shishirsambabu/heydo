@@ -2,6 +2,17 @@ export type GigStatus = 'posted' | 'applied' | 'assigned' | 'in_progress' | 'com
 export type ApplicationStatus = 'applied' | 'withdrawn' | 'selected' | 'rejected';
 export type GigVisibilityStatus = 'pending_review' | 'visible' | 'rejected' | 'flagged';
 export type GigRiskLevel = 'low' | 'medium' | 'high';
+export type SafetyReportReason =
+  | 'sexual_misconduct'
+  | 'drugs_or_illegal_activity'
+  | 'violence_or_threat'
+  | 'unsafe_location'
+  | 'harassment'
+  | 'off_platform_payment'
+  | 'fraud'
+  | 'other';
+export type SafetyReportSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type SafetyReportStatus = 'open' | 'under_review' | 'action_taken' | 'escalated' | 'closed';
 
 export interface Category {
   id: string;
@@ -47,6 +58,23 @@ export interface Assignment {
   workerId: string;
   applicationId: string;
   selectedAt: string;
+}
+
+export interface SafetyReport {
+  id: string;
+  gigId: string;
+  reporterId: string;
+  reportedUserId?: string;
+  reason: SafetyReportReason;
+  severity: SafetyReportSeverity;
+  description: string;
+  evidenceVaultRefs: string[];
+  status: SafetyReportStatus;
+  actionTaken?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  lawEnforcementRef?: string;
+  createdAt: string;
 }
 
 export const DEFAULT_CATEGORIES: Category[] = [

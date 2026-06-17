@@ -16,6 +16,7 @@ import { CurrentUser } from '../auth/decorators';
 import { AuthPrincipal } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MarketplaceError, MarketplaceService } from './marketplace.service';
+import { SafetyReportReason, SafetyReportSeverity } from './marketplace.entities';
 
 class PostGigDto {
   @IsString() categoryId!: string;
@@ -29,6 +30,14 @@ class PostGigDto {
 class ApplyDto {
   @IsOptional() @IsString() messageMl?: string;
   @IsOptional() @IsInt() @Min(100) proposedPrice?: number;
+}
+
+class SafetyReportDto {
+  @IsOptional() @IsString() reportedUserId?: string;
+  @IsString() reason!: SafetyReportReason;
+  @IsString() severity!: SafetyReportSeverity;
+  @IsString() @MinLength(10) description!: string;
+  @IsOptional() evidenceVaultRefs?: string[];
 }
 
 @Controller('marketplace')
@@ -92,6 +101,15 @@ export class MarketplaceController {
   @Post('gigs/:gigId/cancel')
   async cancel(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {
     return this.wrap(() => this.marketplace.transitionGig(gigId, principal.sub, 'cancelled'));
+  }
+
+  @Post('gigs/:gigId/safety-reports')
+  async raiseSafetyReport(
+    @Param('gigId') gigId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: SafetyReportDto,
+  ) {
+    return this.wrap(() => this.marketplace.raiseSafetyReport(gigId, principal.sub, dto));
   }
 
   protected async wrap<T>(fn: () => Promise<T>): Promise<T> {

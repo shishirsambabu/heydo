@@ -9,10 +9,15 @@ import {
   Gig,
   GigApplication,
   GigStatus,
+  SafetyReport,
+  SafetyReportReason,
+  SafetyReportSeverity,
+  SafetyReportStatus,
 } from './marketplace.entities';
 import {
   APPLICATION_REPOSITORY,
   ASSIGNMENT_REPOSITORY,
+  SAFETY_REPORT_REPOSITORY,
   ApplicationRepository,
   AssignmentRepository,
   CATEGORY_REPOSITORY,
@@ -20,6 +25,7 @@ import {
   GIG_REPOSITORY,
   GigFilters,
   GigRepository,
+  SafetyReportRepository,
 } from './marketplace.repository';
 
 export class MarketplaceError extends Error {
@@ -46,6 +52,14 @@ export interface ApplyInput {
   proposedPrice?: number;
 }
 
+export interface RaiseSafetyReportInput {
+  reportedUserId?: string;
+  reason: SafetyReportReason;
+  severity: SafetyReportSeverity;
+  description: string;
+  evidenceVaultRefs?: string[];
+}
+
 @Injectable()
 export class MarketplaceService {
   constructor(
@@ -53,6 +67,7 @@ export class MarketplaceService {
     @Inject(GIG_REPOSITORY) private readonly gigs: GigRepository,
     @Inject(APPLICATION_REPOSITORY) private readonly applications: ApplicationRepository,
     @Inject(ASSIGNMENT_REPOSITORY) private readonly assignments: AssignmentRepository,
+    @Inject(SAFETY_REPORT_REPOSITORY) private readonly safetyReports: SafetyReportRepository,
     private readonly givers: GiverProfileRepository,
     private readonly verification: VerificationService,
     private readonly audit: AuditService,
@@ -259,6 +274,94 @@ export class MarketplaceService {
     return updated;
   }
 
+  async raiseSafetyReport(
+    gigId: string,
+    reporterId: string,
+    input: RaiseSafetyReportInput,
+  ): Promise<SafetyReport> {
+    const gig = await this.getGig(gigId);
+    const report: SafetyReport = {
+      id: `safe_${this.id()}`,
+      gigId,
+      reporterId,
+      reportedUserId: input.reportedUserId,
+      reason: input.reason,
+      severity: input.severity,
+      description: input.description.trim(),
+      evidenceVaultRefs: input.evidenceVaultRefs ?? [],
+      status: 'open',
+      createdAt: new Date(this.now()).toISOString(),
+    };
+    await this.safetyReports.save(report);
+
+    if (shouldImmediatelyFlag(input.reason, input.severity)) {
+      await this.gigs.save({
+        ...gig,
+        visibilityStatus: 'flagged',
+        riskLevel: 'high',
+        safetyFlags: [...new Set([...gig.safetyFlags, input.reason])].sort(),
+        moderatedBy: 'system',
+        moderatedAt: new Date(this.now()).toISOString(),
+        moderationReason: 'Automatically flagged after safety report',
+      });
+    }
+
+    this.audit.record({
+      actorId: reporterId,
+      actorRole: reporterId === gig.giverId ? 'giver' : 'worker',
+      action: 'safety.report_raised',
+      targetType: 'safety_report',
+      targetId: report.id,
+      metadata: {
+        gigId,
+        reportedUserId: input.reportedUserId,
+        reason: input.reason,
+        severity: input.severity,
+        evidenceCount: report.evidenceVaultRefs.length,
+        gigFlagged: shouldImmediatelyFlag(input.reason, input.severity),
+      },
+    });
+    return report;
+  }
+
+  listSafetyReports(filters?: { status?: string; gigId?: string }): Promise<SafetyReport[]> {
+    return this.safetyReports.list(filters);
+  }
+
+  async reviewSafetyReport(
+    reportId: string,
+    reviewerId: string,
+    status: Extract<SafetyReportStatus, 'under_review' | 'action_taken' | 'escalated' | 'closed'>,
+    actionTaken: string,
+    lawEnforcementRef?: string,
+  ): Promise<SafetyReport> {
+    const report = await this.safetyReports.findById(reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    const updated: SafetyReport = {
+      ...report,
+      status,
+      actionTaken: actionTaken.trim(),
+      reviewedBy: reviewerId,
+      reviewedAt: new Date(this.now()).toISOString(),
+      lawEnforcementRef,
+    };
+    await this.safetyReports.save(updated);
+    this.audit.record({
+      actorId: reviewerId,
+      actorRole: 'fraud_analyst',
+      action: `safety.report_${status}`,
+      targetType: 'safety_report',
+      targetId: reportId,
+      metadata: {
+        gigId: report.gigId,
+        reason: report.reason,
+        severity: report.severity,
+        lawEnforcementRef: lawEnforcementRef ? '[recorded]' : undefined,
+      },
+    });
+    return updated;
+  }
+
   async transitionGig(gigId: string, actorId: string, next: Extract<GigStatus, 'in_progress' | 'completed' | 'cancelled'>): Promise<Gig> {
     const gig = await this.getGig(gigId);
     const assignment = await this.assignments.findByGig(gigId);
@@ -391,4 +494,12 @@ function screenGigRequest(input: PostGigInput): {
 
 function flagWhen(text: string, flags: Set<string>, flag: string, patterns: string[]): void {
   if (patterns.some((pattern) => text.includes(pattern))) flags.add(flag);
+}
+
+function shouldImmediatelyFlag(reason: SafetyReportReason, severity: SafetyReportSeverity): boolean {
+  return (
+    severity === 'critical' ||
+    severity === 'high' ||
+    ['sexual_misconduct', 'drugs_or_illegal_activity', 'violence_or_threat'].includes(reason)
+  );
 }

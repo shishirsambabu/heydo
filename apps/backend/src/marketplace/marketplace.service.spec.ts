@@ -6,6 +6,7 @@ import {
   InMemoryAssignmentRepository,
   InMemoryCategoryRepository,
   InMemoryGigRepository,
+  InMemorySafetyReportRepository,
 } from './marketplace.repository';
 import { MarketplaceError, MarketplaceService } from './marketplace.service';
 
@@ -18,6 +19,7 @@ function service(canApply: (workerId: string) => Promise<boolean> = async () => 
     new InMemoryGigRepository(),
     new InMemoryApplicationRepository(),
     new InMemoryAssignmentRepository(),
+    new InMemorySafetyReportRepository(),
     givers,
     { canApply } as Pick<VerificationService, 'canApply'> as VerificationService,
     audit,
@@ -107,6 +109,54 @@ describe('MarketplaceService', () => {
     expect(gig.riskLevel).toBe('high');
     expect(gig.safetyFlags).toContain('sexual_or_exploitative');
     await expect(svc.listGigsForAdmin({ visibilityStatus: 'rejected' })).resolves.toHaveLength(1);
+  });
+
+  it('lets users raise a serious safety report that flags the gig for admin action', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'sexual_misconduct',
+      severity: 'critical',
+      description: 'Giver asked for sexual favours in chat.',
+      evidenceVaultRefs: ['vault_chat_1'],
+    });
+
+    expect(report.status).toBe('open');
+    expect(report.evidenceVaultRefs).toEqual(['vault_chat_1']);
+    await expect(svc.getGig(gig.id)).resolves.toMatchObject({
+      visibilityStatus: 'flagged',
+      riskLevel: 'high',
+      safetyFlags: expect.arrayContaining(['sexual_misconduct']),
+    });
+    await expect(svc.listSafetyReports({ status: 'open' })).resolves.toHaveLength(1);
+    await expect(
+      svc.reviewSafetyReport(
+        report.id,
+        'fraud_admin',
+        'escalated',
+        'Preserved evidence and prepared lawful escalation package',
+        'POLICE_DD_001',
+      ),
+    ).resolves.toMatchObject({
+      status: 'escalated',
+      reviewedBy: 'fraud_admin',
+      lawEnforcementRef: 'POLICE_DD_001',
+    });
   });
 
   it('runs post -> apply -> choose -> start -> complete', async () => {

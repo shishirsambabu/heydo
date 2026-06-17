@@ -140,6 +140,32 @@ CREATE TABLE IF NOT EXISTS "Assignment" (
   "selectedAt" timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS "SafetyReport" (
+  id text PRIMARY KEY,
+  "gigId" text NOT NULL REFERENCES "Gig"(id) ON DELETE CASCADE,
+  "reporterId" text NOT NULL,
+  "reportedUserId" text,
+  reason text NOT NULL,
+  severity text NOT NULL,
+  description text NOT NULL,
+  "evidenceVaultRefs" text[] NOT NULL DEFAULT '{}',
+  status text NOT NULL DEFAULT 'open',
+  "actionTaken" text,
+  "reviewedBy" text,
+  "reviewedAt" timestamptz,
+  "lawEnforcementRef" text,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "SafetyReport_reason_check"
+    CHECK (reason IN ('sexual_misconduct', 'drugs_or_illegal_activity', 'violence_or_threat', 'unsafe_location', 'harassment', 'off_platform_payment', 'fraud', 'other')),
+  CONSTRAINT "SafetyReport_severity_check"
+    CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+  CONSTRAINT "SafetyReport_status_check"
+    CHECK (status IN ('open', 'under_review', 'action_taken', 'escalated', 'closed'))
+);
+
+CREATE INDEX IF NOT EXISTS "SafetyReport_status_idx" ON "SafetyReport"(status);
+CREATE INDEX IF NOT EXISTS "SafetyReport_gigId_idx" ON "SafetyReport"("gigId");
+
 CREATE TABLE IF NOT EXISTS "Rating" (
   id text PRIMARY KEY,
   "gigId" text NOT NULL,

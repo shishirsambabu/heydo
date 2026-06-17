@@ -23,12 +23,15 @@ import {
   InMemoryAssignmentRepository,
   InMemoryCategoryRepository,
   InMemoryGigRepository,
+  InMemorySafetyReportRepository,
+  SAFETY_REPORT_REPOSITORY,
 } from './marketplace.repository';
 import {
   PostgresApplicationRepository,
   PostgresAssignmentRepository,
   PostgresCategoryRepository,
   PostgresGigRepository,
+  PostgresSafetyReportRepository,
 } from './postgres-marketplace.repository';
 import { MarketplaceService } from './marketplace.service';
 
@@ -66,10 +69,19 @@ import { MarketplaceService } from './marketplace.service';
           ? postgres
           : new InMemoryAssignmentRepository(),
     },
+    {
+      provide: SAFETY_REPORT_REPOSITORY,
+      inject: [ConfigService, PostgresSafetyReportRepository],
+      useFactory: (config: ConfigService, postgres: PostgresSafetyReportRepository) =>
+        config.get<string>('PERSISTENCE') === 'postgres'
+          ? postgres
+          : new InMemorySafetyReportRepository(),
+    },
     PostgresCategoryRepository,
     PostgresGigRepository,
     PostgresApplicationRepository,
     PostgresAssignmentRepository,
+    PostgresSafetyReportRepository,
     {
       provide: MarketplaceService,
       inject: [
@@ -77,6 +89,7 @@ import { MarketplaceService } from './marketplace.service';
         GIG_REPOSITORY,
         APPLICATION_REPOSITORY,
         ASSIGNMENT_REPOSITORY,
+        SAFETY_REPORT_REPOSITORY,
         GiverProfileRepository,
         VerificationService,
         AuditService,
@@ -86,6 +99,7 @@ import { MarketplaceService } from './marketplace.service';
         gigs: GigRepository,
         applications: ApplicationRepository,
         assignments: AssignmentRepository,
+        safetyReports,
         givers: GiverProfileRepository,
         verification: VerificationService,
         audit: AuditService,
@@ -95,6 +109,7 @@ import { MarketplaceService } from './marketplace.service';
           gigs,
           applications,
           assignments,
+          safetyReports,
           givers,
           verification,
           audit,

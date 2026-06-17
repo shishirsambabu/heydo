@@ -11,7 +11,8 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
+import { SafetyReportStatus } from './marketplace.entities';
 import { AuthPrincipal } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -20,6 +21,12 @@ import { MarketplaceError, MarketplaceService } from './marketplace.service';
 
 class ModerationDto {
   @IsString() @MinLength(3) reason!: string;
+}
+
+class SafetyReviewDto {
+  @IsString() status!: Extract<SafetyReportStatus, 'under_review' | 'action_taken' | 'escalated' | 'closed'>;
+  @IsString() @MinLength(3) actionTaken!: string;
+  @IsOptional() @IsString() lawEnforcementRef?: string;
 }
 
 @Controller('admin/marketplace')
@@ -68,6 +75,28 @@ export class AdminMarketplaceController {
   ) {
     return this.wrap(() =>
       this.marketplace.moderateGig(gigId, principal.sub, 'flag', dto.reason),
+    );
+  }
+
+  @Get('safety-reports')
+  safetyReports(@Query('status') status?: string, @Query('gigId') gigId?: string) {
+    return this.marketplace.listSafetyReports({ status, gigId });
+  }
+
+  @Post('safety-reports/:reportId/review')
+  reviewSafetyReport(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: SafetyReviewDto,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.reviewSafetyReport(
+        reportId,
+        principal.sub,
+        dto.status,
+        dto.actionTaken,
+        dto.lawEnforcementRef,
+      ),
     );
   }
 
