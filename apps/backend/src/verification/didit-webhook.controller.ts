@@ -39,8 +39,13 @@ export class DiditWebhookController {
       await this.verification.handleVendorResult(body.session_id);
       return { ok: true };
     } catch (error) {
-      if (error instanceof VerificationError && error.code === 'already_processed') {
-        return { ok: true, duplicate: true };
+      if (error instanceof VerificationError) {
+        if (error.code === 'already_processed') {
+          return { ok: true, duplicate: true };
+        }
+        if (error.code === 'unknown_session') {
+          return { ok: true, unknownSession: true };
+        }
       }
       throw error;
     }
