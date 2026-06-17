@@ -1,5 +1,6 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { readFileSync } from 'fs';
 import { Pool, QueryResultRow } from 'pg';
 
 @Injectable()
@@ -27,11 +28,17 @@ export class PgService implements OnModuleDestroy {
       }
       this.pool = new Pool({
         connectionString,
-        ssl: this.config.get<string>('DATABASE_SSL') === 'true'
-          ? { rejectUnauthorized: true }
-          : undefined,
+        ssl: this.sslConfig(),
       });
     }
     return this.pool;
+  }
+
+  private sslConfig(): { rejectUnauthorized: boolean; ca?: string } | undefined {
+    if (this.config.get<string>('DATABASE_SSL') !== 'true') return undefined;
+    const caFile = this.config.get<string>('DATABASE_SSL_CA_FILE');
+    return caFile
+      ? { rejectUnauthorized: true, ca: readFileSync(caFile, 'utf8') }
+      : { rejectUnauthorized: true };
   }
 }

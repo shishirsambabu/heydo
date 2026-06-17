@@ -26,7 +26,7 @@ const schemaPath = resolve(backend, 'db/schema.sql');
 const schema = await readFile(schemaPath, 'utf8');
 const client = new Client({
   connectionString: databaseUrl,
-  ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
+  ssl: sslConfig(),
 });
 
 try {
@@ -54,4 +54,15 @@ function loadEnvFile(path) {
     const value = trimmed.slice(index + 1).trim().replace(/^["']|["']$/g, '');
     if (!(key in process.env)) process.env[key] = value;
   }
+}
+
+function sslConfig() {
+  if (process.env.DATABASE_SSL !== 'true') return undefined;
+  if (process.env.DATABASE_SSL_CA_FILE) {
+    return {
+      rejectUnauthorized: true,
+      ca: readFileSync(process.env.DATABASE_SSL_CA_FILE, 'utf8'),
+    };
+  }
+  return { rejectUnauthorized: true };
 }

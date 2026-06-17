@@ -40,6 +40,7 @@ apps/admin-web/.next/
 # Local dev runtime
 .dev-pids
 .didit-smoke.json
+.aws-rds-global-bundle.pem
 
 # OS / editor
 .DS_Store

@@ -22,6 +22,7 @@ Put this in repo-root `.env.local` or `apps/backend/.env.local`:
 PERSISTENCE=postgres
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:5432/heydo
 DATABASE_SSL=true
+DATABASE_SSL_CA_FILE=D:\heydo\.aws-rds-global-bundle.pem
 ```
 
 Never commit `.env.local`.
@@ -30,6 +31,12 @@ Never commit `.env.local`.
 
 ```powershell
 npm run db:schema:apply
+```
+
+If Node reports a self-signed certificate chain, download Amazon's RDS CA bundle:
+
+```powershell
+Invoke-WebRequest https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -OutFile D:\heydo\.aws-rds-global-bundle.pem
 ```
 
 Then rerun the Didit smoke in durable mode:
