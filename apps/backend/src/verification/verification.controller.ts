@@ -53,6 +53,9 @@ export class VerificationController {
           message: 'VKYC result is not final yet',
         });
       }
+      if (error instanceof VerificationError && error.code === 'already_processed') {
+        return { ok: true, duplicate: true };
+      }
       throw error;
     }
   }

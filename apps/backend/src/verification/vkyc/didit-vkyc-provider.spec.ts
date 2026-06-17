@@ -79,6 +79,24 @@ describe('DiditVkycProvider', () => {
     });
   });
 
+  it('normalizes Didit percentage face-match scores into Heydo 0..1 scores', async () => {
+    const provider = new DiditVkycProvider(
+      { apiKey: 'didit_secret', workflowId: 'wf' },
+      async () =>
+        okJson({
+          session_id: 'didit_sess_1',
+          status: 'APPROVED',
+          id_verifications: [{ status: 'Approved' }],
+          liveness_checks: [{ status: 'Approved' }],
+          face_matches: [{ status: 'Approved', score: 97.35 }],
+        }),
+    );
+
+    await expect(provider.getResult('didit_sess_1')).resolves.toMatchObject({
+      faceMatchScore: 0.9735,
+    });
+  });
+
   it('does not convert unfinished Didit sessions into final Heydo decisions', async () => {
     const provider = new DiditVkycProvider(
       { apiKey: 'didit_secret', workflowId: 'wf' },

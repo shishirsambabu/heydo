@@ -224,5 +224,10 @@ function bestScore(results: DiditFeatureResult[] | undefined, fallback: number):
   const scores = (results ?? [])
     .map((r) => r.score)
     .filter((score): score is number => typeof score === 'number');
-  return scores.length ? Math.max(...scores) : fallback;
+  return normalizeScore(scores.length ? Math.max(...scores) : fallback);
+}
+
+function normalizeScore(score: number): number {
+  if (score > 1 && score <= 100) return Math.round((score / 100) * 10000) / 10000;
+  return score;
 }
