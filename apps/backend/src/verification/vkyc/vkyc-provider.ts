@@ -43,4 +43,15 @@ export interface VkycProvider {
   readonly name: string;
 }
 
+export class VkycResultNotFinalError extends Error {
+  constructor(
+    message: string,
+    readonly sessionId: string,
+    readonly vendorStatus?: string,
+  ) {
+    super(message);
+    this.name = 'VkycResultNotFinalError';
+  }
+}
+
 export const VKYC_PROVIDER = Symbol('VKYC_PROVIDER');

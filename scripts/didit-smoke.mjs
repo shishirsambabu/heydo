@@ -27,6 +27,19 @@ async function request(path, { method = 'GET', token, body } = {}) {
   return res.status === 204 ? {} : res.json().catch(() => ({}));
 }
 
+async function requestJson(path, { method = 'GET', token, body } = {}) {
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const payload = await res.json().catch(async () => ({ raw: await res.text() }));
+  return { ok: res.ok, status: res.status, payload };
+}
+
 async function start() {
   await request('/health');
   const phone = `+9190000${Math.floor(10000 + Math.random() * 89999)}`;
@@ -77,16 +90,29 @@ async function start() {
 
 async function result() {
   const state = JSON.parse(await readFile(STATE_FILE, 'utf8'));
-  const decision = await request('/verification/result', {
+  const decision = await requestJson('/verification/result', {
     method: 'POST',
     token: state.token,
     body: { sessionId: state.sessionId },
   });
   const status = await request('/verification/status', { token: state.token });
+  if (!decision.ok && decision.status === 409 && decision.payload.code === 'result_not_final') {
+    console.log(JSON.stringify({
+      status: 'waiting',
+      sessionId: state.sessionId,
+      reason: decision.payload.code,
+      verificationStatus: status.status,
+      canApply: status.canApply,
+    }, null, 2));
+    return;
+  }
+  if (!decision.ok) {
+    throw new Error(`POST /verification/result -> HTTP ${decision.status}: ${JSON.stringify(decision.payload)}`);
+  }
   console.log(JSON.stringify({
     status: 'ingested',
     sessionId: state.sessionId,
-    verificationStatus: decision.status,
+    verificationStatus: decision.payload.status,
     canApply: status.canApply,
   }, null, 2));
 }

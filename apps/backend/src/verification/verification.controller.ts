@@ -1,6 +1,13 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  ConflictException,
+  Controller,
+  Get,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { IsOptional, IsString } from 'class-validator';
-import { VerificationService } from './verification.service';
+import { VerificationError, VerificationService } from './verification.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators';
 import { AuthPrincipal } from '../auth/auth.types';
@@ -36,8 +43,18 @@ export class VerificationController {
 
   /** DEV/webhook: ingest the vendor's VKYC result for a session. */
   @Post('result')
-  result(@Body() dto: ResultDto) {
-    return this.verification.handleVendorResult(dto.sessionId);
+  async result(@Body() dto: ResultDto) {
+    try {
+      return await this.verification.handleVendorResult(dto.sessionId);
+    } catch (error) {
+      if (error instanceof VerificationError && error.code === 'result_not_final') {
+        throw new ConflictException({
+          code: error.code,
+          message: 'VKYC result is not final yet',
+        });
+      }
+      throw error;
+    }
   }
 
   /** The worker's current verification status + apply eligibility. */

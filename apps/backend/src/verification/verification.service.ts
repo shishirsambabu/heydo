@@ -7,7 +7,11 @@ import {
   ConsentRepository,
   VerificationRepository,
 } from './verification.repository';
-import { VkycProvider, VkycSession } from './vkyc/vkyc-provider';
+import {
+  VkycProvider,
+  VkycResultNotFinalError,
+  VkycSession,
+} from './vkyc/vkyc-provider';
 
 /** Port: lets verification keep a worker's profile status in sync. */
 export interface WorkerVerificationSink {
@@ -103,7 +107,7 @@ export class VerificationService {
     if (verification.status !== 'pending' || verification.vendorResultAt) {
       throw new VerificationError('Result already processed', 'already_processed');
     }
-    const result = await this.vkyc.getResult(sessionId);
+    const result = await this.getFinalVendorResult(sessionId);
 
     // Persist sensitive tokens into the isolated vault; keep only references.
     const aadhaarVaultRef = await this.vault.store(result.aadhaarToken);
@@ -238,5 +242,16 @@ export class VerificationService {
       throw new VerificationError('Vendor result not yet received', 'no_vendor_result');
     }
     return v;
+  }
+
+  private async getFinalVendorResult(sessionId: string) {
+    try {
+      return await this.vkyc.getResult(sessionId);
+    } catch (error) {
+      if (error instanceof VkycResultNotFinalError) {
+        throw new VerificationError(error.message, 'result_not_final');
+      }
+      throw error;
+    }
   }
 }

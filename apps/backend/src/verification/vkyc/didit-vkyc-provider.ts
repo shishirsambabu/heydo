@@ -1,6 +1,7 @@
 import {
   VkycProvider,
   VkycResult,
+  VkycResultNotFinalError,
   VkycSession,
   VkycStartRequest,
 } from './vkyc-provider';
@@ -158,7 +159,11 @@ export class DiditVkycProvider implements VkycProvider {
     );
     const status = normalizeStatus(decision.status);
     if (status !== 'approved' && status !== 'declined') {
-      throw new Error(`Didit session ${sessionId} is not final yet: ${decision.status ?? 'unknown'}`);
+      throw new VkycResultNotFinalError(
+        `Didit session ${sessionId} is not final yet: ${decision.status ?? 'unknown'}`,
+        sessionId,
+        decision.status,
+      );
     }
 
     const livenessPassed = allApproved(decision.liveness_checks);
