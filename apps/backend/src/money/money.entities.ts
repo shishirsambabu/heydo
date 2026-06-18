@@ -17,7 +17,7 @@ export interface Account {
 
 export interface LedgerTransaction {
   id: string;
-  type: 'escrow_hold' | 'escrow_release';
+  type: 'escrow_hold' | 'escrow_release' | 'escrow_refund';
   gigId?: string;
   idempotencyKey: string;
   status: 'posted';

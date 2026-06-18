@@ -284,5 +284,45 @@ describe('MarketplaceService', () => {
       amount: 3200,
       status: 'released',
     });
+    await expect(svc.transitionGig(gig.id, 'giver_1', 'cancelled')).rejects.toMatchObject({
+      code: 'invalid_state',
+    });
+  });
+
+  it('refunds held escrow when an assigned gig is cancelled', async () => {
+    const { svc, givers, moneyRepo } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'held',
+    });
+
+    await expect(svc.transitionGig(gig.id, 'worker_1', 'cancelled')).resolves.toMatchObject({
+      status: 'cancelled',
+    });
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'refunded',
+    });
   });
 });

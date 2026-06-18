@@ -417,6 +417,12 @@ export class MarketplaceService {
     if (next === 'cancelled' && actorId !== gig.giverId && actorId !== assignment.workerId) {
       throw new MarketplaceError('Only gig parties can cancel before money is enabled', 'forbidden');
     }
+    if (next === 'cancelled' && gig.status === 'completed') {
+      throw new MarketplaceError('Completed gigs cannot be cancelled', 'invalid_state');
+    }
+    if (next === 'cancelled' && gig.status === 'cancelled') {
+      throw new MarketplaceError('Gig is already cancelled', 'invalid_state');
+    }
 
     const updated = { ...gig, status: next };
     await this.gigs.save(updated);
@@ -429,6 +435,15 @@ export class MarketplaceService {
         platformFeeAmount: assignment.platformFeeAmount,
         workerPayoutAmount: assignment.workerPayoutAmount,
         actorId,
+      });
+    }
+    if (next === 'cancelled' && this.money) {
+      await this.money.refundEscrow({
+        gigId,
+        assignmentId: assignment.id,
+        amount: assignment.agreedAmount,
+        actorId,
+        actorRole: actorId === gig.giverId ? 'giver' : 'worker',
       });
     }
     this.audit.record({

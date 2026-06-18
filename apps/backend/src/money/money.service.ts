@@ -26,6 +26,14 @@ export interface ReleaseEscrowInput {
   actorId: string;
 }
 
+export interface RefundEscrowInput {
+  gigId: string;
+  assignmentId: string;
+  amount: number;
+  actorId: string;
+  actorRole: 'giver' | 'worker';
+}
+
 @Injectable()
 export class MoneyService {
   constructor(
@@ -192,6 +200,78 @@ export class MoneyService {
       },
     });
     return { hold: released, transaction, postings };
+  }
+
+  async refundEscrow(input: RefundEscrowInput): Promise<{
+    hold: EscrowHold;
+    transaction: LedgerTransaction;
+    postings: LedgerPosting[];
+  }> {
+    if (input.amount <= 0) throw new Error('Escrow refund amount must be positive');
+    const idempotencyKey = `escrow_refund:${input.gigId}:${input.assignmentId}`;
+    const existing = await this.repo.findTransactionByIdempotencyKey(idempotencyKey);
+    if (existing) {
+      const existingHold = await this.repo.findEscrowHoldByGig(input.gigId);
+      return {
+        hold: existingHold!,
+        transaction: existing,
+        postings: await this.repo.listPostings(existing.id),
+      };
+    }
+
+    const hold = await this.repo.findEscrowHoldByGig(input.gigId);
+    if (!hold) throw new Error('Cannot refund escrow before hold exists');
+    if (hold.status !== 'held') throw new Error(`Cannot refund escrow in status ${hold.status}`);
+    if (hold.amount !== input.amount) {
+      throw new Error('Escrow hold amount does not match refund amount');
+    }
+
+    const escrowPayable = await this.findOrCreateAccount('gig', input.gigId, 'escrow_payable');
+    const escrowCash = await this.findOrCreateAccount('system', 'heydo', 'escrow_cash');
+    const createdAt = new Date(this.now()).toISOString();
+    const transaction: LedgerTransaction = {
+      id: `txn_${this.id()}`,
+      type: 'escrow_refund',
+      gigId: input.gigId,
+      idempotencyKey,
+      status: 'posted',
+      createdAt,
+    };
+    const postings: LedgerPosting[] = [
+      {
+        id: `post_${this.id()}`,
+        transactionId: transaction.id,
+        accountId: escrowPayable.id,
+        direction: 'debit',
+        amount: input.amount,
+        currency: 'INR',
+      },
+      {
+        id: `post_${this.id()}`,
+        transactionId: transaction.id,
+        accountId: escrowCash.id,
+        direction: 'credit',
+        amount: input.amount,
+        currency: 'INR',
+      },
+    ];
+    await this.repo.saveTransaction(transaction, postings);
+
+    const refunded: EscrowHold = { ...hold, status: 'refunded' };
+    await this.repo.saveEscrowHold(refunded);
+    this.audit.record({
+      actorId: input.actorId,
+      actorRole: input.actorRole,
+      action: 'escrow.refunded',
+      targetType: 'gig',
+      targetId: input.gigId,
+      metadata: {
+        assignmentId: input.assignmentId,
+        transactionId: transaction.id,
+        amount: input.amount,
+      },
+    });
+    return { hold: refunded, transaction, postings };
   }
 
   private async findOrCreateAccount(

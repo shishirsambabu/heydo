@@ -89,6 +89,46 @@ describe('MoneyService', () => {
     ]);
     expect(audit.entries().filter((entry) => entry.action === 'escrow.released')).toHaveLength(1);
   });
+
+  it('refunds held escrow exactly once on cancellation', async () => {
+    const repo = new InMemoryMoneyRepository();
+    const audit = new AuditService();
+    let id = 0;
+    const money = new MoneyService(
+      repo,
+      audit,
+      () => Date.parse('2026-06-18T10:00:00.000Z'),
+      () => `fixed_${++id}`,
+    );
+
+    await money.createEscrowHold({
+      gigId: 'gig_1',
+      assignmentId: 'asg_1',
+      amount: 3200,
+      actorId: 'giver_1',
+    });
+    const first = await money.refundEscrow({
+      gigId: 'gig_1',
+      assignmentId: 'asg_1',
+      amount: 3200,
+      actorId: 'worker_1',
+      actorRole: 'worker',
+    });
+    const second = await money.refundEscrow({
+      gigId: 'gig_1',
+      assignmentId: 'asg_1',
+      amount: 3200,
+      actorId: 'worker_1',
+      actorRole: 'worker',
+    });
+
+    expect(second.transaction.id).toBe(first.transaction.id);
+    expect(first.hold.status).toBe('refunded');
+    expect(first.postings).toHaveLength(2);
+    expect(sum(first.postings, 'debit')).toBe(3200);
+    expect(sum(first.postings, 'credit')).toBe(3200);
+    expect(audit.entries().filter((entry) => entry.action === 'escrow.refunded')).toHaveLength(1);
+  });
 });
 
 function sum(postings: { direction: string; amount: number }[], direction: string) {
