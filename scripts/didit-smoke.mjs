@@ -1,8 +1,9 @@
 // Local Didit VKYC smoke helper.
 //
 // Usage:
-//   node scripts/didit-smoke.mjs start   # creates a worker + Didit session
-//   node scripts/didit-smoke.mjs result  # ingests Didit's final decision after completion
+//   node scripts/didit-smoke.mjs start            # creates a worker + Didit session
+//   node scripts/didit-smoke.mjs start giver      # creates a giver + Didit session
+//   node scripts/didit-smoke.mjs result           # ingests final decision for the saved session
 //
 // Prereq: backend running with VKYC_PROVIDER=didit and Didit env vars loaded.
 
@@ -40,7 +41,13 @@ async function requestJson(path, { method = 'GET', token, body } = {}) {
   return { ok: res.ok, status: res.status, payload };
 }
 
-async function start() {
+function roleFromArg(value) {
+  if (!value || value === 'worker') return 'worker';
+  if (value === 'giver') return 'giver';
+  throw new Error(`Unknown role '${value}'. Use 'worker' or 'giver'.`);
+}
+
+async function start(role = 'worker') {
   await request('/health');
   const phone = `+9190000${Math.floor(10000 + Math.random() * 89999)}`;
   const otp = await request('/auth/otp/request', {
@@ -57,20 +64,24 @@ async function start() {
   await request('/identity/role', {
     method: 'POST',
     token: login.token,
-    body: { role: 'worker', displayName: 'Didit Sandbox Worker' },
+    body: {
+      role,
+      displayName: role === 'giver' ? 'Didit Sandbox Giver' : 'Didit Sandbox Worker',
+    },
   });
   await request('/verification/consent', {
     method: 'POST',
     token: login.token,
     body: {},
   });
-  const session = await request('/verification/start', {
+  const session = await request(role === 'giver' ? '/verification/giver/start' : '/verification/start', {
     method: 'POST',
     token: login.token,
     body: { locale: 'ml' },
   });
 
   const state = {
+    role,
     phone,
     token: login.token,
     sessionId: session.sessionId,
@@ -81,6 +92,7 @@ async function start() {
   await writeFile(STATE_FILE, JSON.stringify(state, null, 2));
   console.log(JSON.stringify({
     status: 'created',
+    role,
     vendor: session.vendor,
     sessionId: session.sessionId,
     launchUrl: session.launchToken,
@@ -95,14 +107,19 @@ async function result() {
     token: state.token,
     body: { sessionId: state.sessionId },
   });
-  const status = await request('/verification/status', { token: state.token });
+  const status = await request(
+    state.role === 'giver' ? '/verification/giver/status' : '/verification/status',
+    { token: state.token },
+  );
   if (!decision.ok && decision.status === 409 && decision.payload.code === 'result_not_final') {
     console.log(JSON.stringify({
       status: 'waiting',
+      role: state.role ?? 'worker',
       sessionId: state.sessionId,
       reason: decision.payload.code,
       verificationStatus: status.status,
       canApply: status.canApply,
+      canPost: status.canPost,
     }, null, 2));
     return;
   }
@@ -111,13 +128,15 @@ async function result() {
   }
   console.log(JSON.stringify({
     status: 'ingested',
+    role: state.role ?? 'worker',
     sessionId: state.sessionId,
     verificationStatus: decision.payload.status,
     canApply: status.canApply,
+    canPost: status.canPost,
   }, null, 2));
 }
 
 const command = process.argv[2] ?? 'start';
-if (command === 'start') await start();
+if (command === 'start') await start(roleFromArg(process.argv[3]));
 else if (command === 'result') await result();
 else throw new Error(`Unknown command '${command}'. Use 'start' or 'result'.`);
