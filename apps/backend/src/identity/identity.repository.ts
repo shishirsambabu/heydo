@@ -7,7 +7,10 @@ import {
   VerificationStatus,
   WorkerProfile,
 } from './entities';
-import { WorkerVerificationSink } from '../verification/verification.service';
+import type {
+  IdentityVerificationSink,
+  VerificationSubjectRole,
+} from '../verification/verification.service';
 
 /**
  * In-memory identity stores for Phase 1. Same interfaces will back onto
@@ -35,7 +38,7 @@ export class UserRepository {
 }
 
 @Injectable()
-export class WorkerProfileRepository implements WorkerVerificationSink {
+export class WorkerProfileRepository {
   private readonly byUser = new Map<string, WorkerProfile>();
 
   async save(p: WorkerProfile): Promise<void> {
@@ -46,7 +49,6 @@ export class WorkerProfileRepository implements WorkerVerificationSink {
     return p ? { ...p } : null;
   }
 
-  /** WorkerVerificationSink: called by the verification service. */
   async setStatus(userId: string, status: VerificationStatus): Promise<void> {
     const p = this.byUser.get(userId);
     if (p) {
@@ -74,6 +76,43 @@ export class GiverProfileRepository {
       .map((p) => ({ ...p }))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
+
+  async setVerificationStatus(userId: string, status: GiverVerificationStatus): Promise<void> {
+    const p = this.byUser.get(userId);
+    if (p) {
+      p.verificationStatus = status;
+      p.verifiedAt = status === 'approved' ? new Date().toISOString() : p.verifiedAt;
+      this.byUser.set(userId, p);
+    }
+  }
+}
+
+@Injectable()
+export class IdentityVerificationStatusSink implements IdentityVerificationSink {
+  constructor(
+    private readonly workers: WorkerProfileRepository,
+    private readonly givers: GiverProfileRepository,
+  ) {}
+
+  async setStatus(
+    userId: string,
+    subjectRole: VerificationSubjectRole,
+    status: VerificationStatus,
+  ): Promise<void> {
+    if (subjectRole === 'worker') {
+      await this.workers.setStatus(userId, status);
+      return;
+    }
+    await this.givers.setVerificationStatus(userId, toGiverVerificationStatus(status));
+  }
+}
+
+function toGiverVerificationStatus(status: VerificationStatus): GiverVerificationStatus {
+  if (status === 'pending') return 'pending_review';
+  if (status === 'approved') return 'approved';
+  if (status === 'rejected') return 'rejected';
+  if (status === 'expired') return 'reverification_required';
+  return 'unverified';
 }
 
 export type { UserRole };

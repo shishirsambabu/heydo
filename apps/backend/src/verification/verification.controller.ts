@@ -38,7 +38,13 @@ export class VerificationController {
   /** Start a live VKYC session; returns the vendor launch token for the app. */
   @Post('start')
   start(@CurrentUser() p: AuthPrincipal, @Body() dto: StartDto) {
-    return this.verification.start(p.sub, dto.locale ?? 'ml');
+    return this.verification.start(p.sub, dto.locale ?? 'ml', 'worker');
+  }
+
+  /** Start the separate Didit giver workflow. Didit owns giver review. */
+  @Post('giver/start')
+  startGiver(@CurrentUser() p: AuthPrincipal, @Body() dto: StartDto) {
+    return this.verification.start(p.sub, dto.locale ?? 'ml', 'giver');
   }
 
   /** DEV/webhook: ingest the vendor's VKYC result for a session. */
@@ -64,5 +70,11 @@ export class VerificationController {
   @Get('status')
   status(@CurrentUser() p: AuthPrincipal) {
     return this.verification.statusFor(p.sub);
+  }
+
+  /** The giver's current verification status + post eligibility. */
+  @Get('giver/status')
+  giverStatus(@CurrentUser() p: AuthPrincipal) {
+    return this.verification.statusFor(p.sub, 'giver');
   }
 }

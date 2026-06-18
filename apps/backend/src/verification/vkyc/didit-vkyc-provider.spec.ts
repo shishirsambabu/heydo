@@ -37,7 +37,7 @@ describe('DiditVkycProvider', () => {
       },
     );
 
-    const session = await provider.start({ userId: 'usr_1', locale: 'ml' });
+    const session = await provider.start({ userId: 'usr_1', locale: 'ml', subjectRole: 'worker' });
 
     expect(session).toEqual({
       sessionId: 'didit_sess_1',
@@ -51,6 +51,28 @@ describe('DiditVkycProvider', () => {
       vendor_data: 'usr_1',
       callback_method: 'both',
       language: 'en',
+    });
+  });
+
+  it('uses the separate giver workflow when starting giver verification', async () => {
+    const calls: FetchCall[] = [];
+    const provider = new DiditVkycProvider(
+      {
+        apiKey: 'didit_secret',
+        workflowId: 'worker_wf',
+        giverWorkflowId: 'giver_wf',
+      },
+      async (input, init) => {
+        calls.push({ input, init });
+        return okJson({ session_id: 'giver_sess', url: 'https://verify.didit.me/session/giver' });
+      },
+    );
+
+    await provider.start({ userId: 'giver_1', locale: 'en', subjectRole: 'giver' });
+
+    expect(JSON.parse(calls[0].init.body ?? '{}')).toMatchObject({
+      workflow_id: 'giver_wf',
+      vendor_data: 'giver_1',
     });
   });
 

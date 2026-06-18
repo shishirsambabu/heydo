@@ -9,7 +9,7 @@ export interface VerificationRepository {
   findById(id: string): Promise<Verification | null>;
   findBySession(sessionId: string): Promise<Verification | null>;
   /** Latest verification for a user, by createdAt. */
-  findLatestForUser(userId: string): Promise<Verification | null>;
+  findLatestForUser(userId: string, subjectRole?: Verification['subjectRole']): Promise<Verification | null>;
   /** Verifications awaiting officer review (vendor result in, status pending). */
   listPendingReview(): Promise<Verification[]>;
 }
@@ -38,15 +38,18 @@ export class InMemoryVerificationRepository implements VerificationRepository {
     }
     return null;
   }
-  async findLatestForUser(userId: string): Promise<Verification | null> {
+  async findLatestForUser(
+    userId: string,
+    subjectRole?: Verification['subjectRole'],
+  ): Promise<Verification | null> {
     const mine = [...this.items.values()]
-      .filter((v) => v.userId === userId)
+      .filter((v) => v.userId === userId && (!subjectRole || v.subjectRole === subjectRole))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return mine.length ? { ...mine[0] } : null;
   }
   async listPendingReview(): Promise<Verification[]> {
     return [...this.items.values()]
-      .filter((v) => v.status === 'pending' && v.vendorResultAt != null)
+      .filter((v) => v.subjectRole === 'worker' && v.status === 'pending' && v.vendorResultAt != null)
       .map((v) => ({ ...v }))
       .sort((a, b) => (a.vendorResultAt ?? '').localeCompare(b.vendorResultAt ?? ''));
   }

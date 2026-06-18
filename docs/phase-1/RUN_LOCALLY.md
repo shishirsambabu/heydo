@@ -112,6 +112,14 @@ In Didit Business Console → API & Webhooks, create a destination with:
 
 The backend verifies `X-Signature-V2` first and falls back to `X-Signature-Simple`. Simple signatures only authenticate the envelope, so the backend re-fetches the final decision from Didit before changing verification state.
 
+For gig givers/posters, create a separate Didit workflow and store it as:
+
+```env
+DIDIT_GIVER_WORKFLOW_ID=your-giver-workflow-id
+```
+
+Heydo does not run a separate admin review queue for giver identity. Didit is the review surface; Heydo ingests the final webhook/result and only allows posting when the giver verification is approved.
+
 ---
 
 ## Troubleshooting

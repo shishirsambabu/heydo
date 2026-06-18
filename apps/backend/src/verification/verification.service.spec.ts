@@ -6,15 +6,20 @@ import {
   InMemoryVerificationRepository,
 } from './verification.repository';
 import {
+  IdentityVerificationSink,
   VerificationService,
-  WorkerVerificationSink,
+  VerificationSubjectRole,
 } from './verification.service';
 import { MockVkycProvider } from './vkyc/mock-vkyc-provider';
 
-class FakeSink implements WorkerVerificationSink {
+class FakeSink implements IdentityVerificationSink {
   status = new Map<string, VerificationStatus>();
-  async setStatus(userId: string, status: VerificationStatus): Promise<void> {
-    this.status.set(userId, status);
+  async setStatus(
+    userId: string,
+    subjectRole: VerificationSubjectRole,
+    status: VerificationStatus,
+  ): Promise<void> {
+    this.status.set(`${subjectRole}:${userId}`, status);
   }
 }
 
@@ -40,7 +45,7 @@ describe('VerificationService — VKYC trust gate', () => {
     await svc.recordConsent('u1', 'vkyc');
 
     const session = await svc.start('u1', 'ml');
-    expect(sink.status.get('u1')).toBe('pending');
+    expect(sink.status.get('worker:u1')).toBe('pending');
 
     const afterResult = await svc.handleVendorResult(session.sessionId);
     expect(afterResult.status).toBe('pending'); // awaits officer review
@@ -54,8 +59,27 @@ describe('VerificationService — VKYC trust gate', () => {
     const approved = await svc.approve(queue[0].id, 'officer-7');
     expect(approved.status).toBe('approved');
     expect(approved.reviewedBy).toBe('officer-7');
-    expect(sink.status.get('u1')).toBe('approved');
+    expect(sink.status.get('worker:u1')).toBe('approved');
     expect(await svc.canApply('u1')).toBe(true);
+    expect(await svc.canPost('u1')).toBe(false);
+  });
+
+  it('uses Didit final approval to verify givers without a Heydo admin review', async () => {
+    const { svc, sink } = build();
+    await svc.recordConsent('giver_1', 'vkyc');
+
+    const session = await svc.start('giver_1', 'ml', 'giver');
+    expect(sink.status.get('giver:giver_1')).toBe('pending');
+
+    const approved = await svc.handleVendorResult(session.sessionId);
+    expect(approved.status).toBe('approved');
+    expect(approved.reviewedBy).toBe('didit');
+    expect(sink.status.get('giver:giver_1')).toBe('approved');
+    expect(await svc.canPost('giver_1')).toBe(true);
+
+    await expect(svc.approve(approved.id, 'heydo-admin')).rejects.toMatchObject({
+      code: 'invalid_state',
+    });
   });
 
   it('NEVER stores the raw Aadhaar token on the record or in the audit log', async () => {
@@ -124,6 +148,6 @@ describe('VerificationService — VKYC trust gate', () => {
     // advance > 365 days
     t += 366 * 24 * 3600 * 1000;
     expect(await svc.canApply('u6')).toBe(false);
-    expect(sink.status.get('u6')).toBe('approved'); // status persists; eligibility expires
+    expect(sink.status.get('worker:u6')).toBe('approved'); // status persists; eligibility expires
   });
 });

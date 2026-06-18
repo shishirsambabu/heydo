@@ -77,6 +77,7 @@ CREATE INDEX IF NOT EXISTS "GiverProfile_verificationStatus_idx"
 CREATE TABLE IF NOT EXISTS "Verification" (
   id text PRIMARY KEY,
   "userId" text NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  "subjectRole" text NOT NULL DEFAULT 'worker',
   vendor text NOT NULL,
   "sessionId" text NOT NULL UNIQUE,
   status text NOT NULL DEFAULT 'pending',
@@ -92,13 +93,28 @@ CREATE TABLE IF NOT EXISTS "Verification" (
   "expiresAt" timestamptz,
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT "Verification_status_check"
-    CHECK (status IN ('unverified', 'pending', 'approved', 'rejected', 'expired'))
+    CHECK (status IN ('unverified', 'pending', 'approved', 'rejected', 'expired')),
+  CONSTRAINT "Verification_subjectRole_check"
+    CHECK ("subjectRole" IN ('worker', 'giver'))
 );
 
+ALTER TABLE "Verification" ADD COLUMN IF NOT EXISTS "subjectRole" text NOT NULL DEFAULT 'worker';
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'Verification_subjectRole_check'
+  ) THEN
+    ALTER TABLE "Verification"
+      ADD CONSTRAINT "Verification_subjectRole_check"
+      CHECK ("subjectRole" IN ('worker', 'giver'));
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS "Verification_status_vendorResultAt_idx"
   ON "Verification"(status, "vendorResultAt");
 CREATE INDEX IF NOT EXISTS "Verification_userId_idx"
   ON "Verification"("userId");
+CREATE INDEX IF NOT EXISTS "Verification_userId_subjectRole_idx"
+  ON "Verification"("userId", "subjectRole");
 
 CREATE TABLE IF NOT EXISTS "Consent" (
   id text PRIMARY KEY,

@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IdentityService } from './identity.service';
 import { IdentityController } from './identity.controller';
-import { AdminGiverVerificationController } from './admin-giver-verification.controller';
 import { SecurityModule } from '../auth/security.module';
 import {
   GiverProfileRepository,
+  IdentityVerificationStatusSink,
   UserRepository,
   WorkerProfileRepository,
 } from './identity.repository';
@@ -24,7 +24,7 @@ import {
  */
 @Module({
   imports: [SecurityModule, DatabaseModule],
-  controllers: [IdentityController, AdminGiverVerificationController],
+  controllers: [IdentityController],
   providers: [
     IdentityService,
     {
@@ -52,12 +52,14 @@ import {
     PostgresUserRepository,
     PostgresWorkerProfileRepository,
     PostgresGiverProfileRepository,
+    IdentityVerificationStatusSink,
   ],
   exports: [
     IdentityService,
     UserRepository,
     WorkerProfileRepository,
     GiverProfileRepository,
+    IdentityVerificationStatusSink,
   ],
 })
 export class IdentityModule {}

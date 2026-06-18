@@ -4,8 +4,8 @@ Date: 2026-06-17
 
 Decision:
 - Do not begin broad Phase 2 marketplace expansion until gig posters are held to the same trust standard as workers.
-- Givers must complete KYC before posting live gigs. Required evidence is represented as vault references and coarse labels only: selfie/liveness session, address evidence reference, and location evidence label.
-- Admin ops must have a queue to approve, reject, or require re-verification for givers.
+- Givers must complete KYC before posting live gigs. Giver KYC uses a separate Didit workflow (`DIDIT_GIVER_WORKFLOW_ID`) and Didit is the review surface for identity decisions.
+- Heydo must not maintain a separate admin queue for approving giver identity. Heydo ingests Didit's final webhook/result and syncs the giver profile status.
 - Gigs should not automatically go live when the giver is unverified, the description is vague, the request looks unsafe, or the budget is outside category guardrails.
 - Worker counteroffers are part of fairness. Workers may propose a higher price in their application.
 - Do not charge workers tokens merely to ask for a fair rate. Future tokens may be used for optional boosts or premium proposal visibility only, after free fair-pay correction is protected.

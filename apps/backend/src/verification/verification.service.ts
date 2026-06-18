@@ -14,8 +14,14 @@ import {
 } from './vkyc/vkyc-provider';
 
 /** Port: lets verification keep a worker's profile status in sync. */
-export interface WorkerVerificationSink {
-  setStatus(userId: string, status: VerificationStatus): Promise<void>;
+export type VerificationSubjectRole = 'worker' | 'giver';
+
+export interface IdentityVerificationSink {
+  setStatus(
+    userId: string,
+    subjectRole: VerificationSubjectRole,
+    status: VerificationStatus,
+  ): Promise<void>;
 }
 
 export class VerificationError extends Error {
@@ -40,7 +46,7 @@ export class VerificationService {
     private readonly vkyc: VkycProvider,
     private readonly vault: PiiVault,
     private readonly audit: AuditService,
-    private readonly sink: WorkerVerificationSink,
+    private readonly sink: IdentityVerificationSink,
     private readonly now: () => number = () => Date.now(),
     private readonly id: () => string = () => `ver_${randomBytes(10).toString('hex')}`,
   ) {}
@@ -57,7 +63,7 @@ export class VerificationService {
     await this.consents.save(consent);
     this.audit.record({
       actorId: userId,
-      actorRole: 'worker',
+      actorRole: 'user',
       action: 'consent.granted',
       targetType: 'consent',
       targetId: consent.id,
@@ -67,29 +73,34 @@ export class VerificationService {
   }
 
   /** Start a live VKYC session. Requires prior 'vkyc' consent. */
-  async start(userId: string, locale: string): Promise<VkycSession> {
+  async start(
+    userId: string,
+    locale: string,
+    subjectRole: VerificationSubjectRole = 'worker',
+  ): Promise<VkycSession> {
     const consent = await this.consents.find(userId, 'vkyc');
     if (!consent) {
       throw new VerificationError('VKYC consent required', 'consent_required');
     }
-    const session = await this.vkyc.start({ userId, locale });
+    const session = await this.vkyc.start({ userId, locale, subjectRole });
     const verification: Verification = {
       id: this.id(),
       userId,
+      subjectRole,
       vendor: session.vendor,
       sessionId: session.sessionId,
       status: 'pending',
       createdAt: new Date(this.now()).toISOString(),
     };
     await this.verifications.save(verification);
-    await this.sink.setStatus(userId, 'pending');
+    await this.sink.setStatus(userId, subjectRole, 'pending');
     this.audit.record({
       actorId: userId,
-      actorRole: 'worker',
-      action: 'vkyc.started',
+      actorRole: subjectRole,
+      action: `${subjectRole}.vkyc.started`,
       targetType: 'verification',
       targetId: verification.id,
-      metadata: { vendor: session.vendor },
+      metadata: { vendor: session.vendor, subjectRole },
     });
     return session;
   }
@@ -117,6 +128,11 @@ export class VerificationService {
       !result.livenessPassed ||
       !result.aadhaarMatch ||
       result.faceMatchScore < FACE_MATCH_THRESHOLD;
+    const diditApprovedGiver = !hardFail && verification.subjectRole === 'giver';
+    const decisionAt = new Date(this.now()).toISOString();
+    const expiresAt = new Date(
+      this.now() + VERIFICATION_VALIDITY_DAYS * 24 * 3600 * 1000,
+    ).toISOString();
 
     const updated: Verification = {
       ...verification,
@@ -126,19 +142,23 @@ export class VerificationService {
       vendorResultAt: new Date(this.now()).toISOString(),
       aadhaarVaultRef,
       mediaVaultRef,
-      status: hardFail ? 'rejected' : 'pending',
+      status: hardFail ? 'rejected' : diditApprovedGiver ? 'approved' : 'pending',
       decisionReason: hardFail ? 'auto_rejected_signals' : undefined,
-      decisionAt: hardFail ? new Date(this.now()).toISOString() : undefined,
+      decisionAt: hardFail || diditApprovedGiver ? decisionAt : undefined,
+      reviewedBy: diditApprovedGiver ? 'didit' : undefined,
+      expiresAt: diditApprovedGiver ? expiresAt : undefined,
     };
     await this.verifications.save(updated);
 
-    if (hardFail) {
-      await this.sink.setStatus(verification.userId, 'rejected');
-    }
+    await this.sink.setStatus(verification.userId, verification.subjectRole, updated.status);
     this.audit.record({
       actorId: 'system',
       actorRole: 'system',
-      action: hardFail ? 'vkyc.auto_rejected' : 'vkyc.result_received',
+      action: hardFail
+        ? `${verification.subjectRole}.vkyc.auto_rejected`
+        : verification.subjectRole === 'giver'
+          ? 'giver.vkyc.approved_by_didit'
+          : 'worker.vkyc.result_received',
       targetType: 'verification',
       targetId: verification.id,
       // NOTE: signals only — no aadhaar token/media in the audit metadata.
@@ -146,6 +166,7 @@ export class VerificationService {
         livenessPassed: result.livenessPassed,
         aadhaarMatch: result.aadhaarMatch,
         faceMatchScore: result.faceMatchScore,
+        subjectRole: verification.subjectRole,
       },
     });
     return updated;
@@ -166,11 +187,11 @@ export class VerificationService {
       expiresAt,
     };
     await this.verifications.save(approved);
-    await this.sink.setStatus(v.userId, 'approved');
+    await this.sink.setStatus(v.userId, v.subjectRole, 'approved');
     this.audit.record({
       actorId: officerId,
       actorRole: 'verification_officer',
-      action: 'vkyc.approved',
+      action: `${v.subjectRole}.vkyc.approved`,
       targetType: 'verification',
       targetId: v.id,
     });
@@ -192,11 +213,11 @@ export class VerificationService {
       decisionAt: new Date(this.now()).toISOString(),
     };
     await this.verifications.save(rejected);
-    await this.sink.setStatus(v.userId, 'rejected');
+    await this.sink.setStatus(v.userId, v.subjectRole, 'rejected');
     this.audit.record({
       actorId: officerId,
       actorRole: 'verification_officer',
-      action: 'vkyc.rejected',
+      action: `${v.subjectRole}.vkyc.rejected`,
       targetType: 'verification',
       targetId: v.id,
       metadata: { reason },
@@ -210,11 +231,15 @@ export class VerificationService {
   }
 
   /** Worker-facing: their current verification status + apply eligibility. */
-  async statusFor(userId: string): Promise<{ status: VerificationStatus; canApply: boolean }> {
-    const v = await this.verifications.findLatestForUser(userId);
+  async statusFor(
+    userId: string,
+    subjectRole: VerificationSubjectRole = 'worker',
+  ): Promise<{ status: VerificationStatus; canApply: boolean; canPost: boolean }> {
+    const v = await this.verifications.findLatestForUser(userId, subjectRole);
     return {
       status: v?.status ?? 'unverified',
       canApply: await this.canApply(userId),
+      canPost: await this.canPost(userId),
     };
   }
 
@@ -223,7 +248,14 @@ export class VerificationService {
    * Only an approved, unexpired verification qualifies. Used by Phase 2.
    */
   async canApply(userId: string): Promise<boolean> {
-    const v = await this.verifications.findLatestForUser(userId);
+    const v = await this.verifications.findLatestForUser(userId, 'worker');
+    if (!v || v.status !== 'approved') return false;
+    if (v.expiresAt && this.now() > Date.parse(v.expiresAt)) return false;
+    return true;
+  }
+
+  async canPost(userId: string): Promise<boolean> {
+    const v = await this.verifications.findLatestForUser(userId, 'giver');
     if (!v || v.status !== 'approved') return false;
     if (v.expiresAt && this.now() > Date.parse(v.expiresAt)) return false;
     return true;
@@ -237,6 +269,9 @@ export class VerificationService {
         `Cannot decide a verification in status '${v.status}'`,
         'invalid_state',
       );
+    }
+    if (v.subjectRole === 'giver') {
+      throw new VerificationError('Giver decisions are reviewed in Didit', 'external_review_only');
     }
     if (!v.vendorResultAt) {
       throw new VerificationError('Vendor result not yet received', 'no_vendor_result');

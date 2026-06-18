@@ -46,22 +46,6 @@ export interface PendingVerification {
   // NOTE: aadhaarToken / media are NEVER in this payload — PII stays in the vault.
 }
 
-export interface GiverVerification {
-  userId: string;
-  displayName: string;
-  defaultLocationLabel?: string;
-  status: string;
-  verificationStatus: string;
-  locationEvidenceLabel?: string;
-  addressEvidenceVaultRef?: string;
-  selfieLivenessSessionId?: string;
-  verificationNotes?: string;
-  verifiedBy?: string;
-  verifiedAt?: string;
-  reverificationReason?: string;
-  createdAt: string;
-}
-
 export interface AdminGig {
   id: string;
   giverId: string;
@@ -122,24 +106,6 @@ export function reject(id: string, reason: string) {
   return authed(`/admin/verifications/${id}/reject`, {
     method: 'POST',
     body: JSON.stringify({ reason }),
-  });
-}
-
-// --- Giver KYC queue ---
-export function listGiverVerifications(status = 'pending_review'): Promise<GiverVerification[]> {
-  return authed(`/admin/givers/verifications?status=${encodeURIComponent(status)}`) as Promise<
-    GiverVerification[]
-  >;
-}
-
-export function reviewGiverVerification(
-  userId: string,
-  decision: 'approve' | 'reject' | 'require_reverification',
-  notes: string,
-) {
-  return authed(`/admin/givers/${userId}/verification-review`, {
-    method: 'POST',
-    body: JSON.stringify({ decision, notes }),
   });
 }
 

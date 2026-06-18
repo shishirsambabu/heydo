@@ -12,6 +12,7 @@
 
 export interface VkycStartRequest {
   userId: string;
+  subjectRole: 'worker' | 'giver';
   /** Preferred guidance language for the live call (Malayalam-first). */
   locale: string;
 }

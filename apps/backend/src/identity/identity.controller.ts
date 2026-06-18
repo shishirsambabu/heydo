@@ -1,17 +1,9 @@
 import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
-import { IsString, MinLength } from 'class-validator';
 import { IdentityService } from './identity.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators';
 import { AuthPrincipal } from '../auth/auth.types';
 import { SelectRoleDto, UpdateWorkerProfileDto } from '../auth/dto';
-
-class SubmitGiverVerificationDto {
-  @IsString() @MinLength(2) defaultLocationLabel!: string;
-  @IsString() @MinLength(2) locationEvidenceLabel!: string;
-  @IsString() @MinLength(3) addressEvidenceVaultRef!: string;
-  @IsString() @MinLength(3) selfieLivenessSessionId!: string;
-}
 
 @Controller('identity')
 @UseGuards(JwtAuthGuard)
@@ -37,13 +29,5 @@ export class IdentityController {
   @Patch('worker-profile')
   updateWorker(@CurrentUser() principal: AuthPrincipal, @Body() dto: UpdateWorkerProfileDto) {
     return this.identity.updateWorkerProfile(principal.sub, dto);
-  }
-
-  @Post('giver-verification')
-  submitGiverVerification(
-    @CurrentUser() principal: AuthPrincipal,
-    @Body() dto: SubmitGiverVerificationDto,
-  ) {
-    return this.identity.submitGiverVerification(principal.sub, dto);
   }
 }

@@ -9,22 +9,18 @@ import {
   clearSession,
   getOfficerName,
   getToken,
-  GiverVerification,
-  listGiverVerifications,
   listOpenSafetyReports,
   listReviewGigs,
   moderateGig,
-  reviewGiverVerification,
   reviewSafetyReport,
   SafetyReport,
 } from '../../lib/api';
 
-type QueueTab = 'givers' | 'gigs' | 'reports';
+type QueueTab = 'gigs' | 'reports';
 
 export default function MarketplaceSafetyPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<QueueTab>('givers');
-  const [givers, setGivers] = useState<GiverVerification[]>([]);
+  const [tab, setTab] = useState<QueueTab>('gigs');
   const [gigs, setGigs] = useState<AdminGig[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,23 +29,20 @@ export default function MarketplaceSafetyPage() {
 
   const counts = useMemo(
     () => ({
-      givers: givers.length,
       gigs: gigs.length,
       reports: reports.length,
     }),
-    [givers.length, gigs.length, reports.length],
+    [gigs.length, reports.length],
   );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [giverItems, gigItems, reportItems] = await Promise.all([
-        listGiverVerifications(),
+      const [gigItems, reportItems] = await Promise.all([
         listReviewGigs(),
         listOpenSafetyReports(),
       ]);
-      setGivers(giverItems);
       setGigs(gigItems);
       setReports(reportItems);
     } catch (e) {
@@ -70,20 +63,6 @@ export default function MarketplaceSafetyPage() {
   function signOut() {
     clearSession();
     router.replace('/login');
-  }
-
-  async function onGiver(userId: string, decision: 'approve' | 'reject' | 'require_reverification') {
-    const notes = window.prompt('Review notes?');
-    if (!notes) return;
-    setActingId(userId);
-    try {
-      await reviewGiverVerification(userId, decision, notes);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Giver review failed');
-    } finally {
-      setActingId(null);
-    }
   }
 
   async function onGig(gigId: string, decision: 'approve' | 'reject' | 'flag') {
@@ -121,7 +100,7 @@ export default function MarketplaceSafetyPage() {
         <div>
           <h1 className="page-title">Marketplace Safety</h1>
           <p className="page-sub">
-            Signed in as {getOfficerName()} - approve givers, review gigs, and handle safety reports.
+            Signed in as {getOfficerName()} - review gigs and safety reports. Giver identity review happens in Didit.
           </p>
         </div>
         <div className="actions">
@@ -138,9 +117,6 @@ export default function MarketplaceSafetyPage() {
       </div>
 
       <div className="tabs">
-        <button className={tab === 'givers' ? 'active' : ''} onClick={() => setTab('givers')}>
-          Giver KYC <span>{counts.givers}</span>
-        </button>
         <button className={tab === 'gigs' ? 'active' : ''} onClick={() => setTab('gigs')}>
           Gig review <span>{counts.gigs}</span>
         </button>
@@ -151,45 +127,6 @@ export default function MarketplaceSafetyPage() {
 
       {loading && <div className="empty">Loading...</div>}
       {error && <div className="error">{error}</div>}
-
-      {!loading && tab === 'givers' && (
-        <Queue
-          empty="No giver KYC submissions are waiting."
-          items={givers.map((giver) => (
-            <div className="card" key={giver.userId}>
-              <div className="row align-start">
-                <div>
-                  <div className="label">Giver</div>
-                  <div className="display compact">{giver.displayName}</div>
-                  <div className="muted">
-                    {giver.userId} - {giver.defaultLocationLabel ?? 'location not set'}
-                  </div>
-                  <div className="signals">
-                    <span className="signal">Status <b>{giver.verificationStatus}</b></span>
-                    <span className="signal">Location <b>{giver.locationEvidenceLabel ?? '-'}</b></span>
-                    <span className="signal">Address ref <b>{maskRef(giver.addressEvidenceVaultRef)}</b></span>
-                    <span className="signal">Liveness <b>{maskRef(giver.selfieLivenessSessionId)}</b></span>
-                  </div>
-                  <div className="muted">
-                    Selfie, address media, and exact evidence stay in the vault.
-                  </div>
-                </div>
-                <div className="actions">
-                  <button className="btn btn-primary" disabled={actingId === giver.userId} onClick={() => void onGiver(giver.userId, 'approve')}>
-                    Approve
-                  </button>
-                  <button className="btn btn-outline" disabled={actingId === giver.userId} onClick={() => void onGiver(giver.userId, 'require_reverification')}>
-                    Recheck
-                  </button>
-                  <button className="btn btn-danger" disabled={actingId === giver.userId} onClick={() => void onGiver(giver.userId, 'reject')}>
-                    Reject
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        />
-      )}
 
       {!loading && tab === 'gigs' && (
         <Queue
@@ -271,10 +208,4 @@ export default function MarketplaceSafetyPage() {
 function Queue({ empty, items }: { empty: string; items: ReactNode[] }) {
   if (items.length === 0) return <div className="card empty">{empty}</div>;
   return <>{items}</>;
-}
-
-function maskRef(value?: string) {
-  if (!value) return '-';
-  if (value.length <= 8) return value;
-  return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }

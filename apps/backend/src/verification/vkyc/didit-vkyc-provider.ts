@@ -9,6 +9,7 @@ import {
 interface DiditProviderConfig {
   apiKey: string;
   workflowId: string;
+  giverWorkflowId?: string;
   baseUrl?: string;
   callbackUrl?: string;
   languageFallback?: string;
@@ -137,7 +138,7 @@ export class DiditVkycProvider implements VkycProvider {
     const res = await this.request<DiditSessionResponse>('/session/', {
       method: 'POST',
       body: JSON.stringify({
-        workflow_id: this.config.workflowId,
+        workflow_id: this.workflowIdFor(req.subjectRole),
         vendor_data: req.userId,
         callback: this.config.callbackUrl,
         callback_method: this.config.callbackUrl ? 'both' : undefined,
@@ -189,6 +190,11 @@ export class DiditVkycProvider implements VkycProvider {
     const base = normalized.split('-')[0];
     if (DIDIT_SUPPORTED_LANGUAGES.has(base)) return base;
     return this.languageFallback;
+  }
+
+  private workflowIdFor(subjectRole: VkycStartRequest['subjectRole']): string {
+    if (subjectRole === 'giver') return this.config.giverWorkflowId ?? this.config.workflowId;
+    return this.config.workflowId;
   }
 
   private async request<T>(path: string, init: { method: string; body?: string }): Promise<T> {

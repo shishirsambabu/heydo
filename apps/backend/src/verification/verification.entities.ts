@@ -9,6 +9,7 @@ import { VerificationStatus } from '../identity/entities';
 export interface Verification {
   id: string;
   userId: string;
+  subjectRole: 'worker' | 'giver';
   vendor: string;
   sessionId: string;
   status: VerificationStatus; // unverified | pending | approved | rejected | expired

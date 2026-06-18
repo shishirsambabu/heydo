@@ -24,7 +24,7 @@ import { PII_VAULT, PiiVault } from '../common/pii/pii-vault';
 import { AuditService } from '../common/audit/audit.service';
 import { SecurityModule } from '../auth/security.module';
 import { IdentityModule } from '../identity/identity.module';
-import { WorkerProfileRepository } from '../identity/identity.repository';
+import { IdentityVerificationStatusSink } from '../identity/identity.repository';
 
 /**
  * Verification (VKYC) module. Phase 1 binds in-memory repositories and the mock
@@ -63,6 +63,7 @@ import { WorkerProfileRepository } from '../identity/identity.repository';
           return new DiditVkycProvider({
             apiKey: config.get<string>('DIDIT_API_KEY') ?? '',
             workflowId: config.get<string>('DIDIT_WORKFLOW_ID') ?? '',
+            giverWorkflowId: config.get<string>('DIDIT_GIVER_WORKFLOW_ID'),
             baseUrl: config.get<string>('DIDIT_BASE_URL'),
             callbackUrl: config.get<string>('DIDIT_CALLBACK_URL'),
             languageFallback: config.get<string>('DIDIT_LANGUAGE_FALLBACK') ?? 'en',
@@ -79,7 +80,7 @@ import { WorkerProfileRepository } from '../identity/identity.repository';
         VKYC_PROVIDER,
         PII_VAULT,
         AuditService,
-        WorkerProfileRepository,
+        IdentityVerificationStatusSink,
       ],
       useFactory: (
         verifications: VerificationRepository,
@@ -87,7 +88,7 @@ import { WorkerProfileRepository } from '../identity/identity.repository';
         vkyc: VkycProvider,
         vault: PiiVault,
         audit: AuditService,
-        sink: WorkerProfileRepository,
+        sink: IdentityVerificationStatusSink,
       ) => new VerificationService(verifications, consents, vkyc, vault, audit, sink),
     },
   ],

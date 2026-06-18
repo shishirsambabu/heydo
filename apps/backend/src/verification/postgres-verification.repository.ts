@@ -7,6 +7,7 @@ import { VerificationStatus } from '../identity/entities';
 interface VerificationRow {
   id: string;
   userId: string;
+  subjectRole: Verification['subjectRole'];
   vendor: string;
   sessionId: string;
   status: VerificationStatus;
@@ -39,11 +40,12 @@ export class PostgresVerificationRepository implements VerificationRepository {
   async save(v: Verification): Promise<void> {
     await this.pg.query(
       `INSERT INTO "Verification"
-        (id, "userId", vendor, "sessionId", status, "livenessPassed", "aadhaarMatch",
+        (id, "userId", "subjectRole", vendor, "sessionId", status, "livenessPassed", "aadhaarMatch",
          "faceMatchScore", "vendorResultAt", "aadhaarVaultRef", "mediaVaultRef",
          "reviewedBy", "decisionReason", "decisionAt", "expiresAt", "createdAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        ON CONFLICT (id) DO UPDATE SET
+         "subjectRole" = EXCLUDED."subjectRole",
          status = EXCLUDED.status,
          "livenessPassed" = EXCLUDED."livenessPassed",
          "aadhaarMatch" = EXCLUDED."aadhaarMatch",
@@ -58,6 +60,7 @@ export class PostgresVerificationRepository implements VerificationRepository {
       [
         v.id,
         v.userId,
+        v.subjectRole,
         v.vendor,
         v.sessionId,
         v.status,
@@ -92,10 +95,15 @@ export class PostgresVerificationRepository implements VerificationRepository {
     return row ? toVerification(row) : null;
   }
 
-  async findLatestForUser(userId: string): Promise<Verification | null> {
+  async findLatestForUser(
+    userId: string,
+    subjectRole?: Verification['subjectRole'],
+  ): Promise<Verification | null> {
     const [row] = await this.pg.query<VerificationRow>(
-      `${selectVerification()} WHERE "userId" = $1 ORDER BY "createdAt" DESC LIMIT 1`,
-      [userId],
+      `${selectVerification()}
+       WHERE "userId" = $1 AND ($2::text IS NULL OR "subjectRole" = $2)
+       ORDER BY "createdAt" DESC LIMIT 1`,
+      [userId, subjectRole ?? null],
     );
     return row ? toVerification(row) : null;
   }
@@ -103,7 +111,7 @@ export class PostgresVerificationRepository implements VerificationRepository {
   async listPendingReview(): Promise<Verification[]> {
     const rows = await this.pg.query<VerificationRow>(
       `${selectVerification()}
-       WHERE status = 'pending' AND "vendorResultAt" IS NOT NULL
+       WHERE "subjectRole" = 'worker' AND status = 'pending' AND "vendorResultAt" IS NOT NULL
        ORDER BY "vendorResultAt" ASC`,
     );
     return rows.map(toVerification);
@@ -138,7 +146,7 @@ export class PostgresConsentRepository implements ConsentRepository {
 }
 
 function selectVerification(): string {
-  return `SELECT id, "userId", vendor, "sessionId", status, "livenessPassed",
+  return `SELECT id, "userId", "subjectRole", vendor, "sessionId", status, "livenessPassed",
                  "aadhaarMatch", "faceMatchScore", "vendorResultAt", "aadhaarVaultRef",
                  "mediaVaultRef", "reviewedBy", "decisionReason", "decisionAt",
                  "expiresAt", "createdAt"
@@ -149,6 +157,7 @@ function toVerification(row: VerificationRow): Verification {
   return {
     id: row.id,
     userId: row.userId,
+    subjectRole: row.subjectRole,
     vendor: row.vendor,
     sessionId: row.sessionId,
     status: row.status,

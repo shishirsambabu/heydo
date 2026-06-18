@@ -8,7 +8,6 @@ import {
   VerificationStatus,
   WorkerProfile,
 } from './entities';
-import { WorkerVerificationSink } from '../verification/verification.service';
 
 interface UserRow {
   id: string;
@@ -84,7 +83,7 @@ export class PostgresUserRepository {
 }
 
 @Injectable()
-export class PostgresWorkerProfileRepository implements WorkerVerificationSink {
+export class PostgresWorkerProfileRepository {
   constructor(private readonly pg: PgService) {}
 
   async save(p: WorkerProfile): Promise<void> {
@@ -200,6 +199,16 @@ export class PostgresGiverProfileRepository {
       [status ?? null],
     );
     return rows.map(toGiver);
+  }
+
+  async setVerificationStatus(userId: string, status: GiverVerificationStatus): Promise<void> {
+    await this.pg.query(
+      `UPDATE "GiverProfile"
+       SET "verificationStatus" = $2,
+           "verifiedAt" = CASE WHEN $2 = 'approved' THEN now() ELSE "verifiedAt" END
+       WHERE "userId" = $1`,
+      [userId, status],
+    );
   }
 }
 
