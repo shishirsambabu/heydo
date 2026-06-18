@@ -1,7 +1,7 @@
 import { AuditService } from './audit.service';
 
 describe('AuditService', () => {
-  it('returns a scoped copy of matching audit records', () => {
+  it('returns a scoped copy of matching audit records', async () => {
     const audit = new AuditService();
     audit.record({
       actorId: 'giver_1',
@@ -28,14 +28,14 @@ describe('AuditService', () => {
       metadata: { gigId: 'gig_2' },
     });
 
-    const gigRecords = audit.list({ metadata: { gigId: 'gig_1' } });
+    const gigRecords = await audit.list({ metadata: { gigId: 'gig_1' } });
     expect(gigRecords.map((entry) => entry.action)).toEqual([
       'gig.posted',
       'safety.dispute_release_to_worker',
     ]);
 
     gigRecords[0].metadata = { changed: true };
-    expect(audit.list({ targetType: 'gig', targetId: 'gig_1' })[0].metadata).toEqual({
+    expect((await audit.list({ targetType: 'gig', targetId: 'gig_1' }))[0].metadata).toEqual({
       gigId: 'gig_1',
     });
   });

@@ -63,14 +63,13 @@ export class AdminMarketplaceController {
   }
 
   @Get('gigs/:gigId/audit-trail')
-  gigAuditTrail(@Param('gigId') gigId: string) {
-    return this.audit
-      .list()
-      .filter(
-        (entry) =>
-          (entry.targetType === 'gig' && entry.targetId === gigId) ||
-          entry.metadata?.gigId === gigId,
-      );
+  async gigAuditTrail(@Param('gigId') gigId: string) {
+    const [direct, linked] = await Promise.all([
+      this.audit.list({ targetType: 'gig', targetId: gigId }),
+      this.audit.list({ metadata: { gigId } }),
+    ]);
+    const byId = new Map([...direct, ...linked].map((entry) => [entry.id, entry]));
+    return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
   }
 
   @Post('gigs/:gigId/approve')

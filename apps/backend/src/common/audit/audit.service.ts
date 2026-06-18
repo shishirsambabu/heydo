@@ -1,5 +1,7 @@
+import { randomBytes } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { redactForLog } from '../pii/redaction';
+import { AuditRepository, InMemoryAuditRepository } from './audit.repository';
 
 /**
  * Append-only audit log. Every sensitive action (PII access, verification
@@ -31,44 +33,28 @@ export interface AuditFilters {
 
 @Injectable()
 export class AuditService {
-  private readonly log: AuditRecord[] = [];
+  constructor(private readonly repo: AuditRepository = new InMemoryAuditRepository()) {}
 
   record(entry: Omit<AuditRecord, 'id' | 'at'>): void {
     const safe: AuditRecord = {
-      id: `audit_${Date.now()}_${this.log.length}`,
+      id: `audit_${Date.now()}_${randomBytes(6).toString('hex')}`,
       at: new Date().toISOString(),
       ...entry,
       metadata: entry.metadata
         ? (redactForLog(entry.metadata) as Record<string, unknown>)
         : undefined,
     };
-    this.log.push(safe);
+    void Promise.resolve(this.repo.append(safe)).catch(() => {
+      // Production should route this to process-level error telemetry.
+    });
   }
 
   /** Read-only view (Super Admin / tests). Never mutated externally. */
   entries(): readonly AuditRecord[] {
-    return this.log;
+    return this.repo instanceof InMemoryAuditRepository ? this.repo.entries() : [];
   }
 
-  list(filters: AuditFilters = {}): AuditRecord[] {
-    return this.log
-      .filter((entry) => !filters.targetType || entry.targetType === filters.targetType)
-      .filter((entry) => !filters.targetId || entry.targetId === filters.targetId)
-      .filter((entry) => !filters.actorId || entry.actorId === filters.actorId)
-      .filter((entry) => !filters.actionPrefix || entry.action.startsWith(filters.actionPrefix))
-      .filter((entry) => metadataMatches(entry.metadata, filters.metadata))
-      .map((entry) => ({
-        ...entry,
-        metadata: entry.metadata ? { ...entry.metadata } : undefined,
-      }));
+  list(filters: AuditFilters = {}): Promise<AuditRecord[]> {
+    return this.repo.list(filters);
   }
-}
-
-function metadataMatches(
-  metadata: Record<string, unknown> | undefined,
-  filters: Record<string, string> | undefined,
-): boolean {
-  if (!filters) return true;
-  if (!metadata) return false;
-  return Object.entries(filters).every(([key, value]) => metadata[key] === value);
 }
