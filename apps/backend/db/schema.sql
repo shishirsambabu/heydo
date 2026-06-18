@@ -265,6 +265,8 @@ CREATE TABLE IF NOT EXISTS "Account" (
 
 CREATE INDEX IF NOT EXISTS "Account_ownerType_ownerId_idx"
   ON "Account"("ownerType", "ownerId");
+CREATE UNIQUE INDEX IF NOT EXISTS "Account_ownerType_ownerId_type_currency_key"
+  ON "Account"("ownerType", "ownerId", type, currency);
 
 CREATE TABLE IF NOT EXISTS "LedgerTransaction" (
   id text PRIMARY KEY,

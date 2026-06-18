@@ -1,5 +1,7 @@
 import { AuditService } from '../common/audit/audit.service';
 import { GiverProfileRepository } from '../identity/identity.repository';
+import { InMemoryMoneyRepository } from '../money/money.repository';
+import { MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
 import {
   InMemoryApplicationRepository,
@@ -10,9 +12,13 @@ import {
 } from './marketplace.repository';
 import { MarketplaceError, MarketplaceService } from './marketplace.service';
 
-function service(canApply: (workerId: string) => Promise<boolean> = async () => true) {
+function service(
+  canApply: (workerId: string) => Promise<boolean> = async () => true,
+  withMoney = false,
+) {
   const givers = new GiverProfileRepository();
   const audit = new AuditService();
+  const moneyRepo = new InMemoryMoneyRepository();
   let id = 0;
   const svc = new MarketplaceService(
     new InMemoryCategoryRepository(),
@@ -25,8 +31,16 @@ function service(canApply: (workerId: string) => Promise<boolean> = async () => 
     audit,
     () => Date.parse('2026-06-17T10:00:00.000Z'),
     () => `fixed_${++id}`,
+    withMoney
+      ? new MoneyService(
+          moneyRepo,
+          audit,
+          () => Date.parse('2026-06-17T10:00:00.000Z'),
+          () => `money_${++id}`,
+        )
+      : undefined,
   );
-  return { svc, givers, audit };
+  return { svc, givers, audit, moneyRepo };
 }
 
 describe('MarketplaceService', () => {
@@ -212,7 +226,7 @@ describe('MarketplaceService', () => {
   });
 
   it('runs post -> apply -> choose -> start -> complete', async () => {
-    const { svc, givers } = service();
+    const { svc, givers, moneyRepo } = service(async () => true, true);
     await givers.save({
       userId: 'giver_1',
       displayName: 'Giver',
@@ -241,6 +255,11 @@ describe('MarketplaceService', () => {
       agreedAmount: 3200,
       platformFeeAmount: 480,
       workerPayoutAmount: 2720,
+    });
+    const hold = await moneyRepo.findEscrowHoldByGig(gig.id);
+    expect(hold).toMatchObject({
+      amount: 3200,
+      status: 'held',
     });
     expect(selected.applications).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: first.id, proposedPrice: 3200 })]),

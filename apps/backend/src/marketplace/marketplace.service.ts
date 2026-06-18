@@ -2,6 +2,7 @@ import { randomBytes } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit/audit.service';
 import { GiverProfileRepository } from '../identity/identity.repository';
+import { MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
 import {
   Assignment,
@@ -77,6 +78,7 @@ export class MarketplaceService {
     private readonly audit: AuditService,
     private readonly now: () => number = () => Date.now(),
     private readonly id: () => string = randomId,
+    private readonly money?: MoneyService,
   ) {}
 
   listCategories(): Promise<Category[]> {
@@ -237,6 +239,14 @@ export class MarketplaceService {
       });
     }
     await this.assignments.save(assignment);
+    if (this.money) {
+      await this.money.createEscrowHold({
+        gigId,
+        assignmentId: assignment.id,
+        amount: assignment.agreedAmount,
+        actorId: giverId,
+      });
+    }
     const assignedGig: Gig = { ...gig, status: 'assigned' };
     await this.gigs.save(assignedGig);
     this.audit.record({
