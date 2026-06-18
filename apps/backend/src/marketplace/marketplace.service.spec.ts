@@ -325,4 +325,49 @@ describe('MarketplaceService', () => {
       status: 'refunded',
     });
   });
+
+  it('freezes held escrow when a serious safety report is raised after assignment', async () => {
+    const { svc, givers, moneyRepo } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+
+    await expect(
+      svc.raiseSafetyReport(gig.id, 'worker_1', {
+        reportedUserId: 'giver_1',
+        reason: 'violence_or_threat',
+        severity: 'high',
+        description: 'Giver threatened me after assignment.',
+        evidenceVaultRefs: ['vault_chat_2'],
+      }),
+    ).resolves.toMatchObject({ status: 'open' });
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'disputed',
+    });
+    await expect(svc.transitionGig(gig.id, 'giver_1', 'completed')).rejects.toThrow(
+      'Cannot release escrow in status disputed',
+    );
+    await expect(svc.transitionGig(gig.id, 'worker_1', 'cancelled')).rejects.toThrow(
+      'Cannot refund escrow in status disputed',
+    );
+  });
 });

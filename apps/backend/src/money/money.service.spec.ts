@@ -129,6 +129,47 @@ describe('MoneyService', () => {
     expect(sum(first.postings, 'credit')).toBe(3200);
     expect(audit.entries().filter((entry) => entry.action === 'escrow.refunded')).toHaveLength(1);
   });
+
+  it('opens an idempotent escrow dispute without moving money', async () => {
+    const repo = new InMemoryMoneyRepository();
+    const audit = new AuditService();
+    let id = 0;
+    const money = new MoneyService(
+      repo,
+      audit,
+      () => Date.parse('2026-06-18T10:00:00.000Z'),
+      () => `fixed_${++id}`,
+    );
+
+    await money.createEscrowHold({
+      gigId: 'gig_1',
+      assignmentId: 'asg_1',
+      amount: 3200,
+      actorId: 'giver_1',
+    });
+    const first = await money.openEscrowDispute({
+      gigId: 'gig_1',
+      assignmentId: 'asg_1',
+      reportId: 'safe_1',
+      actorId: 'worker_1',
+      actorRole: 'worker',
+      reason: 'unsafe_location',
+    });
+    const second = await money.openEscrowDispute({
+      gigId: 'gig_1',
+      assignmentId: 'asg_1',
+      reportId: 'safe_2',
+      actorId: 'giver_1',
+      actorRole: 'giver',
+      reason: 'fraud',
+    });
+
+    expect(second.transaction.id).toBe(first.transaction.id);
+    expect(first.transaction.type).toBe('escrow_dispute_opened');
+    expect(first.hold.status).toBe('disputed');
+    expect(first.postings).toEqual([]);
+    expect(audit.entries().filter((entry) => entry.action === 'escrow.dispute_opened')).toHaveLength(1);
+  });
 });
 
 function sum(postings: { direction: string; amount: number }[], direction: string) {

@@ -335,6 +335,17 @@ export class MarketplaceService {
         moderatedAt: new Date(this.now()).toISOString(),
         moderationReason: 'Automatically flagged after safety report',
       });
+      const assignment = await this.assignments.findByGig(gigId);
+      if (this.money && assignment && ['assigned', 'in_progress'].includes(gig.status)) {
+        await this.money.openEscrowDispute({
+          gigId,
+          assignmentId: assignment.id,
+          reportId: report.id,
+          actorId: reporterId,
+          actorRole: reporterId === gig.giverId ? 'giver' : 'worker',
+          reason: input.reason,
+        });
+      }
     }
 
     this.audit.record({
@@ -424,8 +435,6 @@ export class MarketplaceService {
       throw new MarketplaceError('Gig is already cancelled', 'invalid_state');
     }
 
-    const updated = { ...gig, status: next };
-    await this.gigs.save(updated);
     if (next === 'completed' && this.money) {
       await this.money.releaseEscrow({
         gigId,
@@ -446,6 +455,8 @@ export class MarketplaceService {
         actorRole: actorId === gig.giverId ? 'giver' : 'worker',
       });
     }
+    const updated = { ...gig, status: next };
+    await this.gigs.save(updated);
     this.audit.record({
       actorId,
       actorRole: actorId === gig.giverId ? 'giver' : 'worker',

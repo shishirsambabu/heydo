@@ -34,6 +34,15 @@ export interface RefundEscrowInput {
   actorRole: 'giver' | 'worker';
 }
 
+export interface OpenEscrowDisputeInput {
+  gigId: string;
+  assignmentId: string;
+  reportId: string;
+  actorId: string;
+  actorRole: 'giver' | 'worker' | 'fraud_analyst' | 'system';
+  reason: string;
+}
+
 @Injectable()
 export class MoneyService {
   constructor(
@@ -272,6 +281,56 @@ export class MoneyService {
       },
     });
     return { hold: refunded, transaction, postings };
+  }
+
+  async openEscrowDispute(input: OpenEscrowDisputeInput): Promise<{
+    hold: EscrowHold;
+    transaction: LedgerTransaction;
+    postings: LedgerPosting[];
+  }> {
+    const idempotencyKey = `escrow_dispute:${input.gigId}:${input.assignmentId}`;
+    const existing = await this.repo.findTransactionByIdempotencyKey(idempotencyKey);
+    if (existing) {
+      const existingHold = await this.repo.findEscrowHoldByGig(input.gigId);
+      return {
+        hold: existingHold!,
+        transaction: existing,
+        postings: await this.repo.listPostings(existing.id),
+      };
+    }
+
+    const hold = await this.repo.findEscrowHoldByGig(input.gigId);
+    if (!hold) throw new Error('Cannot dispute escrow before hold exists');
+    if (hold.status !== 'held') throw new Error(`Cannot dispute escrow in status ${hold.status}`);
+
+    const createdAt = new Date(this.now()).toISOString();
+    const transaction: LedgerTransaction = {
+      id: `txn_${this.id()}`,
+      type: 'escrow_dispute_opened',
+      gigId: input.gigId,
+      idempotencyKey,
+      status: 'posted',
+      createdAt,
+    };
+    const postings: LedgerPosting[] = [];
+    await this.repo.saveTransaction(transaction, postings);
+
+    const disputed: EscrowHold = { ...hold, status: 'disputed' };
+    await this.repo.saveEscrowHold(disputed);
+    this.audit.record({
+      actorId: input.actorId,
+      actorRole: input.actorRole,
+      action: 'escrow.dispute_opened',
+      targetType: 'gig',
+      targetId: input.gigId,
+      metadata: {
+        assignmentId: input.assignmentId,
+        reportId: input.reportId,
+        transactionId: transaction.id,
+        reason: input.reason,
+      },
+    });
+    return { hold: disputed, transaction, postings };
   }
 
   private async findOrCreateAccount(
