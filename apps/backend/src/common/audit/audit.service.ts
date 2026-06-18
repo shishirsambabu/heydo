@@ -21,6 +21,14 @@ export interface AuditRecord {
   at: string; // ISO timestamp
 }
 
+export interface AuditFilters {
+  targetType?: string;
+  targetId?: string;
+  actorId?: string;
+  actionPrefix?: string;
+  metadata?: Record<string, string>;
+}
+
 @Injectable()
 export class AuditService {
   private readonly log: AuditRecord[] = [];
@@ -41,4 +49,26 @@ export class AuditService {
   entries(): readonly AuditRecord[] {
     return this.log;
   }
+
+  list(filters: AuditFilters = {}): AuditRecord[] {
+    return this.log
+      .filter((entry) => !filters.targetType || entry.targetType === filters.targetType)
+      .filter((entry) => !filters.targetId || entry.targetId === filters.targetId)
+      .filter((entry) => !filters.actorId || entry.actorId === filters.actorId)
+      .filter((entry) => !filters.actionPrefix || entry.action.startsWith(filters.actionPrefix))
+      .filter((entry) => metadataMatches(entry.metadata, filters.metadata))
+      .map((entry) => ({
+        ...entry,
+        metadata: entry.metadata ? { ...entry.metadata } : undefined,
+      }));
+  }
+}
+
+function metadataMatches(
+  metadata: Record<string, unknown> | undefined,
+  filters: Record<string, string> | undefined,
+): boolean {
+  if (!filters) return true;
+  if (!metadata) return false;
+  return Object.entries(filters).every(([key, value]) => metadata[key] === value);
 }

@@ -17,6 +17,7 @@ import { AuthPrincipal } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { AuditService } from '../common/audit/audit.service';
 import { MoneyService } from '../money/money.service';
 import { MarketplaceError, MarketplaceService } from './marketplace.service';
 
@@ -43,6 +44,7 @@ export class AdminMarketplaceController {
   constructor(
     private readonly marketplace: MarketplaceService,
     private readonly money: MoneyService,
+    private readonly audit: AuditService,
   ) {}
 
   @Get('gigs')
@@ -58,6 +60,17 @@ export class AdminMarketplaceController {
   @Get('gigs/:gigId/money-trail')
   moneyTrail(@Param('gigId') gigId: string) {
     return this.money.moneyTrailForGig(gigId);
+  }
+
+  @Get('gigs/:gigId/audit-trail')
+  gigAuditTrail(@Param('gigId') gigId: string) {
+    return this.audit
+      .list()
+      .filter(
+        (entry) =>
+          (entry.targetType === 'gig' && entry.targetId === gigId) ||
+          entry.metadata?.gigId === gigId,
+      );
   }
 
   @Post('gigs/:gigId/approve')
@@ -96,6 +109,11 @@ export class AdminMarketplaceController {
   @Get('safety-reports')
   safetyReports(@Query('status') status?: string, @Query('gigId') gigId?: string) {
     return this.marketplace.listSafetyReports({ status, gigId });
+  }
+
+  @Get('safety-reports/:reportId/audit-trail')
+  safetyReportAuditTrail(@Param('reportId') reportId: string) {
+    return this.audit.list({ targetType: 'safety_report', targetId: reportId });
   }
 
   @Post('safety-reports/:reportId/review')
