@@ -62,6 +62,8 @@ export interface RaiseSafetyReportInput {
   evidenceVaultRefs?: string[];
 }
 
+const PLATFORM_FEE_BPS = 1500;
+
 @Injectable()
 export class MarketplaceService {
   constructor(
@@ -217,11 +219,15 @@ export class MarketplaceService {
       throw new MarketplaceError('Application not selectable', 'application_not_selectable');
     }
     const applications = await this.applications.listForGig(gigId);
+    const economics = assignmentEconomics(selected.proposedPrice ?? gig.budgetAmount);
     const assignment: Assignment = {
       id: `asg_${this.id()}`,
       gigId,
       workerId: selected.workerId,
       applicationId: selected.id,
+      agreedAmount: economics.agreedAmount,
+      platformFeeAmount: economics.platformFeeAmount,
+      workerPayoutAmount: economics.workerPayoutAmount,
       selectedAt: new Date(this.now()).toISOString(),
     };
     for (const application of applications) {
@@ -239,7 +245,13 @@ export class MarketplaceService {
       action: 'gig.worker_selected',
       targetType: 'gig',
       targetId: gigId,
-      metadata: { applicationId, workerId: selected.workerId },
+      metadata: {
+        applicationId,
+        workerId: selected.workerId,
+        agreedAmount: assignment.agreedAmount,
+        platformFeeAmount: assignment.platformFeeAmount,
+        workerPayoutAmount: assignment.workerPayoutAmount,
+      },
     });
     return {
       gig: assignedGig,
@@ -423,6 +435,18 @@ function randomId(): string {
 
 function pricingGuideFor(categoryId: string): PricingGuide | undefined {
   return DEFAULT_PRICING_GUIDES.find((guide) => guide.categoryId === categoryId);
+}
+
+function assignmentEconomics(agreedAmount: number): Pick<
+  Assignment,
+  'agreedAmount' | 'platformFeeAmount' | 'workerPayoutAmount'
+> {
+  const platformFeeAmount = Math.round((agreedAmount * PLATFORM_FEE_BPS) / 10_000);
+  return {
+    agreedAmount,
+    platformFeeAmount,
+    workerPayoutAmount: agreedAmount - platformFeeAmount,
+  };
 }
 
 function screenGigRequest(input: PostGigInput, pricingGuide?: PricingGuide): {

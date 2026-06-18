@@ -60,6 +60,9 @@ interface AssignmentRow {
   gigId: string;
   workerId: string;
   applicationId: string;
+  agreedAmount: number;
+  platformFeeAmount: number;
+  workerPayoutAmount: number;
   selectedAt: Date;
 }
 
@@ -259,17 +262,25 @@ export class PostgresAssignmentRepository implements AssignmentRepository {
 
   async save(assignment: Assignment): Promise<void> {
     await this.pg.query(
-      `INSERT INTO "Assignment" (id, "gigId", "workerId", "applicationId", "selectedAt")
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO "Assignment"
+        (id, "gigId", "workerId", "applicationId", "agreedAmount",
+         "platformFeeAmount", "workerPayoutAmount", "selectedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT ("gigId") DO UPDATE SET
          "workerId" = EXCLUDED."workerId",
          "applicationId" = EXCLUDED."applicationId",
+         "agreedAmount" = EXCLUDED."agreedAmount",
+         "platformFeeAmount" = EXCLUDED."platformFeeAmount",
+         "workerPayoutAmount" = EXCLUDED."workerPayoutAmount",
          "selectedAt" = EXCLUDED."selectedAt"`,
       [
         assignment.id,
         assignment.gigId,
         assignment.workerId,
         assignment.applicationId,
+        assignment.agreedAmount,
+        assignment.platformFeeAmount,
+        assignment.workerPayoutAmount,
         assignment.selectedAt,
       ],
     );
@@ -277,7 +288,8 @@ export class PostgresAssignmentRepository implements AssignmentRepository {
 
   async findByGig(gigId: string): Promise<Assignment | null> {
     const [row] = await this.pg.query<AssignmentRow>(
-      `SELECT id, "gigId", "workerId", "applicationId", "selectedAt"
+      `SELECT id, "gigId", "workerId", "applicationId", "agreedAmount",
+              "platformFeeAmount", "workerPayoutAmount", "selectedAt"
        FROM "Assignment"
        WHERE "gigId" = $1`,
       [gigId],
@@ -412,6 +424,9 @@ function toAssignment(row: AssignmentRow): Assignment {
     gigId: row.gigId,
     workerId: row.workerId,
     applicationId: row.applicationId,
+    agreedAmount: row.agreedAmount,
+    platformFeeAmount: row.platformFeeAmount,
+    workerPayoutAmount: row.workerPayoutAmount,
     selectedAt: row.selectedAt.toISOString(),
   };
 }

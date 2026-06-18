@@ -237,6 +237,11 @@ describe('MarketplaceService', () => {
     const selected = await svc.selectApplicant(gig.id, first.id, 'giver_1');
     expect(selected.gig.status).toBe('assigned');
     expect(selected.assignment.workerId).toBe('worker_1');
+    expect(selected.assignment).toMatchObject({
+      agreedAmount: 3200,
+      platformFeeAmount: 480,
+      workerPayoutAmount: 2720,
+    });
     expect(selected.applications).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: first.id, proposedPrice: 3200 })]),
     );

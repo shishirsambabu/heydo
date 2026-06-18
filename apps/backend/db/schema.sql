@@ -184,8 +184,15 @@ CREATE TABLE IF NOT EXISTS "Assignment" (
   "gigId" text NOT NULL UNIQUE,
   "workerId" text NOT NULL,
   "applicationId" text NOT NULL,
+  "agreedAmount" integer NOT NULL DEFAULT 0,
+  "platformFeeAmount" integer NOT NULL DEFAULT 0,
+  "workerPayoutAmount" integer NOT NULL DEFAULT 0,
   "selectedAt" timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE "Assignment" ADD COLUMN IF NOT EXISTS "agreedAmount" integer NOT NULL DEFAULT 0;
+ALTER TABLE "Assignment" ADD COLUMN IF NOT EXISTS "platformFeeAmount" integer NOT NULL DEFAULT 0;
+ALTER TABLE "Assignment" ADD COLUMN IF NOT EXISTS "workerPayoutAmount" integer NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS "SafetyReport" (
   id text PRIMARY KEY,

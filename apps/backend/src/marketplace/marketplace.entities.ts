@@ -65,6 +65,9 @@ export interface Assignment {
   gigId: string;
   workerId: string;
   applicationId: string;
+  agreedAmount: number;
+  platformFeeAmount: number;
+  workerPayoutAmount: number;
   selectedAt: string;
 }
 
