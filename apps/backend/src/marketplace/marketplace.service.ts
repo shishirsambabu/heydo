@@ -420,6 +420,17 @@ export class MarketplaceService {
 
     const updated = { ...gig, status: next };
     await this.gigs.save(updated);
+    if (next === 'completed' && this.money) {
+      await this.money.releaseEscrow({
+        gigId,
+        assignmentId: assignment.id,
+        workerId: assignment.workerId,
+        agreedAmount: assignment.agreedAmount,
+        platformFeeAmount: assignment.platformFeeAmount,
+        workerPayoutAmount: assignment.workerPayoutAmount,
+        actorId,
+      });
+    }
     this.audit.record({
       actorId,
       actorRole: actorId === gig.giverId ? 'giver' : 'worker',

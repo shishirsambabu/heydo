@@ -16,6 +16,16 @@ export interface CreateEscrowHoldInput {
   actorId: string;
 }
 
+export interface ReleaseEscrowInput {
+  gigId: string;
+  assignmentId: string;
+  workerId: string;
+  agreedAmount: number;
+  platformFeeAmount: number;
+  workerPayoutAmount: number;
+  actorId: string;
+}
+
 @Injectable()
 export class MoneyService {
   constructor(
@@ -96,6 +106,92 @@ export class MoneyService {
       },
     });
     return { hold, transaction, postings };
+  }
+
+  async releaseEscrow(input: ReleaseEscrowInput): Promise<{
+    hold: EscrowHold;
+    transaction: LedgerTransaction;
+    postings: LedgerPosting[];
+  }> {
+    if (input.agreedAmount <= 0) throw new Error('Escrow release amount must be positive');
+    if (input.platformFeeAmount + input.workerPayoutAmount !== input.agreedAmount) {
+      throw new Error('Escrow release split must equal agreed amount');
+    }
+    const idempotencyKey = `escrow_release:${input.gigId}:${input.assignmentId}`;
+    const existing = await this.repo.findTransactionByIdempotencyKey(idempotencyKey);
+    if (existing) {
+      const existingHold = await this.repo.findEscrowHoldByGig(input.gigId);
+      return {
+        hold: existingHold!,
+        transaction: existing,
+        postings: await this.repo.listPostings(existing.id),
+      };
+    }
+
+    const hold = await this.repo.findEscrowHoldByGig(input.gigId);
+    if (!hold) throw new Error('Cannot release escrow before hold exists');
+    if (hold.status !== 'held') throw new Error(`Cannot release escrow in status ${hold.status}`);
+    if (hold.amount !== input.agreedAmount) {
+      throw new Error('Escrow hold amount does not match assignment amount');
+    }
+
+    const escrowPayable = await this.findOrCreateAccount('gig', input.gigId, 'escrow_payable');
+    const workerPayable = await this.findOrCreateAccount('worker', input.workerId, 'worker_payable');
+    const platformRevenue = await this.findOrCreateAccount('platform', 'heydo', 'platform_revenue');
+    const createdAt = new Date(this.now()).toISOString();
+    const transaction: LedgerTransaction = {
+      id: `txn_${this.id()}`,
+      type: 'escrow_release',
+      gigId: input.gigId,
+      idempotencyKey,
+      status: 'posted',
+      createdAt,
+    };
+    const postings: LedgerPosting[] = [
+      {
+        id: `post_${this.id()}`,
+        transactionId: transaction.id,
+        accountId: escrowPayable.id,
+        direction: 'debit',
+        amount: input.agreedAmount,
+        currency: 'INR',
+      },
+      {
+        id: `post_${this.id()}`,
+        transactionId: transaction.id,
+        accountId: workerPayable.id,
+        direction: 'credit',
+        amount: input.workerPayoutAmount,
+        currency: 'INR',
+      },
+      {
+        id: `post_${this.id()}`,
+        transactionId: transaction.id,
+        accountId: platformRevenue.id,
+        direction: 'credit',
+        amount: input.platformFeeAmount,
+        currency: 'INR',
+      },
+    ];
+    await this.repo.saveTransaction(transaction, postings);
+
+    const released: EscrowHold = { ...hold, status: 'released' };
+    await this.repo.saveEscrowHold(released);
+    this.audit.record({
+      actorId: input.actorId,
+      actorRole: 'giver',
+      action: 'escrow.released',
+      targetType: 'gig',
+      targetId: input.gigId,
+      metadata: {
+        assignmentId: input.assignmentId,
+        transactionId: transaction.id,
+        agreedAmount: input.agreedAmount,
+        workerPayoutAmount: input.workerPayoutAmount,
+        platformFeeAmount: input.platformFeeAmount,
+      },
+    });
+    return { hold: released, transaction, postings };
   }
 
   private async findOrCreateAccount(

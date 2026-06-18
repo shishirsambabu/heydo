@@ -280,5 +280,9 @@ describe('MarketplaceService', () => {
     await expect(svc.transitionGig(gig.id, 'giver_1', 'completed')).resolves.toMatchObject({
       status: 'completed',
     });
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 3200,
+      status: 'released',
+    });
   });
 });
