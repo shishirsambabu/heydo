@@ -62,6 +62,16 @@ export class PostgresMoneyRepository implements MoneyRepository {
     return row ? toAccount(row) : null;
   }
 
+  async findAccountById(id: string): Promise<Account | null> {
+    const [row] = await this.pg.query<AccountRow>(
+      `SELECT id, "ownerType", "ownerId", type, currency
+       FROM "Account"
+       WHERE id = $1`,
+      [id],
+    );
+    return row ? toAccount(row) : null;
+  }
+
   async saveAccount(account: Account): Promise<void> {
     await this.pg.query(
       `INSERT INTO "Account" (id, "ownerType", "ownerId", type, currency)
@@ -79,6 +89,17 @@ export class PostgresMoneyRepository implements MoneyRepository {
       [idempotencyKey],
     );
     return row ? toTransaction(row) : null;
+  }
+
+  async listTransactionsByGig(gigId: string): Promise<LedgerTransaction[]> {
+    const rows = await this.pg.query<LedgerTransactionRow>(
+      `SELECT id, type, "gigId", "idempotencyKey", status, "createdAt"
+       FROM "LedgerTransaction"
+       WHERE "gigId" = $1
+       ORDER BY "createdAt" ASC, id ASC`,
+      [gigId],
+    );
+    return rows.map(toTransaction);
   }
 
   async saveTransaction(transaction: LedgerTransaction, postings: LedgerPosting[]): Promise<void> {

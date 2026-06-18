@@ -17,6 +17,7 @@ import { AuthPrincipal } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { MoneyService } from '../money/money.service';
 import { MarketplaceError, MarketplaceService } from './marketplace.service';
 
 class ModerationDto {
@@ -39,7 +40,10 @@ class DisputeResolutionDto {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('fraud_analyst', 'support', 'super_admin')
 export class AdminMarketplaceController {
-  constructor(private readonly marketplace: MarketplaceService) {}
+  constructor(
+    private readonly marketplace: MarketplaceService,
+    private readonly money: MoneyService,
+  ) {}
 
   @Get('gigs')
   adminGigs(@Query('visibilityStatus') visibilityStatus?: string, @Query('status') status?: string) {
@@ -49,6 +53,11 @@ export class AdminMarketplaceController {
   @Get('gigs/pending-review')
   pendingReview() {
     return this.marketplace.listGigsForAdmin({ visibilityStatus: 'pending_review' });
+  }
+
+  @Get('gigs/:gigId/money-trail')
+  moneyTrail(@Param('gigId') gigId: string) {
+    return this.money.moneyTrailForGig(gigId);
   }
 
   @Post('gigs/:gigId/approve')

@@ -9,6 +9,20 @@ import {
 } from './money.entities';
 import { MONEY_REPOSITORY, MoneyRepository } from './money.repository';
 
+export interface MoneyTrailPosting extends LedgerPosting {
+  account: Account | null;
+}
+
+export interface MoneyTrailTransaction {
+  transaction: LedgerTransaction;
+  postings: MoneyTrailPosting[];
+}
+
+export interface GigMoneyTrail {
+  hold: EscrowHold | null;
+  transactions: MoneyTrailTransaction[];
+}
+
 export interface CreateEscrowHoldInput {
   gigId: string;
   assignmentId: string;
@@ -136,6 +150,20 @@ export class MoneyService {
       },
     });
     return { hold, transaction, postings };
+  }
+
+  async moneyTrailForGig(gigId: string): Promise<GigMoneyTrail> {
+    const hold = await this.repo.findEscrowHoldByGig(gigId);
+    const transactions = await this.repo.listTransactionsByGig(gigId);
+    return {
+      hold,
+      transactions: await Promise.all(
+        transactions.map(async (transaction) => ({
+          transaction,
+          postings: await this.postingsWithAccounts(transaction.id),
+        })),
+      ),
+    };
   }
 
   async releaseEscrow(input: ReleaseEscrowInput): Promise<{
@@ -526,5 +554,15 @@ export class MoneyService {
     };
     await this.repo.saveAccount(account);
     return account;
+  }
+
+  private async postingsWithAccounts(transactionId: string): Promise<MoneyTrailPosting[]> {
+    const postings = await this.repo.listPostings(transactionId);
+    return Promise.all(
+      postings.map(async (posting) => ({
+        ...posting,
+        account: await this.repo.findAccountById(posting.accountId),
+      })),
+    );
   }
 }

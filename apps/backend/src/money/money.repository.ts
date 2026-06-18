@@ -7,8 +7,10 @@ import {
 
 export interface MoneyRepository {
   findAccount(ownerType: Account['ownerType'], ownerId: string, type: Account['type']): Promise<Account | null>;
+  findAccountById(id: string): Promise<Account | null>;
   saveAccount(account: Account): Promise<void>;
   findTransactionByIdempotencyKey(idempotencyKey: string): Promise<LedgerTransaction | null>;
+  listTransactionsByGig(gigId: string): Promise<LedgerTransaction[]>;
   saveTransaction(transaction: LedgerTransaction, postings: LedgerPosting[]): Promise<void>;
   listPostings(transactionId: string): Promise<LedgerPosting[]>;
   findEscrowHoldByGig(gigId: string): Promise<EscrowHold | null>;
@@ -35,6 +37,11 @@ export class InMemoryMoneyRepository implements MoneyRepository {
     return account ? { ...account } : null;
   }
 
+  async findAccountById(id: string): Promise<Account | null> {
+    const account = this.accounts.get(id);
+    return account ? { ...account } : null;
+  }
+
   async saveAccount(account: Account): Promise<void> {
     this.accounts.set(account.id, { ...account });
   }
@@ -44,6 +51,13 @@ export class InMemoryMoneyRepository implements MoneyRepository {
     if (!id) return null;
     const transaction = this.transactions.get(id);
     return transaction ? { ...transaction } : null;
+  }
+
+  async listTransactionsByGig(gigId: string): Promise<LedgerTransaction[]> {
+    return [...this.transactions.values()]
+      .filter((transaction) => transaction.gigId === gigId)
+      .map((transaction) => ({ ...transaction }))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 
   async saveTransaction(transaction: LedgerTransaction, postings: LedgerPosting[]): Promise<void> {
