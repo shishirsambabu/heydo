@@ -120,6 +120,17 @@ DIDIT_GIVER_WORKFLOW_ID=your-giver-workflow-id
 
 Heydo does not run a separate admin review queue for giver identity. Didit is the review surface; Heydo ingests the final webhook/result and only allows posting when the giver verification is approved.
 
+Local giver smoke flow:
+
+```powershell
+node scripts/didit-smoke.mjs start giver
+# open the printed Didit URL and complete the giver workflow
+node scripts/didit-smoke.mjs result
+node scripts/didit-smoke.mjs post-gig
+```
+
+The last command should return a gig id plus its `visibilityStatus`. A normal safe gig should be `visible`; underpriced, vague, or risky gigs should go to review instead.
+
 ---
 
 ## Troubleshooting

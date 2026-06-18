@@ -4,6 +4,7 @@
 //   node scripts/didit-smoke.mjs start            # creates a worker + Didit session
 //   node scripts/didit-smoke.mjs start giver      # creates a giver + Didit session
 //   node scripts/didit-smoke.mjs result           # ingests final decision for the saved session
+//   node scripts/didit-smoke.mjs post-gig         # posts a safe gig with the verified giver
 //
 // Prereq: backend running with VKYC_PROVIDER=didit and Didit env vars loaded.
 
@@ -136,7 +137,47 @@ async function result() {
   }, null, 2));
 }
 
+async function postGig() {
+  const state = JSON.parse(await readFile(STATE_FILE, 'utf8'));
+  if (state.role !== 'giver') {
+    throw new Error('Saved smoke state is not a giver. Run: node scripts/didit-smoke.mjs start giver');
+  }
+
+  const verification = await request('/verification/giver/status', { token: state.token });
+  if (!verification.canPost) {
+    throw new Error(
+      `Giver cannot post yet. Current status: ${verification.status}. Complete Didit and run: node scripts/didit-smoke.mjs result`,
+    );
+  }
+
+  const scheduledAt = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
+  const gig = await request('/marketplace/gigs', {
+    method: 'POST',
+    token: state.token,
+    body: {
+      categoryId: 'cat_cleaning',
+      title: 'Family home cleaning',
+      description: 'Need cleaning help for a family home living room and kitchen.',
+      location: 'Kochi',
+      scheduledAt,
+      budgetAmount: 1200,
+    },
+  });
+
+  const nextState = { ...state, gigId: gig.id, gigPostedAt: new Date().toISOString() };
+  await writeFile(STATE_FILE, JSON.stringify(nextState, null, 2));
+  console.log(JSON.stringify({
+    status: 'gig_posted',
+    gigId: gig.id,
+    visibilityStatus: gig.visibilityStatus,
+    riskLevel: gig.riskLevel,
+    safetyFlags: gig.safetyFlags,
+    budgetAmount: gig.budgetAmount,
+  }, null, 2));
+}
+
 const command = process.argv[2] ?? 'start';
 if (command === 'start') await start(roleFromArg(process.argv[3]));
 else if (command === 'result') await result();
-else throw new Error(`Unknown command '${command}'. Use 'start' or 'result'.`);
+else if (command === 'post-gig') await postGig();
+else throw new Error(`Unknown command '${command}'. Use 'start', 'result', or 'post-gig'.`);
