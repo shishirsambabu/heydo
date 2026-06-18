@@ -370,4 +370,96 @@ describe('MarketplaceService', () => {
       'Cannot refund escrow in status disputed',
     );
   });
+
+  it('lets admin resolve a disputed escrow by releasing funds to the worker', async () => {
+    const { svc, givers, moneyRepo } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Giver threatened me after assignment.',
+      evidenceVaultRefs: ['vault_chat_2'],
+    });
+
+    await expect(
+      svc.resolveSafetyDispute(
+        report.id,
+        'fraud_admin',
+        'release_to_worker',
+        'Evidence supports worker payment',
+      ),
+    ).resolves.toMatchObject({ status: 'action_taken', reviewedBy: 'fraud_admin' });
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'released',
+    });
+    await expect(svc.getGig(gig.id)).resolves.toMatchObject({ status: 'completed' });
+  });
+
+  it('lets admin resolve a disputed escrow by refunding the giver', async () => {
+    const { svc, givers, moneyRepo } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    const report = await svc.raiseSafetyReport(gig.id, 'giver_1', {
+      reportedUserId: 'worker_1',
+      reason: 'fraud',
+      severity: 'high',
+      description: 'Worker did not arrive and asked for payment outside the app.',
+      evidenceVaultRefs: ['vault_chat_3'],
+    });
+
+    await expect(
+      svc.resolveSafetyDispute(
+        report.id,
+        'fraud_admin',
+        'refund_giver',
+        'Evidence supports refund to giver',
+      ),
+    ).resolves.toMatchObject({ status: 'action_taken', reviewedBy: 'fraud_admin' });
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'refunded',
+    });
+    await expect(svc.getGig(gig.id)).resolves.toMatchObject({ status: 'cancelled' });
+  });
 });

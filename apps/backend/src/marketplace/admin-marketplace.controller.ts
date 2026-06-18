@@ -29,6 +29,12 @@ class SafetyReviewDto {
   @IsOptional() @IsString() lawEnforcementRef?: string;
 }
 
+class DisputeResolutionDto {
+  @IsString() outcome!: 'release_to_worker' | 'refund_giver' | 'keep_escalated';
+  @IsString() @MinLength(3) actionTaken!: string;
+  @IsOptional() @IsString() lawEnforcementRef?: string;
+}
+
 @Controller('admin/marketplace')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('fraud_analyst', 'support', 'super_admin')
@@ -94,6 +100,23 @@ export class AdminMarketplaceController {
         reportId,
         principal.sub,
         dto.status,
+        dto.actionTaken,
+        dto.lawEnforcementRef,
+      ),
+    );
+  }
+
+  @Post('safety-reports/:reportId/resolve-dispute')
+  resolveDispute(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: DisputeResolutionDto,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.resolveSafetyDispute(
+        reportId,
+        principal.sub,
+        dto.outcome,
         dto.actionTaken,
         dto.lawEnforcementRef,
       ),

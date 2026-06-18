@@ -63,6 +63,8 @@ export interface RaiseSafetyReportInput {
   evidenceVaultRefs?: string[];
 }
 
+export type DisputeResolutionOutcome = 'release_to_worker' | 'refund_giver' | 'keep_escalated';
+
 const PLATFORM_FEE_BPS = 1500;
 
 @Injectable()
@@ -404,6 +406,75 @@ export class MarketplaceService {
     return updated;
   }
 
+  async resolveSafetyDispute(
+    reportId: string,
+    reviewerId: string,
+    outcome: DisputeResolutionOutcome,
+    actionTaken: string,
+    lawEnforcementRef?: string,
+  ): Promise<SafetyReport> {
+    if (!isDisputeResolutionOutcome(outcome)) {
+      throw new MarketplaceError('Invalid dispute resolution outcome', 'invalid_dispute_outcome');
+    }
+    const report = await this.safetyReports.findById(reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    const gig = await this.getGig(report.gigId);
+    const assignment = await this.assignments.findByGig(report.gigId);
+    if (!assignment) throw new MarketplaceError('Gig has no assignment', 'not_assigned');
+    if (!this.money && outcome !== 'keep_escalated') {
+      throw new MarketplaceError('Money service is required for dispute money outcomes', 'invalid_state');
+    }
+
+    if (outcome === 'release_to_worker') {
+      await this.money!.releaseDisputedEscrow({
+        gigId: gig.id,
+        assignmentId: assignment.id,
+        reportId,
+        workerId: assignment.workerId,
+        agreedAmount: assignment.agreedAmount,
+        platformFeeAmount: assignment.platformFeeAmount,
+        workerPayoutAmount: assignment.workerPayoutAmount,
+        actorId: reviewerId,
+        reviewerId,
+      });
+      await this.gigs.save({ ...gig, status: 'completed' });
+    }
+    if (outcome === 'refund_giver') {
+      await this.money!.refundDisputedEscrow({
+        gigId: gig.id,
+        assignmentId: assignment.id,
+        reportId,
+        amount: assignment.agreedAmount,
+        reviewerId,
+      });
+      await this.gigs.save({ ...gig, status: 'cancelled' });
+    }
+
+    const updated: SafetyReport = {
+      ...report,
+      status: outcome === 'keep_escalated' ? 'escalated' : 'action_taken',
+      actionTaken: actionTaken.trim(),
+      reviewedBy: reviewerId,
+      reviewedAt: new Date(this.now()).toISOString(),
+      lawEnforcementRef,
+    };
+    await this.safetyReports.save(updated);
+    this.audit.record({
+      actorId: reviewerId,
+      actorRole: 'fraud_analyst',
+      action: `safety.dispute_${outcome}`,
+      targetType: 'safety_report',
+      targetId: reportId,
+      metadata: {
+        gigId: report.gigId,
+        reason: report.reason,
+        severity: report.severity,
+        lawEnforcementRef: lawEnforcementRef ? '[recorded]' : undefined,
+      },
+    });
+    return updated;
+  }
+
   async transitionGig(gigId: string, actorId: string, next: Extract<GigStatus, 'in_progress' | 'completed' | 'cancelled'>): Promise<Gig> {
     const gig = await this.getGig(gigId);
     const assignment = await this.assignments.findByGig(gigId);
@@ -592,4 +663,8 @@ function shouldImmediatelyFlag(reason: SafetyReportReason, severity: SafetyRepor
     severity === 'high' ||
     ['sexual_misconduct', 'drugs_or_illegal_activity', 'violence_or_threat'].includes(reason)
   );
+}
+
+function isDisputeResolutionOutcome(outcome: string): outcome is DisputeResolutionOutcome {
+  return ['release_to_worker', 'refund_giver', 'keep_escalated'].includes(outcome);
 }
