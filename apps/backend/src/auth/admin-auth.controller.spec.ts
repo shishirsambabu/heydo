@@ -16,6 +16,9 @@ describe('AdminAuthController session revocation', () => {
     expect(
       Reflect.getMetadata(ROLES_KEY, AdminAuthController.prototype.revokeSession),
     ).toEqual(['super_admin']);
+    expect(
+      Reflect.getMetadata(ROLES_KEY, AdminAuthController.prototype.requireStepUp),
+    ).toEqual(['super_admin']);
   });
 
   it('revokes another admin session and audits the action', async () => {
@@ -96,6 +99,87 @@ describe('AdminAuthController session revocation', () => {
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'admin_session_not_found' }),
     });
+  });
+
+  it('forces step-up verification for a suspicious admin session and audits it', async () => {
+    const adminSessions = {
+      requireStepUp: jest.fn().mockResolvedValue({
+        id: 'adm_sess_target',
+        adminId: 'admin_2',
+        deviceId: 'device_2',
+        mfaVerifiedAt: '2026-06-19T03:00:00.000Z',
+        expiresAt: '2026-06-26T03:00:00.000Z',
+        stepUpRequiredAt: '2026-06-19T03:20:00.000Z',
+        stepUpReason: 'Suspicious evidence access pattern.',
+        createdAt: '2026-06-19T03:00:00.000Z',
+      }),
+    };
+    const audit = auditMock();
+    const controller = new AdminAuthController({} as never, adminSessions as never, audit as never);
+
+    await expect(
+      controller.requireStepUp('adm_sess_target', principal, {
+        reason: 'Suspicious evidence access pattern.',
+      }),
+    ).resolves.toEqual({
+      stepUpRequired: true,
+      sessionId: 'adm_sess_target',
+      adminId: 'admin_2',
+      stepUpRequiredAt: '2026-06-19T03:20:00.000Z',
+    });
+
+    expect(adminSessions.requireStepUp).toHaveBeenCalledWith(
+      'adm_sess_target',
+      'Suspicious evidence access pattern.',
+    );
+    expect(audit.record).toHaveBeenCalledWith({
+      actorId: 'super_1',
+      actorRole: 'super_admin',
+      action: 'admin.session_step_up_required',
+      targetType: 'admin_session',
+      targetId: 'adm_sess_target',
+      metadata: {
+        targetAdminId: 'admin_2',
+        targetDeviceId: 'device_2',
+        reason: 'Suspicious evidence access pattern.',
+      },
+    });
+  });
+
+  it('completes dev step-up for the current session and audits it', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'test';
+    const adminSessions = {
+      completeStepUp: jest.fn().mockResolvedValue({
+        id: 'adm_sess_current',
+        adminId: 'super_1',
+        deviceId: 'device_current',
+        mfaVerifiedAt: '2026-06-19T03:30:00.000Z',
+        expiresAt: '2026-06-26T03:00:00.000Z',
+        createdAt: '2026-06-19T03:00:00.000Z',
+      }),
+    };
+    const audit = auditMock();
+    const controller = new AdminAuthController({} as never, adminSessions as never, audit as never);
+
+    await expect(
+      controller.devCompleteStepUp(principal, { secret: 'dev-admin-secret' }),
+    ).resolves.toEqual({
+      stepUpCompleted: true,
+      sessionId: 'adm_sess_current',
+      mfaVerifiedAt: '2026-06-19T03:30:00.000Z',
+    });
+
+    expect(adminSessions.completeStepUp).toHaveBeenCalledWith(principal);
+    expect(audit.record).toHaveBeenCalledWith({
+      actorId: 'super_1',
+      actorRole: 'super_admin',
+      action: 'admin.session_step_up_completed',
+      targetType: 'admin_session',
+      targetId: 'adm_sess_current',
+      metadata: { deviceId: 'device_current' },
+    });
+    process.env.NODE_ENV = originalEnv;
   });
 });
 

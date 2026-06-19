@@ -348,7 +348,8 @@ function adminSessionsMock(
     | 'admin_fresh_verification_required'
     | 'admin_session_untrusted'
     | 'admin_session_revoked'
-    | 'admin_session_expired',
+    | 'admin_session_expired'
+    | 'admin_step_up_required',
 ) {
   return {
     assertFresh: jest.fn().mockImplementation(() => {

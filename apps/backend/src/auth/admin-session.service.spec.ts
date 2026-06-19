@@ -38,6 +38,30 @@ describe('AdminSessionService', () => {
       code: 'admin_fresh_verification_required',
     });
   });
+
+  it('requires and completes step-up verification on the same admin session', async () => {
+    const repo = new InMemoryAdminSessionRepository();
+    const service = new AdminSessionService(repo);
+    const session = await service.createSession('admin_1', 'device_1');
+
+    const forced = await service.requireStepUp(session.id, 'Suspicious evidence access pattern.');
+    expect(forced).toMatchObject({
+      id: session.id,
+      stepUpReason: 'Suspicious evidence access pattern.',
+    });
+    expect(forced.stepUpRequiredAt).toBeDefined();
+    await expect(service.assertFresh(principal(session.id))).rejects.toMatchObject({
+      code: 'admin_step_up_required',
+    });
+
+    const completed = await service.completeStepUp(principal(session.id));
+    expect(completed).toMatchObject({
+      id: session.id,
+      stepUpRequiredAt: undefined,
+      stepUpReason: undefined,
+    });
+    await expect(service.assertFresh(principal(session.id))).resolves.toBeUndefined();
+  });
 });
 
 function principal(adminSessionId = 'adm_sess_1'): AuthPrincipal {

@@ -388,8 +388,13 @@ CREATE TABLE IF NOT EXISTS "AdminSession" (
   "mfaVerifiedAt" timestamptz NOT NULL,
   "expiresAt" timestamptz NOT NULL,
   "revokedAt" timestamptz,
+  "stepUpRequiredAt" timestamptz,
+  "stepUpReason" text,
   "createdAt" timestamptz NOT NULL DEFAULT now()
 );
+
+ALTER TABLE "AdminSession" ADD COLUMN IF NOT EXISTS "stepUpRequiredAt" timestamptz;
+ALTER TABLE "AdminSession" ADD COLUMN IF NOT EXISTS "stepUpReason" text;
 
 CREATE INDEX IF NOT EXISTS "AdminSession_adminId_idx"
   ON "AdminSession"("adminId");
@@ -397,3 +402,5 @@ CREATE INDEX IF NOT EXISTS "AdminSession_deviceId_idx"
   ON "AdminSession"("deviceId");
 CREATE INDEX IF NOT EXISTS "AdminSession_expiresAt_idx"
   ON "AdminSession"("expiresAt");
+CREATE INDEX IF NOT EXISTS "AdminSession_stepUpRequiredAt_idx"
+  ON "AdminSession"("stepUpRequiredAt");

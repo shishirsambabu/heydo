@@ -27,6 +27,10 @@ class AdminSessionRevokeDto {
   @IsString() @MinLength(10) reason!: string;
 }
 
+class AdminStepUpCompleteDto {
+  @IsString() secret!: string;
+}
+
 /**
  * DEV-ONLY admin authentication. Lets us obtain a Verification-Officer token to
  * exercise the admin queue. Replaced by SSO + MFA in Phase 7 hardening.
@@ -89,8 +93,89 @@ export class AdminAuthController {
       throw error;
     }
   }
+
+  @Post('sessions/:sessionId/require-step-up')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  async requireStepUp(
+    @Param('sessionId') sessionId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: AdminSessionRevokeDto,
+  ) {
+    try {
+      const session = await this.adminSessions.requireStepUp(sessionId, dto.reason);
+      this.audit.record({
+        actorId: principal.sub,
+        actorRole: primaryRole(principal),
+        action: 'admin.session_step_up_required',
+        targetType: 'admin_session',
+        targetId: sessionId,
+        metadata: {
+          targetAdminId: session.adminId,
+          targetDeviceId: session.deviceId,
+          reason: dto.reason.trim(),
+        },
+      });
+      return {
+        stepUpRequired: true,
+        sessionId,
+        adminId: session.adminId,
+        stepUpRequiredAt: session.stepUpRequiredAt,
+      };
+    } catch (error) {
+      throw mapAdminSessionError(error);
+    }
+  }
+
+  @Post('sessions/current/dev-step-up')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('verification_officer', 'dispute_officer', 'fraud_analyst', 'finance', 'support', 'super_admin')
+  async devCompleteStepUp(
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: AdminStepUpCompleteDto,
+  ) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new ForbiddenException({
+        code: 'dev_step_up_disabled',
+        message: 'Dev step-up is disabled in production',
+      });
+    }
+    const expected = process.env.ADMIN_DEV_SECRET ?? 'dev-admin-secret';
+    if (dto.secret !== expected) {
+      throw new ForbiddenException({ code: 'bad_admin_secret', message: 'Bad admin secret' });
+    }
+
+    try {
+      const session = await this.adminSessions.completeStepUp(principal);
+      this.audit.record({
+        actorId: principal.sub,
+        actorRole: primaryRole(principal),
+        action: 'admin.session_step_up_completed',
+        targetType: 'admin_session',
+        targetId: session.id,
+        metadata: { deviceId: session.deviceId },
+      });
+      return {
+        stepUpCompleted: true,
+        sessionId: session.id,
+        mfaVerifiedAt: session.mfaVerifiedAt,
+      };
+    } catch (error) {
+      throw mapAdminSessionError(error);
+    }
+  }
 }
 
 function primaryRole(principal: AuthPrincipal): string {
   return principal.roles[0] ?? 'admin';
+}
+
+function mapAdminSessionError(error: unknown): never {
+  if (error instanceof AdminSessionError) {
+    if (error.code === 'admin_session_not_found') {
+      throw new NotFoundException({ code: error.code, message: error.message });
+    }
+    throw new ForbiddenException({ code: error.code, message: error.message });
+  }
+  throw error;
 }
