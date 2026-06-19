@@ -39,7 +39,7 @@ class DisputeResolutionDto {
 
 @Controller('admin/marketplace')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('fraud_analyst', 'support', 'super_admin')
+@Roles('super_admin')
 export class AdminMarketplaceController {
   constructor(
     private readonly marketplace: MarketplaceService,
@@ -48,21 +48,25 @@ export class AdminMarketplaceController {
   ) {}
 
   @Get('gigs')
+  @Roles('support', 'fraud_analyst', 'dispute_officer', 'super_admin')
   adminGigs(@Query('visibilityStatus') visibilityStatus?: string, @Query('status') status?: string) {
     return this.marketplace.listGigsForAdmin({ visibilityStatus, status });
   }
 
   @Get('gigs/pending-review')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   pendingReview() {
     return this.marketplace.listGigsForAdmin({ visibilityStatus: 'pending_review' });
   }
 
   @Get('gigs/:gigId/money-trail')
+  @Roles('finance', 'dispute_officer', 'super_admin')
   moneyTrail(@Param('gigId') gigId: string) {
     return this.money.moneyTrailForGig(gigId);
   }
 
   @Get('gigs/:gigId/audit-trail')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   async gigAuditTrail(@Param('gigId') gigId: string) {
     const [direct, linked] = await Promise.all([
       this.audit.list({ targetType: 'gig', targetId: gigId }),
@@ -73,11 +77,13 @@ export class AdminMarketplaceController {
   }
 
   @Get('audit-health')
+  @Roles('super_admin')
   auditHealth() {
     return this.audit.health();
   }
 
   @Post('gigs/:gigId/approve')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   approve(
     @Param('gigId') gigId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -89,6 +95,7 @@ export class AdminMarketplaceController {
   }
 
   @Post('gigs/:gigId/reject')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   reject(
     @Param('gigId') gigId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -100,6 +107,7 @@ export class AdminMarketplaceController {
   }
 
   @Post('gigs/:gigId/flag')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   flag(
     @Param('gigId') gigId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -111,16 +119,19 @@ export class AdminMarketplaceController {
   }
 
   @Get('safety-reports')
+  @Roles('support', 'fraud_analyst', 'dispute_officer', 'super_admin')
   safetyReports(@Query('status') status?: string, @Query('gigId') gigId?: string) {
     return this.marketplace.listSafetyReports({ status, gigId });
   }
 
   @Get('safety-reports/:reportId/audit-trail')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   safetyReportAuditTrail(@Param('reportId') reportId: string) {
     return this.audit.list({ targetType: 'safety_report', targetId: reportId });
   }
 
   @Get('safety-reports/:reportId/evidence-refs')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   safetyReportEvidenceRefs(
     @Param('reportId') reportId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -131,6 +142,7 @@ export class AdminMarketplaceController {
   }
 
   @Post('safety-reports/:reportId/review')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   reviewSafetyReport(
     @Param('reportId') reportId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -148,6 +160,7 @@ export class AdminMarketplaceController {
   }
 
   @Post('safety-reports/:reportId/resolve-dispute')
+  @Roles('dispute_officer', 'super_admin')
   resolveDispute(
     @Param('reportId') reportId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -165,6 +178,7 @@ export class AdminMarketplaceController {
   }
 
   @Post('safety-reports/:reportId/escalation-package')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   escalationPackage(
     @Param('reportId') reportId: string,
     @CurrentUser() principal: AuthPrincipal,
@@ -175,6 +189,7 @@ export class AdminMarketplaceController {
   }
 
   @Get('escalation-packages/:packageId')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   retrieveEscalationPackage(
     @Param('packageId') packageId: string,
     @CurrentUser() principal: AuthPrincipal,
