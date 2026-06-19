@@ -76,6 +76,84 @@ export interface AdminDecisionNote {
   note: string;
 }
 
+export type AdminDecisionReasonAction =
+  | 'gig.approve'
+  | 'gig.reject'
+  | 'gig.flag'
+  | 'safety.under_review'
+  | 'safety.action_taken'
+  | 'safety.escalated'
+  | 'safety.closed'
+  | 'dispute.release_to_worker'
+  | 'dispute.refund_giver'
+  | 'dispute.keep_escalated'
+  | 'escalation.generate';
+
+export interface AdminDecisionReason {
+  code: string;
+  label: string;
+  requiresLawEnforcementRef?: boolean;
+}
+
+export const ADMIN_DECISION_REASON_CATALOG: Record<
+  AdminDecisionReasonAction,
+  AdminDecisionReason[]
+> = {
+  'gig.approve': [
+    { code: 'caller_verified_scope', label: 'Caller verified safe scope' },
+    { code: 'pricing_and_location_reasonable', label: 'Pricing and location are reasonable' },
+    { code: 'false_positive_safety_flag', label: 'Safety flag was a false positive' },
+  ],
+  'gig.reject': [
+    { code: 'unsafe_or_exploitative_request', label: 'Unsafe or exploitative request' },
+    { code: 'illegal_or_prohibited_request', label: 'Illegal or prohibited request' },
+    { code: 'insufficient_safe_scope', label: 'Insufficient safe scope' },
+  ],
+  'gig.flag': [
+    { code: 'needs_safety_followup', label: 'Needs safety follow-up' },
+    { code: 'suspicious_location_or_timing', label: 'Suspicious location or timing' },
+    { code: 'possible_off_platform_or_fraud', label: 'Possible off-platform payment or fraud' },
+  ],
+  'safety.under_review': [
+    { code: 'triage_started', label: 'Triage started' },
+    { code: 'awaiting_evidence_review', label: 'Awaiting evidence review' },
+  ],
+  'safety.action_taken': [
+    { code: 'platform_action_completed', label: 'Platform action completed' },
+    { code: 'party_warned_or_restricted', label: 'Party warned or restricted' },
+    { code: 'case_resolved_without_police', label: 'Case resolved without police escalation' },
+  ],
+  'safety.escalated': [
+    {
+      code: 'lawful_police_escalation',
+      label: 'Lawful police escalation',
+      requiresLawEnforcementRef: true,
+    },
+    { code: 'severe_safety_risk', label: 'Severe safety risk' },
+  ],
+  'safety.closed': [
+    { code: 'insufficient_evidence', label: 'Insufficient evidence' },
+    { code: 'duplicate_or_withdrawn_report', label: 'Duplicate or withdrawn report' },
+    { code: 'resolved_after_followup', label: 'Resolved after follow-up' },
+  ],
+  'dispute.release_to_worker': [
+    { code: 'evidence_supports_worker_payment', label: 'Evidence supports worker payment' },
+    { code: 'giver_fault_or_no_show', label: 'Giver fault or no-show' },
+  ],
+  'dispute.refund_giver': [
+    { code: 'evidence_supports_giver_refund', label: 'Evidence supports giver refund' },
+    { code: 'worker_fault_or_no_show', label: 'Worker fault or no-show' },
+  ],
+  'dispute.keep_escalated': [
+    { code: 'awaiting_more_evidence', label: 'Awaiting more evidence' },
+    { code: 'law_enforcement_pending', label: 'Law enforcement pending' },
+  ],
+  'escalation.generate': [
+    { code: 'police_escalation_ready', label: 'Police escalation package ready' },
+    { code: 'legal_hold_package_ready', label: 'Legal hold package ready' },
+  ],
+};
+
 export interface SafetyEscalationPackage {
   id: string;
   generatedAt: string;

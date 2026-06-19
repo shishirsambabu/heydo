@@ -19,7 +19,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuditService } from '../common/audit/audit.service';
 import { MoneyService } from '../money/money.service';
-import { AdminDecisionNote, MarketplaceError, MarketplaceService } from './marketplace.service';
+import {
+  ADMIN_DECISION_REASON_CATALOG,
+  AdminDecisionNote,
+  AdminDecisionReasonAction,
+  MarketplaceError,
+  MarketplaceService,
+} from './marketplace.service';
 
 class ModerationDto {
   @IsString() @MinLength(3) reasonCode!: string;
@@ -111,6 +117,12 @@ export class AdminMarketplaceController {
     return this.audit.health();
   }
 
+  @Get('decision-reasons')
+  @Roles('fraud_analyst', 'dispute_officer', 'finance', 'support', 'super_admin')
+  decisionReasons() {
+    return ADMIN_DECISION_REASON_CATALOG;
+  }
+
   @Post('gigs/:gigId/approve')
   @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   approve(
@@ -124,7 +136,7 @@ export class AdminMarketplaceController {
         principal.sub,
         'approve',
         dto.note,
-        decisionFromDto(dto),
+        decisionFromDto('gig.approve', dto),
       ),
     );
   }
@@ -142,7 +154,7 @@ export class AdminMarketplaceController {
         principal.sub,
         'reject',
         dto.note,
-        decisionFromDto(dto),
+        decisionFromDto('gig.reject', dto),
       ),
     );
   }
@@ -160,7 +172,7 @@ export class AdminMarketplaceController {
         principal.sub,
         'flag',
         dto.note,
-        decisionFromDto(dto),
+        decisionFromDto('gig.flag', dto),
       ),
     );
   }
@@ -214,7 +226,9 @@ export class AdminMarketplaceController {
         dto.status,
         dto.note,
         dto.lawEnforcementRef,
-        decisionFromDto(dto),
+        decisionFromDto(`safety.${dto.status}` as AdminDecisionReasonAction, dto, {
+          lawEnforcementRef: dto.lawEnforcementRef,
+        }),
       ),
     );
   }
@@ -233,7 +247,7 @@ export class AdminMarketplaceController {
         dto.outcome,
         dto.note,
         dto.lawEnforcementRef,
-        decisionFromDto(dto),
+        decisionFromDto(`dispute.${dto.outcome}` as AdminDecisionReasonAction, dto),
       ),
     );
   }
@@ -249,7 +263,7 @@ export class AdminMarketplaceController {
       this.marketplace.generateSafetyEscalationPackage(
         reportId,
         principal.sub,
-        decisionFromDto(dto),
+        decisionFromDto('escalation.generate', dto),
       ),
     );
   }
@@ -286,9 +300,22 @@ function primaryRole(principal: AuthPrincipal): string {
   return principal.roles[0] ?? 'admin';
 }
 
-function decisionFromDto(dto: { reasonCode: string; note: string }): AdminDecisionNote {
+function decisionFromDto(
+  action: AdminDecisionReasonAction,
+  dto: { reasonCode: string; note: string },
+  options: { lawEnforcementRef?: string } = {},
+): AdminDecisionNote {
+  const reasonCode = dto.reasonCode.trim();
+  const allowed = ADMIN_DECISION_REASON_CATALOG[action] ?? [];
+  const reason = allowed.find((item) => item.code === reasonCode);
+  if (!reason) {
+    throw new MarketplaceError(`Unsupported decision reason for ${action}`, 'invalid_decision_reason');
+  }
+  if (reason.requiresLawEnforcementRef && !options.lawEnforcementRef?.trim()) {
+    throw new MarketplaceError('Law enforcement reference required for this decision reason', 'law_enforcement_ref_required');
+  }
   return {
-    reasonCode: dto.reasonCode.trim(),
+    reasonCode,
     note: dto.note.trim(),
   };
 }

@@ -24,6 +24,13 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     ]);
     expect(rolesFor('moneyTrail')).toEqual(['finance', 'dispute_officer', 'super_admin']);
     expect(rolesFor('auditHealth')).toEqual(['super_admin']);
+    expect(rolesFor('decisionReasons')).toEqual([
+      'fraud_analyst',
+      'dispute_officer',
+      'finance',
+      'support',
+      'super_admin',
+    ]);
     expect(rolesFor('safetyReportEvidenceRefs')).toEqual([
       'fraud_analyst',
       'dispute_officer',
@@ -127,6 +134,22 @@ describe('AdminMarketplaceController sensitive read audit', () => {
 });
 
 describe('AdminMarketplaceController structured decisions', () => {
+  it('exposes the approved decision reason catalog', () => {
+    const controller = new AdminMarketplaceController({} as never, {} as never, auditMock() as never);
+
+    expect(controller.decisionReasons()).toMatchObject({
+      'gig.approve': expect.arrayContaining([
+        expect.objectContaining({ code: 'caller_verified_scope' }),
+      ]),
+      'dispute.release_to_worker': expect.arrayContaining([
+        expect.objectContaining({ code: 'evidence_supports_worker_payment' }),
+      ]),
+      'escalation.generate': expect.arrayContaining([
+        expect.objectContaining({ code: 'police_escalation_ready' }),
+      ]),
+    });
+  });
+
   it('passes structured moderation decisions to the service', async () => {
     const marketplace = { moderateGig: jest.fn().mockResolvedValue({ id: 'gig_1' }) };
     const controller = new AdminMarketplaceController(
@@ -148,6 +171,64 @@ describe('AdminMarketplaceController structured decisions', () => {
       {
         reasonCode: 'caller_verified_scope',
         note: 'Called giver and verified the safe scope.',
+      },
+    );
+  });
+
+  it('rejects unsupported decision reasons before service calls', async () => {
+    const marketplace = { moderateGig: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+    );
+
+    await expect(
+      controller.approve('gig_1', principal, {
+        reasonCode: 'made_up_reason',
+        note: 'This should not be allowed.',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'invalid_decision_reason' }),
+    });
+    expect(marketplace.moderateGig).not.toHaveBeenCalled();
+  });
+
+  it('requires law enforcement refs for catalog reasons that demand them', async () => {
+    const marketplace = { reviewSafetyReport: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+    );
+
+    await expect(
+      controller.reviewSafetyReport('safe_1', principal, {
+        status: 'escalated',
+        reasonCode: 'lawful_police_escalation',
+        note: 'Case needs police escalation.',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'law_enforcement_ref_required' }),
+    });
+    expect(marketplace.reviewSafetyReport).not.toHaveBeenCalled();
+
+    await controller.reviewSafetyReport('safe_1', principal, {
+      status: 'escalated',
+      reasonCode: 'lawful_police_escalation',
+      note: 'Case needs police escalation.',
+      lawEnforcementRef: 'POLICE_DD_001',
+    });
+
+    expect(marketplace.reviewSafetyReport).toHaveBeenCalledWith(
+      'safe_1',
+      'admin_1',
+      'escalated',
+      'Case needs police escalation.',
+      'POLICE_DD_001',
+      {
+        reasonCode: 'lawful_police_escalation',
+        note: 'Case needs police escalation.',
       },
     );
   });
