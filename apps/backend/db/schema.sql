@@ -220,6 +220,32 @@ CREATE TABLE IF NOT EXISTS "SafetyReport" (
 CREATE INDEX IF NOT EXISTS "SafetyReport_status_idx" ON "SafetyReport"(status);
 CREATE INDEX IF NOT EXISTS "SafetyReport_gigId_idx" ON "SafetyReport"("gigId");
 
+CREATE TABLE IF NOT EXISTS "EvidenceVaultRef" (
+  ref text PRIMARY KEY,
+  "reportId" text NOT NULL REFERENCES "SafetyReport"(id) ON DELETE CASCADE,
+  "gigId" text NOT NULL REFERENCES "Gig"(id) ON DELETE CASCADE,
+  classification text NOT NULL DEFAULT 'other',
+  "retentionPolicy" text NOT NULL DEFAULT 'safety_case_standard',
+  "legalHold" boolean NOT NULL DEFAULT false,
+  "allowedRoles" text[] NOT NULL DEFAULT '{}',
+  "createdBy" text NOT NULL,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "accessCount" integer NOT NULL DEFAULT 0,
+  "lastAccessedBy" text,
+  "lastAccessedAt" timestamptz,
+  CONSTRAINT "EvidenceVaultRef_classification_check"
+    CHECK (classification IN ('chat', 'audio', 'image', 'video', 'location', 'identity', 'document', 'other')),
+  CONSTRAINT "EvidenceVaultRef_retentionPolicy_check"
+    CHECK ("retentionPolicy" IN ('safety_case_standard', 'legal_hold'))
+);
+
+CREATE INDEX IF NOT EXISTS "EvidenceVaultRef_reportId_idx"
+  ON "EvidenceVaultRef"("reportId");
+CREATE INDEX IF NOT EXISTS "EvidenceVaultRef_gigId_idx"
+  ON "EvidenceVaultRef"("gigId");
+CREATE INDEX IF NOT EXISTS "EvidenceVaultRef_legalHold_idx"
+  ON "EvidenceVaultRef"("legalHold");
+
 CREATE TABLE IF NOT EXISTS "EscalationPackageManifest" (
   id text PRIMARY KEY,
   "reportId" text NOT NULL REFERENCES "SafetyReport"(id) ON DELETE CASCADE,

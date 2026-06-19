@@ -120,6 +120,16 @@ export class AdminMarketplaceController {
     return this.audit.list({ targetType: 'safety_report', targetId: reportId });
   }
 
+  @Get('safety-reports/:reportId/evidence-refs')
+  safetyReportEvidenceRefs(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.listSafetyReportEvidenceRefs(reportId, principal.sub, principal.roles),
+    );
+  }
+
   @Post('safety-reports/:reportId/review')
   reviewSafetyReport(
     @Param('reportId') reportId: string,

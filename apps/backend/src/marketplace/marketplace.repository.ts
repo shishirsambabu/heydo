@@ -3,6 +3,7 @@ import {
   Category,
   DEFAULT_CATEGORIES,
   EscalationPackageManifest,
+  EvidenceVaultRef,
   Gig,
   GigApplication,
   SafetyReport,
@@ -44,6 +45,13 @@ export interface SafetyReportRepository {
   list(filters?: { status?: string; gigId?: string }): Promise<SafetyReport[]>;
 }
 
+export interface EvidenceVaultRefRepository {
+  save(ref: EvidenceVaultRef): Promise<void>;
+  findByRef(ref: string): Promise<EvidenceVaultRef | null>;
+  listForReport(reportId: string): Promise<EvidenceVaultRef[]>;
+  markAccessed(ref: string, actorId: string, at: string): Promise<EvidenceVaultRef | null>;
+}
+
 export interface EscalationPackageRepository {
   save(manifest: EscalationPackageManifest): Promise<void>;
   findById(id: string): Promise<EscalationPackageManifest | null>;
@@ -55,6 +63,7 @@ export const GIG_REPOSITORY = Symbol('GIG_REPOSITORY');
 export const APPLICATION_REPOSITORY = Symbol('APPLICATION_REPOSITORY');
 export const ASSIGNMENT_REPOSITORY = Symbol('ASSIGNMENT_REPOSITORY');
 export const SAFETY_REPORT_REPOSITORY = Symbol('SAFETY_REPORT_REPOSITORY');
+export const EVIDENCE_VAULT_REF_REPOSITORY = Symbol('EVIDENCE_VAULT_REF_REPOSITORY');
 export const ESCALATION_PACKAGE_REPOSITORY = Symbol('ESCALATION_PACKAGE_REPOSITORY');
 
 export class InMemoryCategoryRepository implements CategoryRepository {
@@ -159,6 +168,39 @@ export class InMemorySafetyReportRepository implements SafetyReportRepository {
   }
 }
 
+export class InMemoryEvidenceVaultRefRepository implements EvidenceVaultRefRepository {
+  private readonly items = new Map<string, EvidenceVaultRef>();
+
+  async save(ref: EvidenceVaultRef): Promise<void> {
+    this.items.set(ref.ref, copyEvidenceVaultRef(ref));
+  }
+
+  async findByRef(ref: string): Promise<EvidenceVaultRef | null> {
+    const item = this.items.get(ref);
+    return item ? copyEvidenceVaultRef(item) : null;
+  }
+
+  async listForReport(reportId: string): Promise<EvidenceVaultRef[]> {
+    return [...this.items.values()]
+      .filter((item) => item.reportId === reportId)
+      .map(copyEvidenceVaultRef)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async markAccessed(ref: string, actorId: string, at: string): Promise<EvidenceVaultRef | null> {
+    const item = this.items.get(ref);
+    if (!item) return null;
+    const updated: EvidenceVaultRef = {
+      ...item,
+      accessCount: item.accessCount + 1,
+      lastAccessedBy: actorId,
+      lastAccessedAt: at,
+    };
+    this.items.set(ref, copyEvidenceVaultRef(updated));
+    return copyEvidenceVaultRef(updated);
+  }
+}
+
 export class InMemoryEscalationPackageRepository implements EscalationPackageRepository {
   private readonly items = new Map<string, EscalationPackageManifest>();
 
@@ -187,6 +229,13 @@ export class InMemoryEscalationPackageRepository implements EscalationPackageRep
     this.items.set(id, copyEscalationPackageManifest(updated));
     return copyEscalationPackageManifest(updated);
   }
+}
+
+function copyEvidenceVaultRef(ref: EvidenceVaultRef): EvidenceVaultRef {
+  return {
+    ...ref,
+    allowedRoles: [...ref.allowedRoles],
+  };
 }
 
 function copyEscalationPackageManifest(

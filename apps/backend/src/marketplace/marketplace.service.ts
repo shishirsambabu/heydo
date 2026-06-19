@@ -9,6 +9,7 @@ import {
   Category,
   DEFAULT_PRICING_GUIDES,
   EscalationPackageManifest,
+  EvidenceVaultRef,
   Gig,
   GigApplication,
   GigStatus,
@@ -21,11 +22,13 @@ import {
 import {
   APPLICATION_REPOSITORY,
   ASSIGNMENT_REPOSITORY,
+  EVIDENCE_VAULT_REF_REPOSITORY,
   SAFETY_REPORT_REPOSITORY,
   ApplicationRepository,
   AssignmentRepository,
   CATEGORY_REPOSITORY,
   CategoryRepository,
+  EvidenceVaultRefRepository,
   ESCALATION_PACKAGE_REPOSITORY,
   EscalationPackageRepository,
   GIG_REPOSITORY,
@@ -105,6 +108,8 @@ export class MarketplaceService {
     @Inject(APPLICATION_REPOSITORY) private readonly applications: ApplicationRepository,
     @Inject(ASSIGNMENT_REPOSITORY) private readonly assignments: AssignmentRepository,
     @Inject(SAFETY_REPORT_REPOSITORY) private readonly safetyReports: SafetyReportRepository,
+    @Inject(EVIDENCE_VAULT_REF_REPOSITORY)
+    private readonly evidenceVaultRefs: EvidenceVaultRefRepository,
     @Inject(ESCALATION_PACKAGE_REPOSITORY)
     private readonly escalationPackages: EscalationPackageRepository,
     private readonly givers: GiverProfileRepository,
@@ -358,6 +363,7 @@ export class MarketplaceService {
       createdAt: new Date(this.now()).toISOString(),
     };
     await this.safetyReports.save(report);
+    await this.registerEvidenceRefs(report);
 
     if (shouldImmediatelyFlag(input.reason, input.severity)) {
       await this.gigs.save({
@@ -398,6 +404,51 @@ export class MarketplaceService {
       },
     });
     return report;
+  }
+
+  async listSafetyReportEvidenceRefs(
+    reportId: string,
+    actorId: string,
+    actorRoles: string[],
+  ): Promise<EvidenceVaultRef[]> {
+    const report = await this.safetyReports.findById(reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    const refs = await this.evidenceVaultRefs.listForReport(reportId);
+    const allowed = refs.filter((ref) =>
+      ref.allowedRoles.some((role) => actorRoles.includes(role)),
+    );
+    if (allowed.length !== refs.length) {
+      this.audit.record({
+        actorId,
+        actorRole: actorRoles[0] ?? 'unknown',
+        action: 'evidence.access_denied',
+        targetType: 'safety_report',
+        targetId: reportId,
+        metadata: {
+          gigId: report.gigId,
+          requestedCount: refs.length,
+          allowedCount: allowed.length,
+        },
+      });
+      throw new MarketplaceError('Not authorized to access safety evidence refs', 'forbidden');
+    }
+    const accessedAt = new Date(this.now()).toISOString();
+    const accessed = await Promise.all(
+      allowed.map((ref) => this.evidenceVaultRefs.markAccessed(ref.ref, actorId, accessedAt)),
+    );
+    this.audit.record({
+      actorId,
+      actorRole: actorRoles[0] ?? 'unknown',
+      action: 'evidence.refs_accessed',
+      targetType: 'safety_report',
+      targetId: reportId,
+      metadata: {
+        gigId: report.gigId,
+        evidenceCount: allowed.length,
+        legalHoldCount: allowed.filter((ref) => ref.legalHold).length,
+      },
+    });
+    return accessed.filter((ref): ref is EvidenceVaultRef => Boolean(ref));
   }
 
   listSafetyReports(filters?: { status?: string; gigId?: string }): Promise<SafetyReport[]> {
@@ -735,6 +786,45 @@ export class MarketplaceService {
     }
     return gig;
   }
+
+  private async registerEvidenceRefs(report: SafetyReport): Promise<void> {
+    const legalHold = isEscalationWorthy(report);
+    await Promise.all(
+      report.evidenceVaultRefs.map(async (ref) => {
+        const existing = await this.evidenceVaultRefs.findByRef(ref);
+        const createdAt = existing?.createdAt ?? new Date(this.now()).toISOString();
+        await this.evidenceVaultRefs.save({
+          ref,
+          reportId: report.id,
+          gigId: report.gigId,
+          classification: classifyEvidenceRef(ref),
+          retentionPolicy: legalHold ? 'legal_hold' : 'safety_case_standard',
+          legalHold,
+          allowedRoles: ['fraud_analyst', 'dispute_officer', 'super_admin'],
+          createdBy: existing?.createdBy ?? report.reporterId,
+          createdAt,
+          accessCount: existing?.accessCount ?? 0,
+          lastAccessedBy: existing?.lastAccessedBy,
+          lastAccessedAt: existing?.lastAccessedAt,
+        });
+      }),
+    );
+    if (report.evidenceVaultRefs.length) {
+      this.audit.record({
+        actorId: report.reporterId,
+        actorRole: 'user',
+        action: 'evidence.refs_registered',
+        targetType: 'safety_report',
+        targetId: report.id,
+        metadata: {
+          gigId: report.gigId,
+          evidenceCount: report.evidenceVaultRefs.length,
+          retentionPolicy: legalHold ? 'legal_hold' : 'safety_case_standard',
+          legalHold,
+        },
+      });
+    }
+  }
 }
 
 function randomId(): string {
@@ -871,6 +961,20 @@ function isEscalationWorthy(report: SafetyReport): boolean {
 function uniqueAuditRecords(records: Awaited<ReturnType<AuditService['list']>>) {
   const byId = new Map(records.map((record) => [record.id, record]));
   return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+function classifyEvidenceRef(ref: string): EvidenceVaultRef['classification'] {
+  const normalized = ref.toLowerCase();
+  if (normalized.includes('chat')) return 'chat';
+  if (normalized.includes('audio')) return 'audio';
+  if (normalized.includes('image') || normalized.includes('photo')) return 'image';
+  if (normalized.includes('video')) return 'video';
+  if (normalized.includes('location')) return 'location';
+  if (normalized.includes('aadhaar') || normalized.includes('selfie') || normalized.includes('kyc')) {
+    return 'identity';
+  }
+  if (normalized.includes('document') || normalized.includes('address')) return 'document';
+  return 'other';
 }
 
 function hashEscalationSnapshot(input: {

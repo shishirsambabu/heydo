@@ -7,6 +7,7 @@ import {
   InMemoryApplicationRepository,
   InMemoryAssignmentRepository,
   InMemoryCategoryRepository,
+  InMemoryEvidenceVaultRefRepository,
   InMemoryEscalationPackageRepository,
   InMemoryGigRepository,
   InMemorySafetyReportRepository,
@@ -21,6 +22,7 @@ function service(
   const audit = new AuditService();
   const moneyRepo = new InMemoryMoneyRepository();
   const safetyReports = new InMemorySafetyReportRepository();
+  const evidenceVaultRefs = new InMemoryEvidenceVaultRefRepository();
   let id = 0;
   const svc = new MarketplaceService(
     new InMemoryCategoryRepository(),
@@ -28,6 +30,7 @@ function service(
     new InMemoryApplicationRepository(),
     new InMemoryAssignmentRepository(),
     safetyReports,
+    evidenceVaultRefs,
     new InMemoryEscalationPackageRepository(),
     givers,
     { canApply } as Pick<VerificationService, 'canApply'> as VerificationService,
@@ -43,7 +46,7 @@ function service(
         )
       : undefined,
   );
-  return { svc, givers, audit, moneyRepo, safetyReports };
+  return { svc, givers, audit, moneyRepo, safetyReports, evidenceVaultRefs };
 }
 
 describe('MarketplaceService', () => {
@@ -207,6 +210,24 @@ describe('MarketplaceService', () => {
 
     expect(report.status).toBe('open');
     expect(report.evidenceVaultRefs).toEqual(['vault_chat_1']);
+    await expect(
+      svc.listSafetyReportEvidenceRefs(report.id, 'fraud_admin', ['fraud_analyst']),
+    ).resolves.toEqual([
+      expect.objectContaining({
+        ref: 'vault_chat_1',
+        classification: 'chat',
+        retentionPolicy: 'legal_hold',
+        legalHold: true,
+        allowedRoles: ['fraud_analyst', 'dispute_officer', 'super_admin'],
+        accessCount: 1,
+        lastAccessedBy: 'fraud_admin',
+      }),
+    ]);
+    await expect(
+      svc.listSafetyReportEvidenceRefs(report.id, 'support_admin', ['support']),
+    ).rejects.toMatchObject<Partial<MarketplaceError>>({
+      code: 'forbidden',
+    });
     await expect(svc.getGig(gig.id)).resolves.toMatchObject({
       visibilityStatus: 'flagged',
       riskLevel: 'high',

@@ -13,6 +13,16 @@ export type SafetyReportReason =
   | 'other';
 export type SafetyReportSeverity = 'low' | 'medium' | 'high' | 'critical';
 export type SafetyReportStatus = 'open' | 'under_review' | 'action_taken' | 'escalated' | 'closed';
+export type EvidenceClassification =
+  | 'chat'
+  | 'audio'
+  | 'image'
+  | 'video'
+  | 'location'
+  | 'identity'
+  | 'document'
+  | 'other';
+export type EvidenceRetentionPolicy = 'safety_case_standard' | 'legal_hold';
 
 export interface Category {
   id: string;
@@ -100,6 +110,21 @@ export interface EscalationPackageManifest {
   retrievalCount: number;
   lastRetrievedBy?: string;
   lastRetrievedAt?: string;
+}
+
+export interface EvidenceVaultRef {
+  ref: string;
+  reportId: string;
+  gigId: string;
+  classification: EvidenceClassification;
+  retentionPolicy: EvidenceRetentionPolicy;
+  legalHold: boolean;
+  allowedRoles: string[];
+  createdBy: string;
+  createdAt: string;
+  accessCount: number;
+  lastAccessedBy?: string;
+  lastAccessedAt?: string;
 }
 
 export const DEFAULT_CATEGORIES: Category[] = [

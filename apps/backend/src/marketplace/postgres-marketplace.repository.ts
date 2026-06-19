@@ -5,6 +5,7 @@ import {
   Category,
   DEFAULT_CATEGORIES,
   EscalationPackageManifest,
+  EvidenceVaultRef,
   Gig,
   GigApplication,
   SafetyReport,
@@ -13,6 +14,7 @@ import {
   ApplicationRepository,
   AssignmentRepository,
   CategoryRepository,
+  EvidenceVaultRefRepository,
   EscalationPackageRepository,
   GigFilters,
   GigRepository,
@@ -97,6 +99,21 @@ interface EscalationPackageManifestRow {
   retrievalCount: number;
   lastRetrievedBy: string | null;
   lastRetrievedAt: Date | null;
+}
+
+interface EvidenceVaultRefRow {
+  ref: string;
+  reportId: string;
+  gigId: string;
+  classification: EvidenceVaultRef['classification'];
+  retentionPolicy: EvidenceVaultRef['retentionPolicy'];
+  legalHold: boolean;
+  allowedRoles: string[];
+  createdBy: string;
+  createdAt: Date;
+  accessCount: number;
+  lastAccessedBy: string | null;
+  lastAccessedAt: Date | null;
 }
 
 @Injectable()
@@ -378,6 +395,70 @@ export class PostgresSafetyReportRepository implements SafetyReportRepository {
 }
 
 @Injectable()
+export class PostgresEvidenceVaultRefRepository implements EvidenceVaultRefRepository {
+  constructor(private readonly pg: PgService) {}
+
+  async save(ref: EvidenceVaultRef): Promise<void> {
+    await this.pg.query(
+      `INSERT INTO "EvidenceVaultRef"
+        (ref, "reportId", "gigId", classification, "retentionPolicy", "legalHold",
+         "allowedRoles", "createdBy", "createdAt", "accessCount", "lastAccessedBy", "lastAccessedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       ON CONFLICT (ref) DO UPDATE SET
+         classification = EXCLUDED.classification,
+         "retentionPolicy" = EXCLUDED."retentionPolicy",
+         "legalHold" = EXCLUDED."legalHold",
+         "allowedRoles" = EXCLUDED."allowedRoles"`,
+      [
+        ref.ref,
+        ref.reportId,
+        ref.gigId,
+        ref.classification,
+        ref.retentionPolicy,
+        ref.legalHold,
+        ref.allowedRoles,
+        ref.createdBy,
+        ref.createdAt,
+        ref.accessCount,
+        ref.lastAccessedBy ?? null,
+        ref.lastAccessedAt ?? null,
+      ],
+    );
+  }
+
+  async findByRef(ref: string): Promise<EvidenceVaultRef | null> {
+    const [row] = await this.pg.query<EvidenceVaultRefRow>(
+      `${selectEvidenceVaultRef()} WHERE ref = $1`,
+      [ref],
+    );
+    return row ? toEvidenceVaultRef(row) : null;
+  }
+
+  async listForReport(reportId: string): Promise<EvidenceVaultRef[]> {
+    const rows = await this.pg.query<EvidenceVaultRefRow>(
+      `${selectEvidenceVaultRef()} WHERE "reportId" = $1 ORDER BY "createdAt" ASC`,
+      [reportId],
+    );
+    return rows.map(toEvidenceVaultRef);
+  }
+
+  async markAccessed(ref: string, actorId: string, at: string): Promise<EvidenceVaultRef | null> {
+    const [row] = await this.pg.query<EvidenceVaultRefRow>(
+      `UPDATE "EvidenceVaultRef"
+       SET "accessCount" = "accessCount" + 1,
+           "lastAccessedBy" = $2,
+           "lastAccessedAt" = $3
+       WHERE ref = $1
+       RETURNING ref, "reportId", "gigId", classification, "retentionPolicy", "legalHold",
+                 "allowedRoles", "createdBy", "createdAt", "accessCount",
+                 "lastAccessedBy", "lastAccessedAt"`,
+      [ref, actorId, at],
+    );
+    return row ? toEvidenceVaultRef(row) : null;
+  }
+}
+
+@Injectable()
 export class PostgresEscalationPackageRepository implements EscalationPackageRepository {
   constructor(private readonly pg: PgService) {}
 
@@ -522,6 +603,13 @@ function selectEscalationPackageManifest(): string {
           FROM "EscalationPackageManifest"`;
 }
 
+function selectEvidenceVaultRef(): string {
+  return `SELECT ref, "reportId", "gigId", classification, "retentionPolicy", "legalHold",
+                 "allowedRoles", "createdBy", "createdAt", "accessCount",
+                 "lastAccessedBy", "lastAccessedAt"
+          FROM "EvidenceVaultRef"`;
+}
+
 function toSafetyReport(row: SafetyReportRow): SafetyReport {
   return {
     id: row.id,
@@ -556,5 +644,22 @@ function toEscalationPackageManifest(
     retrievalCount: row.retrievalCount,
     lastRetrievedBy: row.lastRetrievedBy ?? undefined,
     lastRetrievedAt: row.lastRetrievedAt?.toISOString(),
+  };
+}
+
+function toEvidenceVaultRef(row: EvidenceVaultRefRow): EvidenceVaultRef {
+  return {
+    ref: row.ref,
+    reportId: row.reportId,
+    gigId: row.gigId,
+    classification: row.classification,
+    retentionPolicy: row.retentionPolicy,
+    legalHold: row.legalHold,
+    allowedRoles: row.allowedRoles ?? [],
+    createdBy: row.createdBy,
+    createdAt: row.createdAt.toISOString(),
+    accessCount: row.accessCount,
+    lastAccessedBy: row.lastAccessedBy ?? undefined,
+    lastAccessedAt: row.lastAccessedAt?.toISOString(),
   };
 }
