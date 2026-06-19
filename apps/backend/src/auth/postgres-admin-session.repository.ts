@@ -56,6 +56,18 @@ export class PostgresAdminSessionRepository implements AdminSessionRepository {
     return row ? toAdminSession(row) : null;
   }
 
+  async list(limit: number): Promise<AdminSession[]> {
+    const rows = await this.pg.query<AdminSessionRow>(
+      `SELECT id, "adminId", "deviceId", "mfaVerifiedAt", "expiresAt", "revokedAt",
+              "stepUpRequiredAt", "stepUpReason", "createdAt"
+       FROM "AdminSession"
+       ORDER BY "createdAt" DESC
+       LIMIT $1`,
+      [limit],
+    );
+    return rows.map(toAdminSession);
+  }
+
   async revoke(id: string, revokedAt: string): Promise<void> {
     await this.pg.query('UPDATE "AdminSession" SET "revokedAt" = $2 WHERE id = $1', [
       id,

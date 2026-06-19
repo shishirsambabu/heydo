@@ -6,9 +6,11 @@ import {
   NotFoundException,
   Param,
   Post,
+  Get,
+  Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsArray, IsString, MinLength } from 'class-validator';
+import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
 import { AuditService } from '../common/audit/audit.service';
 import { CurrentUser, Roles } from './decorators';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -31,6 +33,10 @@ class AdminStepUpCompleteDto {
   @IsString() secret!: string;
 }
 
+class AdminSessionListQuery {
+  @IsOptional() @IsString() limit?: string;
+}
+
 /**
  * DEV-ONLY admin authentication. Lets us obtain a Verification-Officer token to
  * exercise the admin queue. Replaced by SSO + MFA in Phase 7 hardening.
@@ -46,6 +52,27 @@ export class AdminAuthController {
   @Post('dev-login')
   devLogin(@Body() dto: AdminDevLoginDto) {
     return this.auth.adminDevLogin(dto.secret, dto.adminId, dto.roles);
+  }
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('super_admin')
+  async sessions(@CurrentUser() principal: AuthPrincipal, @Query() query: AdminSessionListQuery) {
+    const limit = parseSessionLimit(query.limit);
+    const result = await this.adminSessions.listSessions(limit);
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: 'admin.sessions_viewed',
+      targetType: 'admin_session',
+      targetId: 'list',
+      metadata: {
+        limit,
+        returnedCount: result.sessions.length,
+        summary: result.summary,
+      },
+    });
+    return result;
   }
 
   @Post('sessions/:sessionId/revoke')
@@ -168,6 +195,18 @@ export class AdminAuthController {
 
 function primaryRole(principal: AuthPrincipal): string {
   return principal.roles[0] ?? 'admin';
+}
+
+function parseSessionLimit(value?: string): number {
+  if (!value) return 100;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 200) {
+    throw new BadRequestException({
+      code: 'invalid_admin_session_limit',
+      message: 'Session list limit must be an integer between 1 and 200',
+    });
+  }
+  return parsed;
 }
 
 function mapAdminSessionError(error: unknown): never {

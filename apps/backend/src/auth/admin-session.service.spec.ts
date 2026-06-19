@@ -62,6 +62,32 @@ describe('AdminSessionService', () => {
     });
     await expect(service.assertFresh(principal(session.id))).resolves.toBeUndefined();
   });
+
+  it('lists sessions with derived statuses and bounded summary counts', async () => {
+    const repo = new InMemoryAdminSessionRepository();
+    const service = new AdminSessionService(repo);
+    const active = await service.createSession('admin_1', 'device_1');
+    const stepUp = await service.createSession('admin_2', 'device_2');
+    await service.requireStepUp(stepUp.id, 'Suspicious access pattern.');
+    const revoked = await service.createSession('admin_3', 'device_3');
+    await service.revoke(revoked.id);
+    await service.createSession('admin_4', 'device_4', -1);
+
+    await expect(service.listSessions(10)).resolves.toMatchObject({
+      sessions: expect.arrayContaining([
+        expect.objectContaining({ id: active.id, status: 'active' }),
+        expect.objectContaining({ id: stepUp.id, status: 'step_up_required' }),
+        expect.objectContaining({ id: revoked.id, status: 'revoked' }),
+        expect.objectContaining({ adminId: 'admin_4', status: 'expired' }),
+      ]),
+      summary: {
+        active: 1,
+        step_up_required: 1,
+        revoked: 1,
+        expired: 1,
+      },
+    });
+  });
 });
 
 function principal(adminSessionId = 'adm_sess_1'): AuthPrincipal {

@@ -7,6 +7,26 @@ import {
   AdminSessionRepository,
 } from './admin-session.repository';
 
+export type AdminSessionStatus = 'active' | 'step_up_required' | 'revoked' | 'expired';
+
+export interface AdminSessionListItem {
+  id: string;
+  adminId: string;
+  deviceId: string;
+  status: AdminSessionStatus;
+  mfaVerifiedAt: string;
+  expiresAt: string;
+  revokedAt?: string;
+  stepUpRequiredAt?: string;
+  stepUpReason?: string;
+  createdAt: string;
+}
+
+export interface AdminSessionList {
+  sessions: AdminSessionListItem[];
+  summary: Record<AdminSessionStatus, number>;
+}
+
 export class AdminSessionError extends Error {
   constructor(
     message: string,
@@ -55,6 +75,21 @@ export class AdminSessionService {
     const revokedAt = new Date().toISOString();
     await this.sessions.revoke(sessionId, revokedAt);
     return { ...session, revokedAt };
+  }
+
+  async listSessions(limit = 100): Promise<AdminSessionList> {
+    const boundedLimit = Math.min(Math.max(limit, 1), 200);
+    const sessions = (await this.sessions.list(boundedLimit)).map(toListItem);
+    return {
+      sessions,
+      summary: sessions.reduce<Record<AdminSessionStatus, number>>(
+        (summary, session) => ({
+          ...summary,
+          [session.status]: summary[session.status] + 1,
+        }),
+        { active: 0, step_up_required: 0, revoked: 0, expired: 0 },
+      ),
+    };
   }
 
   async requireStepUp(sessionId: string, reason: string): Promise<AdminSession> {
@@ -146,4 +181,26 @@ export class AdminSessionService {
       );
     }
   }
+}
+
+function toListItem(session: AdminSession): AdminSessionListItem {
+  return {
+    id: session.id,
+    adminId: session.adminId,
+    deviceId: session.deviceId,
+    status: sessionStatus(session),
+    mfaVerifiedAt: session.mfaVerifiedAt,
+    expiresAt: session.expiresAt,
+    revokedAt: session.revokedAt,
+    stepUpRequiredAt: session.stepUpRequiredAt,
+    stepUpReason: session.stepUpReason,
+    createdAt: session.createdAt,
+  };
+}
+
+function sessionStatus(session: AdminSession): AdminSessionStatus {
+  if (session.revokedAt) return 'revoked';
+  if (Date.parse(session.expiresAt) <= Date.now()) return 'expired';
+  if (session.stepUpRequiredAt) return 'step_up_required';
+  return 'active';
 }

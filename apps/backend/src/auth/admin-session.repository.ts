@@ -15,6 +15,7 @@ export const ADMIN_SESSION_REPOSITORY = Symbol('ADMIN_SESSION_REPOSITORY');
 export interface AdminSessionRepository {
   save(session: AdminSession): Promise<void>;
   findById(id: string): Promise<AdminSession | null>;
+  list(limit: number): Promise<AdminSession[]>;
   revoke(id: string, revokedAt: string): Promise<void>;
   requireStepUp(id: string, requiredAt: string, reason: string): Promise<void>;
   completeStepUp(id: string, verifiedAt: string): Promise<void>;
@@ -30,6 +31,13 @@ export class InMemoryAdminSessionRepository implements AdminSessionRepository {
   async findById(id: string): Promise<AdminSession | null> {
     const session = this.sessions.get(id);
     return session ? { ...session } : null;
+  }
+
+  async list(limit: number): Promise<AdminSession[]> {
+    return [...this.sessions.values()]
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit)
+      .map((session) => ({ ...session }));
   }
 
   async revoke(id: string, revokedAt: string): Promise<void> {

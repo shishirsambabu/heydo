@@ -14,6 +14,9 @@ const principal: AuthPrincipal = {
 describe('AdminAuthController session revocation', () => {
   it('restricts session revocation to super admins', () => {
     expect(
+      Reflect.getMetadata(ROLES_KEY, AdminAuthController.prototype.sessions),
+    ).toEqual(['super_admin']);
+    expect(
       Reflect.getMetadata(ROLES_KEY, AdminAuthController.prototype.revokeSession),
     ).toEqual(['super_admin']);
     expect(
@@ -60,6 +63,70 @@ describe('AdminAuthController session revocation', () => {
         reason: 'Suspicious evidence access pattern.',
       },
     });
+  });
+
+  it('lists admin sessions for monitoring and audits the read', async () => {
+    const adminSessions = {
+      listSessions: jest.fn().mockResolvedValue({
+        sessions: [
+          {
+            id: 'adm_sess_1',
+            adminId: 'admin_1',
+            deviceId: 'device_1',
+            status: 'active',
+            mfaVerifiedAt: '2026-06-19T03:00:00.000Z',
+            expiresAt: '2026-06-26T03:00:00.000Z',
+            createdAt: '2026-06-19T03:00:00.000Z',
+          },
+        ],
+        summary: { active: 1, step_up_required: 0, revoked: 0, expired: 0 },
+      }),
+    };
+    const audit = auditMock();
+    const controller = new AdminAuthController({} as never, adminSessions as never, audit as never);
+
+    await expect(controller.sessions(principal, { limit: '25' })).resolves.toEqual({
+      sessions: [
+        {
+          id: 'adm_sess_1',
+          adminId: 'admin_1',
+          deviceId: 'device_1',
+          status: 'active',
+          mfaVerifiedAt: '2026-06-19T03:00:00.000Z',
+          expiresAt: '2026-06-26T03:00:00.000Z',
+          createdAt: '2026-06-19T03:00:00.000Z',
+        },
+      ],
+      summary: { active: 1, step_up_required: 0, revoked: 0, expired: 0 },
+    });
+
+    expect(adminSessions.listSessions).toHaveBeenCalledWith(25);
+    expect(audit.record).toHaveBeenCalledWith({
+      actorId: 'super_1',
+      actorRole: 'super_admin',
+      action: 'admin.sessions_viewed',
+      targetType: 'admin_session',
+      targetId: 'list',
+      metadata: {
+        limit: 25,
+        returnedCount: 1,
+        summary: { active: 1, step_up_required: 0, revoked: 0, expired: 0 },
+      },
+    });
+  });
+
+  it('rejects invalid admin session list limits', async () => {
+    const adminSessions = { listSessions: jest.fn() };
+    const controller = new AdminAuthController(
+      {} as never,
+      adminSessions as never,
+      auditMock() as never,
+    );
+
+    await expect(controller.sessions(principal, { limit: '500' })).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'invalid_admin_session_limit' }),
+    });
+    expect(adminSessions.listSessions).not.toHaveBeenCalled();
   });
 
   it('blocks revoking the current session through the suspicious-session endpoint', async () => {
