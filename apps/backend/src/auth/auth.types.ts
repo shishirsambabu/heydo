@@ -17,6 +17,7 @@ export interface AuthPrincipal {
   sub: string; // user/admin id
   kind: 'user' | 'admin';
   roles: Role[];
+  adminSessionId?: string;
   adminMfaVerifiedAt?: number;
   adminDeviceId?: string;
 }

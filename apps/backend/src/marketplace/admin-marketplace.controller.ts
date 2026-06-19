@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { IsOptional, IsString, MinLength } from 'class-validator';
 import { SafetyReportStatus } from './marketplace.entities';
+import { AdminSessionError, AdminSessionService } from '../auth/admin-session.service';
 import { AuthPrincipal } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -26,8 +27,6 @@ import {
   MarketplaceError,
   MarketplaceService,
 } from './marketplace.service';
-
-const SENSITIVE_ADMIN_FRESHNESS_MS = 15 * 60_000;
 
 class ModerationDto {
   @IsString() @MinLength(3) reasonCode!: string;
@@ -61,6 +60,7 @@ export class AdminMarketplaceController {
     private readonly marketplace: MarketplaceService,
     private readonly money: MoneyService,
     private readonly audit: AuditService,
+    private readonly adminSessions: AdminSessionService,
   ) {}
 
   @Get('gigs')
@@ -79,7 +79,7 @@ export class AdminMarketplaceController {
   @Roles('finance', 'dispute_officer', 'super_admin')
   async moneyTrail(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {
     return this.wrap(async () => {
-      requireFreshAdminSession(principal);
+      await this.adminSessions.assertFresh(principal);
       const trail = await this.money.moneyTrailForGig(gigId);
       this.audit.record({
         actorId: principal.sub,
@@ -135,8 +135,8 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
     @Body() dto: ModerationDto,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.moderateGig(
         gigId,
         principal.sub,
@@ -154,8 +154,8 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
     @Body() dto: ModerationDto,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.moderateGig(
         gigId,
         principal.sub,
@@ -173,8 +173,8 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
     @Body() dto: ModerationDto,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.moderateGig(
         gigId,
         principal.sub,
@@ -215,8 +215,8 @@ export class AdminMarketplaceController {
     @Param('reportId') reportId: string,
     @CurrentUser() principal: AuthPrincipal,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.listSafetyReportEvidenceRefs(reportId, principal.sub, principal.roles);
     });
   }
@@ -228,8 +228,8 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
     @Body() dto: SafetyReviewDto,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.reviewSafetyReport(
         reportId,
         principal.sub,
@@ -250,8 +250,8 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
     @Body() dto: DisputeResolutionDto,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.resolveSafetyDispute(
         reportId,
         principal.sub,
@@ -270,8 +270,8 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
     @Body() dto: EscalationPackageDto,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.generateSafetyEscalationPackage(
         reportId,
         principal.sub,
@@ -286,8 +286,8 @@ export class AdminMarketplaceController {
     @Param('packageId') packageId: string,
     @CurrentUser() principal: AuthPrincipal,
   ) {
-    return this.wrap(() => {
-      requireFreshAdminSession(principal);
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
       return this.marketplace.retrieveSafetyEscalationPackage(packageId, principal.sub);
     });
   }
@@ -307,6 +307,9 @@ export class AdminMarketplaceController {
         }
         throw new BadRequestException({ code: error.code, message: error.message });
       }
+      if (error instanceof AdminSessionError) {
+        throw new ForbiddenException({ code: error.code, message: error.message });
+      }
       throw error;
     }
   }
@@ -314,18 +317,6 @@ export class AdminMarketplaceController {
 
 function primaryRole(principal: AuthPrincipal): string {
   return principal.roles[0] ?? 'admin';
-}
-
-function requireFreshAdminSession(principal: AuthPrincipal): void {
-  const verifiedAt = principal.adminMfaVerifiedAt;
-  const verifiedRecently =
-    typeof verifiedAt === 'number' && Date.now() - verifiedAt <= SENSITIVE_ADMIN_FRESHNESS_MS;
-  if (principal.kind !== 'admin' || !verifiedRecently || !principal.adminDeviceId?.trim()) {
-    throw new MarketplaceError(
-      'Fresh admin verification required for sensitive action',
-      'admin_fresh_verification_required',
-    );
-  }
 }
 
 function decisionFromDto(

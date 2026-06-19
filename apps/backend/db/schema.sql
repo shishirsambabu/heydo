@@ -380,3 +380,20 @@ CREATE INDEX IF NOT EXISTS "AuditLog_targetType_targetId_idx"
   ON "AuditLog"("targetType", "targetId");
 CREATE INDEX IF NOT EXISTS "AuditLog_actorId_idx"
   ON "AuditLog"("actorId");
+
+CREATE TABLE IF NOT EXISTS "AdminSession" (
+  id text PRIMARY KEY,
+  "adminId" text NOT NULL,
+  "deviceId" text NOT NULL,
+  "mfaVerifiedAt" timestamptz NOT NULL,
+  "expiresAt" timestamptz NOT NULL,
+  "revokedAt" timestamptz,
+  "createdAt" timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS "AdminSession_adminId_idx"
+  ON "AdminSession"("adminId");
+CREATE INDEX IF NOT EXISTS "AdminSession_deviceId_idx"
+  ON "AdminSession"("deviceId");
+CREATE INDEX IF NOT EXISTS "AdminSession_expiresAt_idx"
+  ON "AdminSession"("expiresAt");

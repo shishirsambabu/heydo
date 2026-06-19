@@ -5,6 +5,7 @@ import { OTP_SENDER, OtpSender } from './otp/otp-sender';
 import { IdentityService } from '../identity/identity.service';
 import { AuthPrincipal } from './auth.types';
 import { User } from '../identity/entities';
+import { AdminSessionService } from './admin-session.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,7 @@ export class AuthService {
     private readonly identity: IdentityService,
     private readonly jwt: JwtService,
     @Inject(OTP_SENDER) private readonly sender: OtpSender,
+    private readonly adminSessions: AdminSessionService,
   ) {}
 
   async requestOtp(phone: string): Promise<{ sent: boolean; retryAfterMs?: number; devCode?: string }> {
@@ -52,12 +54,15 @@ export class AuthService {
     }
     const expected = process.env.ADMIN_DEV_SECRET ?? 'dev-admin-secret';
     if (secret !== expected) throw new UnauthorizedException('Bad admin secret');
+    const deviceId = `dev:${adminId}`;
+    const session = await this.adminSessions.createSession(adminId, deviceId);
     const principal: AuthPrincipal = {
       sub: adminId,
       kind: 'admin',
       roles,
-      adminMfaVerifiedAt: Date.now(),
-      adminDeviceId: `dev:${adminId}`,
+      adminSessionId: session.id,
+      adminMfaVerifiedAt: Date.parse(session.mfaVerifiedAt),
+      adminDeviceId: deviceId,
     };
     const token = await this.jwt.signAsync(principal);
     return { token };
