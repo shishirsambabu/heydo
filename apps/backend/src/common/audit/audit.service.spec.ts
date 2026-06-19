@@ -39,4 +39,40 @@ describe('AuditService', () => {
       gigId: 'gig_1',
     });
   });
+
+  it('surfaces failed audit writes through health', async () => {
+    const audit = new AuditService({
+      append: async () => {
+        throw new Error('database unavailable');
+      },
+      list: async () => [],
+    });
+
+    audit.record({
+      actorId: 'fraud_admin',
+      actorRole: 'fraud_analyst',
+      action: 'safety.dispute_refund_giver',
+      targetType: 'safety_report',
+      targetId: 'safe_1',
+      metadata: { gigId: 'gig_1' },
+    });
+    await flushMicrotasks();
+
+    expect(audit.health()).toMatchObject({
+      status: 'degraded',
+      failedWriteCount: 1,
+      recentFailures: [
+        expect.objectContaining({
+          action: 'safety.dispute_refund_giver',
+          targetType: 'safety_report',
+          targetId: 'safe_1',
+          error: 'database unavailable',
+        }),
+      ],
+    });
+  });
 });
+
+function flushMicrotasks(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}

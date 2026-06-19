@@ -72,6 +72,11 @@ export class AdminMarketplaceController {
     return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
   }
 
+  @Get('audit-health')
+  auditHealth() {
+    return this.audit.health();
+  }
+
   @Post('gigs/:gigId/approve')
   approve(
     @Param('gigId') gigId: string,

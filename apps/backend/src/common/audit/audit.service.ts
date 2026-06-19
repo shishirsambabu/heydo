@@ -31,8 +31,25 @@ export interface AuditFilters {
   metadata?: Record<string, string>;
 }
 
+export interface AuditWriteFailure {
+  recordId: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  error: string;
+  at: string;
+}
+
+export interface AuditHealth {
+  status: 'ok' | 'degraded';
+  failedWriteCount: number;
+  recentFailures: AuditWriteFailure[];
+}
+
 @Injectable()
 export class AuditService {
+  private readonly failures: AuditWriteFailure[] = [];
+
   constructor(private readonly repo: AuditRepository = new InMemoryAuditRepository()) {}
 
   record(entry: Omit<AuditRecord, 'id' | 'at'>): void {
@@ -44,8 +61,15 @@ export class AuditService {
         ? (redactForLog(entry.metadata) as Record<string, unknown>)
         : undefined,
     };
-    void Promise.resolve(this.repo.append(safe)).catch(() => {
-      // Production should route this to process-level error telemetry.
+    void Promise.resolve(this.repo.append(safe)).catch((error: unknown) => {
+      this.failures.push({
+        recordId: safe.id,
+        action: safe.action,
+        targetType: safe.targetType,
+        targetId: safe.targetId,
+        error: errorMessage(error),
+        at: new Date().toISOString(),
+      });
     });
   }
 
@@ -57,4 +81,17 @@ export class AuditService {
   list(filters: AuditFilters = {}): Promise<AuditRecord[]> {
     return this.repo.list(filters);
   }
+
+  health(): AuditHealth {
+    return {
+      status: this.failures.length ? 'degraded' : 'ok',
+      failedWriteCount: this.failures.length,
+      recentFailures: this.failures.slice(-10).map((failure) => ({ ...failure })),
+    };
+  }
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
