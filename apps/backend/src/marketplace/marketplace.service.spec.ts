@@ -299,6 +299,54 @@ describe('MarketplaceService', () => {
     });
   });
 
+  it('rate limits repeated evidence ref access by the same admin', async () => {
+    const { svc, givers, audit } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Giver threatened me in chat.',
+      evidenceVaultRefs: ['vault_chat_1'],
+    });
+
+    for (let i = 0; i < 5; i += 1) {
+      await expect(
+        svc.listSafetyReportEvidenceRefs(report.id, 'fraud_admin', ['fraud_analyst']),
+      ).resolves.toHaveLength(1);
+    }
+    await expect(
+      svc.listSafetyReportEvidenceRefs(report.id, 'fraud_admin', ['fraud_analyst']),
+    ).rejects.toMatchObject<Partial<MarketplaceError>>({
+      code: 'admin_rate_limited',
+    });
+    await expect(audit.list({ actionPrefix: 'admin.rate_limit_blocked' })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetId: report.id,
+          metadata: expect.objectContaining({
+            throttledAction: 'evidence_refs_accessed',
+            limit: 5,
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('runs post -> apply -> choose -> start -> complete', async () => {
     const { svc, givers, moneyRepo } = service(async () => true, true);
     await givers.save({
@@ -557,6 +605,75 @@ describe('MarketplaceService', () => {
         'Second reviewer approved release.',
       ),
     ).resolves.toMatchObject({ status: 'action_taken', reviewedBy: 'fraud_admin_2' });
+  });
+
+  it('rate limits repeated disputed escrow resolution attempts by one admin', async () => {
+    const { svc, givers, audit } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+
+    async function createDisputedReport(index: number) {
+      const gig = await svc.postGig('giver_1', {
+        categoryId: 'cat_cleaning',
+        title: `House cleaning ${index}`,
+        description: 'Need cleaning help for a family home',
+        location: 'Kochi',
+        scheduledAt: '2026-06-19T10:00:00.000Z',
+        budgetAmount: 1000,
+      });
+      const application = await svc.apply(gig.id, `worker_${index}`, {
+        messageMl: 'I can help',
+        proposedPrice: 1200,
+      });
+      await svc.selectApplicant(gig.id, application.id, 'giver_1');
+      await svc.transitionGig(gig.id, `worker_${index}`, 'in_progress');
+      return svc.raiseSafetyReport(gig.id, `worker_${index}`, {
+        reportedUserId: 'giver_1',
+        reason: 'violence_or_threat',
+        severity: 'high',
+        description: 'Giver threatened me after assignment.',
+        evidenceVaultRefs: [`vault_chat_${index}`],
+      });
+    }
+
+    for (let i = 1; i <= 3; i += 1) {
+      const report = await createDisputedReport(i);
+      await expect(
+        svc.resolveSafetyDispute(
+          report.id,
+          'fraud_admin',
+          'release_to_worker',
+          'Evidence supports worker payment',
+        ),
+      ).resolves.toMatchObject({ status: 'action_taken' });
+    }
+    const fourth = await createDisputedReport(4);
+    await expect(
+      svc.resolveSafetyDispute(
+        fourth.id,
+        'fraud_admin',
+        'release_to_worker',
+        'Evidence supports worker payment',
+      ),
+    ).rejects.toMatchObject<Partial<MarketplaceError>>({
+      code: 'admin_rate_limited',
+    });
+    await expect(audit.list({ actionPrefix: 'admin.rate_limit_blocked' })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetId: fourth.id,
+          metadata: expect.objectContaining({
+            throttledAction: 'dispute_resolution',
+            limit: 3,
+          }),
+        }),
+      ]),
+    );
   });
 
   it('lets admin resolve a disputed escrow by refunding the giver', async () => {

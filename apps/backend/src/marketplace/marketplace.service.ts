@@ -182,9 +182,18 @@ export interface SafetyEscalationPackage {
 
 const PLATFORM_FEE_BPS = 1500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
+const ADMIN_ACTION_LIMITS = {
+  evidence_refs_accessed: { max: 5, windowMs: 60_000 },
+  dispute_resolution: { max: 3, windowMs: 5 * 60_000 },
+  escalation_package_generated: { max: 3, windowMs: 5 * 60_000 },
+} as const;
+
+type AdminThrottledAction = keyof typeof ADMIN_ACTION_LIMITS;
 
 @Injectable()
 export class MarketplaceService {
+  private readonly adminActionAttempts = new Map<string, number[]>();
+
   constructor(
     @Inject(CATEGORY_REPOSITORY) private readonly categories: CategoryRepository,
     @Inject(GIG_REPOSITORY) private readonly gigs: GigRepository,
@@ -518,6 +527,9 @@ export class MarketplaceService {
       throw new MarketplaceError('Not authorized to access safety evidence refs', 'forbidden');
     }
     const accessedAt = new Date(this.now()).toISOString();
+    this.checkAdminActionLimit(actorId, 'evidence_refs_accessed', 'safety_report', reportId, {
+      gigId: report.gigId,
+    });
     const accessed = await Promise.all(
       allowed.map((ref) => this.evidenceVaultRefs.markAccessed(ref.ref, actorId, accessedAt)),
     );
@@ -590,6 +602,10 @@ export class MarketplaceService {
     const report = await this.safetyReports.findById(reportId);
     if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
     this.requireSecondReviewer(report, reviewerId, 'safety.dispute_resolution');
+    this.checkAdminActionLimit(reviewerId, 'dispute_resolution', 'safety_report', reportId, {
+      gigId: report.gigId,
+      outcome,
+    });
     const gig = await this.getGig(report.gigId);
     const assignment = await this.assignments.findByGig(report.gigId);
     if (!assignment) throw new MarketplaceError('Gig has no assignment', 'not_assigned');
@@ -656,6 +672,9 @@ export class MarketplaceService {
     const report = await this.safetyReports.findById(reportId);
     if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
     this.requireSecondReviewer(report, reviewerId, 'safety.escalation_package');
+    this.checkAdminActionLimit(reviewerId, 'escalation_package_generated', 'safety_report', reportId, {
+      gigId: report.gigId,
+    });
     if (!isEscalationWorthy(report)) {
       throw new MarketplaceError('Only serious safety reports can generate escalation packages', 'invalid_state');
     }
@@ -940,6 +959,43 @@ export class MarketplaceService {
       'A second reviewer is required for this high-risk admin action',
       'second_reviewer_required',
     );
+  }
+
+  private checkAdminActionLimit(
+    actorId: string,
+    action: AdminThrottledAction,
+    targetType: string,
+    targetId: string,
+    metadata: Record<string, unknown> = {},
+  ): void {
+    const limit = ADMIN_ACTION_LIMITS[action];
+    const now = this.now();
+    const key = `${actorId}:${action}`;
+    const since = now - limit.windowMs;
+    const recent = (this.adminActionAttempts.get(key) ?? []).filter((at) => at > since);
+    if (recent.length >= limit.max) {
+      const retryAfterMs = Math.max(0, recent[0] + limit.windowMs - now);
+      this.audit.record({
+        actorId,
+        actorRole: 'fraud_analyst',
+        action: 'admin.rate_limit_blocked',
+        targetType,
+        targetId,
+        metadata: {
+          ...metadata,
+          throttledAction: action,
+          limit: limit.max,
+          windowMs: limit.windowMs,
+          retryAfterMs,
+        },
+      });
+      throw new MarketplaceError(
+        'Too many high-risk admin actions in a short period',
+        'admin_rate_limited',
+      );
+    }
+    recent.push(now);
+    this.adminActionAttempts.set(key, recent);
   }
 }
 
