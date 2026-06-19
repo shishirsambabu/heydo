@@ -71,6 +71,28 @@ describe('AuditService', () => {
       ],
     });
   });
+
+  it('blocks sensitive actions while audit writes are degraded', async () => {
+    const audit = new AuditService({
+      append: async () => {
+        throw new Error('database unavailable');
+      },
+      list: async () => [],
+    });
+
+    audit.record({
+      actorId: 'fraud_admin',
+      actorRole: 'fraud_analyst',
+      action: 'safety.escalated',
+      targetType: 'safety_report',
+      targetId: 'safe_1',
+    });
+    await flushMicrotasks();
+
+    expect(() => audit.assertHealthyForSensitiveAction()).toThrow(
+      'Audit log is degraded; sensitive admin action blocked',
+    );
+  });
 });
 
 function flushMicrotasks(): Promise<void> {

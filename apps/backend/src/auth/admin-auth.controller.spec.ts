@@ -2,6 +2,7 @@ import { AdminSessionError } from './admin-session.service';
 import { AdminAuthController } from './admin-auth.controller';
 import { ROLES_KEY } from './decorators';
 import { AuthPrincipal } from './auth.types';
+import { AuditHealthError } from '../common/audit/audit.service';
 
 const principal: AuthPrincipal = {
   sub: 'super_1',
@@ -113,6 +114,20 @@ describe('AdminAuthController session revocation', () => {
         summary: { active: 1, step_up_required: 0, revoked: 0, expired: 0 },
       },
     });
+  });
+
+  it('blocks admin session monitoring when audit writes are degraded', async () => {
+    const adminSessions = { listSessions: jest.fn() };
+    const controller = new AdminAuthController(
+      {} as never,
+      adminSessions as never,
+      auditMockWithDegradedHealth() as never,
+    );
+
+    await expect(controller.sessions(principal, { limit: '25' })).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'audit_degraded', failedWriteCount: 1 }),
+    });
+    expect(adminSessions.listSessions).not.toHaveBeenCalled();
   });
 
   it('rejects invalid admin session list limits', async () => {
@@ -251,5 +266,18 @@ describe('AdminAuthController session revocation', () => {
 });
 
 function auditMock() {
-  return { record: jest.fn() };
+  return { record: jest.fn(), assertHealthyForSensitiveAction: jest.fn() };
+}
+
+function auditMockWithDegradedHealth() {
+  return {
+    record: jest.fn(),
+    assertHealthyForSensitiveAction: jest.fn().mockImplementation(() => {
+      throw new AuditHealthError('Audit log is degraded; sensitive admin action blocked', 'audit_degraded', {
+        status: 'degraded',
+        failedWriteCount: 1,
+        recentFailures: [],
+      });
+    }),
+  };
 }

@@ -1,6 +1,7 @@
 import { ROLES_KEY } from '../auth/decorators';
 import { AuthPrincipal } from '../auth/auth.types';
 import { AdminSessionError } from '../auth/admin-session.service';
+import { AuditHealthError } from '../common/audit/audit.service';
 import { AdminMarketplaceController } from './admin-marketplace.controller';
 
 const principal: AuthPrincipal = {
@@ -285,6 +286,26 @@ describe('AdminMarketplaceController structured decisions', () => {
 });
 
 describe('AdminMarketplaceController fresh admin session gates', () => {
+  it('blocks sensitive actions when audit writes are degraded', async () => {
+    const marketplace = { moderateGig: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMockWithDegradedHealth() as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(
+      controller.approve('gig_1', principal, {
+        reasonCode: 'caller_verified_scope',
+        note: 'Called giver and verified the safe scope.',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'audit_degraded', failedWriteCount: 1 }),
+    });
+    expect(marketplace.moderateGig).not.toHaveBeenCalled();
+  });
+
   it('blocks sensitive money reads when the registry rejects the admin session', async () => {
     const money = { moneyTrailForGig: jest.fn() };
     const adminSessions = adminSessionsMock('admin_fresh_verification_required');
@@ -365,6 +386,21 @@ function auditMock(...listResults: unknown[][]) {
       .fn()
       .mockImplementation(() => Promise.resolve(listResults.shift() ?? [])),
     record: jest.fn(),
+    assertHealthyForSensitiveAction: jest.fn(),
+  };
+}
+
+function auditMockWithDegradedHealth() {
+  return {
+    list: jest.fn().mockResolvedValue([]),
+    record: jest.fn(),
+    assertHealthyForSensitiveAction: jest.fn().mockImplementation(() => {
+      throw new AuditHealthError('Audit log is degraded; sensitive admin action blocked', 'audit_degraded', {
+        status: 'degraded',
+        failedWriteCount: 1,
+        recentFailures: [],
+      });
+    }),
   };
 }
 

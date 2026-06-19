@@ -46,6 +46,16 @@ export interface AuditHealth {
   recentFailures: AuditWriteFailure[];
 }
 
+export class AuditHealthError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'audit_degraded',
+    readonly health: AuditHealth,
+  ) {
+    super(message);
+  }
+}
+
 @Injectable()
 export class AuditService {
   private readonly failures: AuditWriteFailure[] = [];
@@ -88,6 +98,17 @@ export class AuditService {
       failedWriteCount: this.failures.length,
       recentFailures: this.failures.slice(-10).map((failure) => ({ ...failure })),
     };
+  }
+
+  assertHealthyForSensitiveAction(): void {
+    const health = this.health();
+    if (health.status === 'degraded') {
+      throw new AuditHealthError(
+        'Audit log is degraded; sensitive admin action blocked',
+        'audit_degraded',
+        health,
+      );
+    }
   }
 }
 

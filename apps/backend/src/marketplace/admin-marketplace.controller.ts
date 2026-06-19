@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Query,
+  ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
 import { IsOptional, IsString, MinLength } from 'class-validator';
@@ -18,7 +19,7 @@ import { AuthPrincipal } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { AuditService } from '../common/audit/audit.service';
+import { AuditHealthError, AuditService } from '../common/audit/audit.service';
 import { MoneyService } from '../money/money.service';
 import {
   ADMIN_DECISION_REASON_CATALOG,
@@ -79,6 +80,7 @@ export class AdminMarketplaceController {
   @Roles('finance', 'dispute_officer', 'super_admin')
   async moneyTrail(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       const trail = await this.money.moneyTrailForGig(gigId);
       this.audit.record({
@@ -136,6 +138,7 @@ export class AdminMarketplaceController {
     @Body() dto: ModerationDto,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.moderateGig(
         gigId,
@@ -155,6 +158,7 @@ export class AdminMarketplaceController {
     @Body() dto: ModerationDto,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.moderateGig(
         gigId,
@@ -174,6 +178,7 @@ export class AdminMarketplaceController {
     @Body() dto: ModerationDto,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.moderateGig(
         gigId,
@@ -216,6 +221,7 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.listSafetyReportEvidenceRefs(reportId, principal.sub, principal.roles);
     });
@@ -229,6 +235,7 @@ export class AdminMarketplaceController {
     @Body() dto: SafetyReviewDto,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.reviewSafetyReport(
         reportId,
@@ -251,6 +258,7 @@ export class AdminMarketplaceController {
     @Body() dto: DisputeResolutionDto,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.resolveSafetyDispute(
         reportId,
@@ -271,6 +279,7 @@ export class AdminMarketplaceController {
     @Body() dto: EscalationPackageDto,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.generateSafetyEscalationPackage(
         reportId,
@@ -287,6 +296,7 @@ export class AdminMarketplaceController {
     @CurrentUser() principal: AuthPrincipal,
   ) {
     return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
       await this.adminSessions.assertFresh(principal);
       return this.marketplace.retrieveSafetyEscalationPackage(packageId, principal.sub);
     });
@@ -309,6 +319,13 @@ export class AdminMarketplaceController {
       }
       if (error instanceof AdminSessionError) {
         throw new ForbiddenException({ code: error.code, message: error.message });
+      }
+      if (error instanceof AuditHealthError) {
+        throw new ServiceUnavailableException({
+          code: error.code,
+          message: error.message,
+          failedWriteCount: error.health.failedWriteCount,
+        });
       }
       throw error;
     }

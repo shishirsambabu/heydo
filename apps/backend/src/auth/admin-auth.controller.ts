@@ -8,10 +8,11 @@ import {
   Post,
   Get,
   Query,
+  ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
 import { IsArray, IsOptional, IsString, MinLength } from 'class-validator';
-import { AuditService } from '../common/audit/audit.service';
+import { AuditHealthError, AuditService } from '../common/audit/audit.service';
 import { CurrentUser, Roles } from './decorators';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
@@ -59,20 +60,25 @@ export class AdminAuthController {
   @Roles('super_admin')
   async sessions(@CurrentUser() principal: AuthPrincipal, @Query() query: AdminSessionListQuery) {
     const limit = parseSessionLimit(query.limit);
-    const result = await this.adminSessions.listSessions(limit);
-    this.audit.record({
-      actorId: principal.sub,
-      actorRole: primaryRole(principal),
-      action: 'admin.sessions_viewed',
-      targetType: 'admin_session',
-      targetId: 'list',
-      metadata: {
-        limit,
-        returnedCount: result.sessions.length,
-        summary: result.summary,
-      },
-    });
-    return result;
+    try {
+      this.audit.assertHealthyForSensitiveAction();
+      const result = await this.adminSessions.listSessions(limit);
+      this.audit.record({
+        actorId: principal.sub,
+        actorRole: primaryRole(principal),
+        action: 'admin.sessions_viewed',
+        targetType: 'admin_session',
+        targetId: 'list',
+        metadata: {
+          limit,
+          returnedCount: result.sessions.length,
+          summary: result.summary,
+        },
+      });
+      return result;
+    } catch (error) {
+      throw mapAdminSessionError(error);
+    }
   }
 
   @Post('sessions/:sessionId/revoke')
@@ -91,6 +97,7 @@ export class AdminAuthController {
     }
 
     try {
+      this.audit.assertHealthyForSensitiveAction();
       const session = await this.adminSessions.revoke(sessionId);
       this.audit.record({
         actorId: principal.sub,
@@ -130,6 +137,7 @@ export class AdminAuthController {
     @Body() dto: AdminSessionRevokeDto,
   ) {
     try {
+      this.audit.assertHealthyForSensitiveAction();
       const session = await this.adminSessions.requireStepUp(sessionId, dto.reason);
       this.audit.record({
         actorId: principal.sub,
@@ -173,6 +181,7 @@ export class AdminAuthController {
     }
 
     try {
+      this.audit.assertHealthyForSensitiveAction();
       const session = await this.adminSessions.completeStepUp(principal);
       this.audit.record({
         actorId: principal.sub,
@@ -215,6 +224,13 @@ function mapAdminSessionError(error: unknown): never {
       throw new NotFoundException({ code: error.code, message: error.message });
     }
     throw new ForbiddenException({ code: error.code, message: error.message });
+  }
+  if (error instanceof AuditHealthError) {
+    throw new ServiceUnavailableException({
+      code: error.code,
+      message: error.message,
+      failedWriteCount: error.health.failedWriteCount,
+    });
   }
   throw error;
 }
