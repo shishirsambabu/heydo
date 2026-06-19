@@ -81,6 +81,9 @@ export default function VerificationsPage() {
           </p>
         </div>
         <div className="actions">
+          <Link className="btn btn-outline" href="/safety">
+            Safety ops
+          </Link>
           <Link className="btn btn-outline" href="/marketplace">
             Marketplace safety
           </Link>

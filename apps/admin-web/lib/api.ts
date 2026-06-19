@@ -30,7 +30,12 @@ async function authed(path: string, init?: RequestInit) {
       ...(init?.headers ?? {}),
     },
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const code = body?.code ? ` (${body.code})` : '';
+    const message = body?.message ?? `HTTP ${res.status}`;
+    throw new Error(`${message}${code}`);
+  }
   return res.status === 201 || res.status === 200 ? res.json().catch(() => ({})) : {};
 }
 
@@ -79,6 +84,39 @@ export interface SafetyReport {
   createdAt: string;
 }
 
+export type AdminSessionStatus = 'active' | 'step_up_required' | 'revoked' | 'expired';
+
+export interface AdminSessionListItem {
+  id: string;
+  adminId: string;
+  deviceId: string;
+  status: AdminSessionStatus;
+  mfaVerifiedAt: string;
+  expiresAt: string;
+  revokedAt?: string;
+  stepUpRequiredAt?: string;
+  stepUpReason?: string;
+  createdAt: string;
+}
+
+export interface AdminSessionList {
+  sessions: AdminSessionListItem[];
+  summary: Record<AdminSessionStatus, number>;
+}
+
+export interface AuditHealth {
+  status: 'ok' | 'degraded';
+  failedWriteCount: number;
+  recentFailures: Array<{
+    recordId: string;
+    action: string;
+    targetType: string;
+    targetId: string;
+    error: string;
+    at: string;
+  }>;
+}
+
 // --- Admin auth (dev login; SSO+MFA in Phase 7) ---
 export async function devLogin(adminId: string, secret: string): Promise<string> {
   const res = await fetch(`${BASE}/admin/auth/dev-login`, {
@@ -87,7 +125,7 @@ export async function devLogin(adminId: string, secret: string): Promise<string>
     body: JSON.stringify({
       adminId,
       secret,
-      roles: ['verification_officer', 'fraud_analyst', 'support'],
+      roles: ['verification_officer', 'fraud_analyst', 'support', 'super_admin'],
     }),
   });
   if (!res.ok) throw new Error(`Login failed (HTTP ${res.status})`);
@@ -135,4 +173,45 @@ export function reviewSafetyReport(
     method: 'POST',
     body: JSON.stringify({ status, actionTaken, lawEnforcementRef }),
   });
+}
+
+// --- Admin safety operations ---
+export function listAdminSessions(limit = 100): Promise<AdminSessionList> {
+  return authed(`/admin/auth/sessions?limit=${limit}`) as Promise<AdminSessionList>;
+}
+
+export function revokeAdminSession(sessionId: string, reason: string) {
+  return authed(`/admin/auth/sessions/${sessionId}/revoke`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function requireAdminStepUp(sessionId: string, reason: string) {
+  return authed(`/admin/auth/sessions/${sessionId}/require-step-up`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function completeDevStepUp(secret: string) {
+  return authed('/admin/auth/sessions/current/dev-step-up', {
+    method: 'POST',
+    body: JSON.stringify({ secret }),
+  });
+}
+
+export function getAuditHealth(): Promise<AuditHealth> {
+  return authed('/admin/marketplace/audit-health') as Promise<AuditHealth>;
+}
+
+export function restoreAuditHealth(
+  reason: string,
+  remediationRef: string,
+  investigatedByAdminId: string,
+): Promise<AuditHealth> {
+  return authed('/admin/marketplace/audit-health/restore', {
+    method: 'POST',
+    body: JSON.stringify({ reason, remediationRef, investigatedByAdminId }),
+  }) as Promise<AuditHealth>;
 }

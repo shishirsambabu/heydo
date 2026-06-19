@@ -104,6 +104,9 @@ export default function MarketplaceSafetyPage() {
           </p>
         </div>
         <div className="actions">
+          <Link className="btn btn-outline" href="/safety">
+            Safety ops
+          </Link>
           <Link className="btn btn-outline" href="/verifications">
             VKYC queue
           </Link>
