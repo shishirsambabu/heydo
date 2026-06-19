@@ -95,6 +95,8 @@ export interface EscalationPackageManifest {
   generatedBy: string;
   generatedAt: string;
   evidenceVaultRefs: string[];
+  snapshotSchemaVersion: number;
+  snapshotHash: string;
   retrievalCount: number;
   lastRetrievedBy?: string;
   lastRetrievedAt?: string;

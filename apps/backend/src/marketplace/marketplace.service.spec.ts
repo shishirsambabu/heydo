@@ -20,13 +20,14 @@ function service(
   const givers = new GiverProfileRepository();
   const audit = new AuditService();
   const moneyRepo = new InMemoryMoneyRepository();
+  const safetyReports = new InMemorySafetyReportRepository();
   let id = 0;
   const svc = new MarketplaceService(
     new InMemoryCategoryRepository(),
     new InMemoryGigRepository(),
     new InMemoryApplicationRepository(),
     new InMemoryAssignmentRepository(),
-    new InMemorySafetyReportRepository(),
+    safetyReports,
     new InMemoryEscalationPackageRepository(),
     givers,
     { canApply } as Pick<VerificationService, 'canApply'> as VerificationService,
@@ -42,7 +43,7 @@ function service(
         )
       : undefined,
   );
-  return { svc, givers, audit, moneyRepo };
+  return { svc, givers, audit, moneyRepo, safetyReports };
 }
 
 describe('MarketplaceService', () => {
@@ -466,7 +467,7 @@ describe('MarketplaceService', () => {
   });
 
   it('generates a lawful escalation package for serious safety reports', async () => {
-    const { svc, givers, moneyRepo } = service(async () => true, true);
+    const { svc, givers, moneyRepo, safetyReports } = service(async () => true, true);
     await givers.save({
       userId: 'giver_1',
       displayName: 'Giver',
@@ -505,12 +506,21 @@ describe('MarketplaceService', () => {
         reportId: report.id,
         gigId: gig.id,
         generatedBy: 'fraud_admin',
+        snapshotSchemaVersion: 1,
+        snapshotHash: expect.any(String),
         retrievalCount: 0,
       }),
       report: expect.objectContaining({ id: report.id, reason: 'violence_or_threat' }),
       gig: expect.objectContaining({ id: gig.id, giverId: 'giver_1' }),
       assignment: expect.objectContaining({ workerId: 'worker_1', agreedAmount: 1200 }),
       evidenceVaultRefs: ['vault_chat_2', 'vault_audio_1'],
+      integrity: {
+        algorithm: 'sha256',
+        snapshotSchemaVersion: 1,
+        snapshotHash: expect.any(String),
+        verified: true,
+        verifiedAt: '2026-06-17T10:00:00.000Z',
+      },
       piiPolicy: {
         rawAadhaarStored: false,
         rawSelfieIncluded: false,
@@ -534,10 +544,25 @@ describe('MarketplaceService', () => {
 
     const retrieved = await svc.retrieveSafetyEscalationPackage(pkg.id, 'fraud_admin_2');
     expect(retrieved.id).toBe(pkg.id);
+    expect(retrieved.integrity).toMatchObject({
+      snapshotHash: pkg.integrity.snapshotHash,
+      verified: true,
+    });
     expect(retrieved.manifest).toMatchObject({
       retrievalCount: 1,
       lastRetrievedBy: 'fraud_admin_2',
     });
     expect(retrieved.evidenceVaultRefs).toEqual(['vault_chat_2', 'vault_audio_1']);
+
+    await safetyReports.save({ ...report, description: 'Tampered report body.' });
+    const tampered = await svc.retrieveSafetyEscalationPackage(pkg.id, 'fraud_admin_3');
+    expect(tampered.integrity).toMatchObject({
+      snapshotHash: pkg.integrity.snapshotHash,
+      verified: false,
+    });
+    expect(tampered.manifest).toMatchObject({
+      retrievalCount: 2,
+      lastRetrievedBy: 'fraud_admin_3',
+    });
   });
 });

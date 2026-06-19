@@ -1,4 +1,4 @@
-import { randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit/audit.service';
 import { GiverProfileRepository } from '../identity/identity.repository';
@@ -78,6 +78,13 @@ export interface SafetyEscalationPackage {
   assignment: Assignment | null;
   manifest: EscalationPackageManifest;
   evidenceVaultRefs: string[];
+  integrity: {
+    algorithm: 'sha256';
+    snapshotSchemaVersion: number;
+    snapshotHash: string;
+    verified: boolean;
+    verifiedAt: string;
+  };
   auditTrail: Awaited<ReturnType<AuditService['list']>>;
   moneyTrail: GigMoneyTrail | null;
   piiPolicy: {
@@ -88,6 +95,7 @@ export interface SafetyEscalationPackage {
 }
 
 const PLATFORM_FEE_BPS = 1500;
+const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 
 @Injectable()
 export class MarketplaceService {
@@ -518,6 +526,14 @@ export class MarketplaceService {
     ]);
     const auditTrail = uniqueAuditRecords([...directGigAudit, ...linkedGigAudit, ...reportAudit]);
     const generatedAt = new Date(this.now()).toISOString();
+    const snapshotHash = hashEscalationSnapshot({
+      generatedAt,
+      generatedBy: reviewerId,
+      report,
+      gig,
+      assignment,
+      evidenceVaultRefs: report.evidenceVaultRefs,
+    });
     const manifest: EscalationPackageManifest = {
       id: `escpkg_${this.id()}`,
       reportId,
@@ -525,6 +541,8 @@ export class MarketplaceService {
       generatedBy: reviewerId,
       generatedAt,
       evidenceVaultRefs: [...report.evidenceVaultRefs],
+      snapshotSchemaVersion: ESCALATION_SNAPSHOT_SCHEMA_VERSION,
+      snapshotHash,
       retrievalCount: 0,
     };
     await this.escalationPackages.save(manifest);
@@ -538,6 +556,13 @@ export class MarketplaceService {
       assignment,
       manifest,
       evidenceVaultRefs: [...report.evidenceVaultRefs],
+      integrity: {
+        algorithm: 'sha256',
+        snapshotSchemaVersion: manifest.snapshotSchemaVersion,
+        snapshotHash: manifest.snapshotHash,
+        verified: true,
+        verifiedAt: generatedAt,
+      },
       auditTrail,
       moneyTrail,
       piiPolicy: {
@@ -556,6 +581,7 @@ export class MarketplaceService {
         gigId: report.gigId,
         packageId: pkg.id,
         evidenceCount: report.evidenceVaultRefs.length,
+        snapshotSchemaVersion: manifest.snapshotSchemaVersion,
       },
     });
     return pkg;
@@ -582,6 +608,7 @@ export class MarketplaceService {
         gigId: manifest.gigId,
         packageId: manifest.id,
         retrievalCount: manifest.retrievalCount,
+        integrityVerified: pkg.integrity.verified,
       },
     });
     return pkg;
@@ -600,6 +627,15 @@ export class MarketplaceService {
       this.audit.list({ targetType: 'safety_report', targetId: manifest.reportId }),
       this.money ? this.money.moneyTrailForGig(manifest.gigId) : Promise.resolve(null),
     ]);
+    const verifiedAt = new Date(this.now()).toISOString();
+    const currentSnapshotHash = hashEscalationSnapshot({
+      generatedAt: manifest.generatedAt,
+      generatedBy: manifest.generatedBy,
+      report,
+      gig,
+      assignment,
+      evidenceVaultRefs: manifest.evidenceVaultRefs,
+    });
     return {
       id: manifest.id,
       generatedAt: manifest.generatedAt,
@@ -610,6 +646,15 @@ export class MarketplaceService {
       assignment,
       manifest,
       evidenceVaultRefs: [...manifest.evidenceVaultRefs],
+      integrity: {
+        algorithm: 'sha256',
+        snapshotSchemaVersion: manifest.snapshotSchemaVersion,
+        snapshotHash: manifest.snapshotHash,
+        verified:
+          manifest.snapshotSchemaVersion === ESCALATION_SNAPSHOT_SCHEMA_VERSION &&
+          currentSnapshotHash === manifest.snapshotHash,
+        verifiedAt,
+      },
       auditTrail: uniqueAuditRecords([...directGigAudit, ...linkedGigAudit, ...reportAudit]),
       moneyTrail,
       piiPolicy: {
@@ -826,4 +871,68 @@ function isEscalationWorthy(report: SafetyReport): boolean {
 function uniqueAuditRecords(records: Awaited<ReturnType<AuditService['list']>>) {
   const byId = new Map(records.map((record) => [record.id, record]));
   return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+function hashEscalationSnapshot(input: {
+  generatedAt: string;
+  generatedBy: string;
+  report: SafetyReport;
+  gig: Gig;
+  assignment: Assignment | null;
+  evidenceVaultRefs: string[];
+}): string {
+  const snapshot = {
+    schemaVersion: ESCALATION_SNAPSHOT_SCHEMA_VERSION,
+    purpose: 'lawful_safety_escalation',
+    generatedAt: input.generatedAt,
+    generatedBy: input.generatedBy,
+    report: {
+      id: input.report.id,
+      gigId: input.report.gigId,
+      reporterId: input.report.reporterId,
+      reportedUserId: input.report.reportedUserId ?? null,
+      reason: input.report.reason,
+      severity: input.report.severity,
+      description: input.report.description,
+      evidenceVaultRefs: [...input.evidenceVaultRefs].sort(),
+      status: input.report.status,
+      actionTaken: input.report.actionTaken ?? null,
+      reviewedBy: input.report.reviewedBy ?? null,
+      reviewedAt: input.report.reviewedAt ?? null,
+      lawEnforcementRef: input.report.lawEnforcementRef ? '[recorded]' : null,
+      createdAt: input.report.createdAt,
+    },
+    gig: {
+      id: input.gig.id,
+      giverId: input.gig.giverId,
+      categoryId: input.gig.categoryId,
+      title: input.gig.title,
+      description: input.gig.description,
+      location: input.gig.location,
+      scheduledAt: input.gig.scheduledAt,
+      budgetAmount: input.gig.budgetAmount,
+      currency: input.gig.currency,
+      status: input.gig.status,
+      visibilityStatus: input.gig.visibilityStatus,
+      riskLevel: input.gig.riskLevel,
+      safetyFlags: [...input.gig.safetyFlags].sort(),
+      moderatedBy: input.gig.moderatedBy ?? null,
+      moderatedAt: input.gig.moderatedAt ?? null,
+      moderationReason: input.gig.moderationReason ?? null,
+      createdAt: input.gig.createdAt,
+    },
+    assignment: input.assignment
+      ? {
+          id: input.assignment.id,
+          gigId: input.assignment.gigId,
+          workerId: input.assignment.workerId,
+          applicationId: input.assignment.applicationId,
+          agreedAmount: input.assignment.agreedAmount,
+          platformFeeAmount: input.assignment.platformFeeAmount,
+          workerPayoutAmount: input.assignment.workerPayoutAmount,
+          selectedAt: input.assignment.selectedAt,
+        }
+      : null,
+  };
+  return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
 }

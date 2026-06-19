@@ -227,10 +227,15 @@ CREATE TABLE IF NOT EXISTS "EscalationPackageManifest" (
   "generatedBy" text NOT NULL,
   "generatedAt" timestamptz NOT NULL DEFAULT now(),
   "evidenceVaultRefs" text[] NOT NULL DEFAULT '{}',
+  "snapshotSchemaVersion" integer NOT NULL DEFAULT 1,
+  "snapshotHash" text NOT NULL DEFAULT '',
   "retrievalCount" integer NOT NULL DEFAULT 0,
   "lastRetrievedBy" text,
   "lastRetrievedAt" timestamptz
 );
+
+ALTER TABLE "EscalationPackageManifest" ADD COLUMN IF NOT EXISTS "snapshotSchemaVersion" integer NOT NULL DEFAULT 1;
+ALTER TABLE "EscalationPackageManifest" ADD COLUMN IF NOT EXISTS "snapshotHash" text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS "EscalationPackageManifest_reportId_idx"
   ON "EscalationPackageManifest"("reportId");

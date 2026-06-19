@@ -92,6 +92,8 @@ interface EscalationPackageManifestRow {
   generatedBy: string;
   generatedAt: Date;
   evidenceVaultRefs: string[];
+  snapshotSchemaVersion: number;
+  snapshotHash: string;
   retrievalCount: number;
   lastRetrievedBy: string | null;
   lastRetrievedAt: Date | null;
@@ -383,10 +385,12 @@ export class PostgresEscalationPackageRepository implements EscalationPackageRep
     await this.pg.query(
       `INSERT INTO "EscalationPackageManifest"
         (id, "reportId", "gigId", "generatedBy", "generatedAt", "evidenceVaultRefs",
-         "retrievalCount", "lastRetrievedBy", "lastRetrievedAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         "snapshotSchemaVersion", "snapshotHash", "retrievalCount", "lastRetrievedBy", "lastRetrievedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (id) DO UPDATE SET
          "evidenceVaultRefs" = EXCLUDED."evidenceVaultRefs",
+         "snapshotSchemaVersion" = EXCLUDED."snapshotSchemaVersion",
+         "snapshotHash" = EXCLUDED."snapshotHash",
          "retrievalCount" = EXCLUDED."retrievalCount",
          "lastRetrievedBy" = EXCLUDED."lastRetrievedBy",
          "lastRetrievedAt" = EXCLUDED."lastRetrievedAt"`,
@@ -397,6 +401,8 @@ export class PostgresEscalationPackageRepository implements EscalationPackageRep
         manifest.generatedBy,
         manifest.generatedAt,
         manifest.evidenceVaultRefs,
+        manifest.snapshotSchemaVersion,
+        manifest.snapshotHash,
         manifest.retrievalCount,
         manifest.lastRetrievedBy ?? null,
         manifest.lastRetrievedAt ?? null,
@@ -424,7 +430,8 @@ export class PostgresEscalationPackageRepository implements EscalationPackageRep
            "lastRetrievedAt" = $3
        WHERE id = $1
        RETURNING id, "reportId", "gigId", "generatedBy", "generatedAt", "evidenceVaultRefs",
-                 "retrievalCount", "lastRetrievedBy", "lastRetrievedAt"`,
+                 "snapshotSchemaVersion", "snapshotHash", "retrievalCount",
+                 "lastRetrievedBy", "lastRetrievedAt"`,
       [id, actorId, at],
     );
     return row ? toEscalationPackageManifest(row) : null;
@@ -510,7 +517,8 @@ function selectSafetyReport(): string {
 
 function selectEscalationPackageManifest(): string {
   return `SELECT id, "reportId", "gigId", "generatedBy", "generatedAt", "evidenceVaultRefs",
-                 "retrievalCount", "lastRetrievedBy", "lastRetrievedAt"
+                 "snapshotSchemaVersion", "snapshotHash", "retrievalCount",
+                 "lastRetrievedBy", "lastRetrievedAt"
           FROM "EscalationPackageManifest"`;
 }
 
@@ -543,6 +551,8 @@ function toEscalationPackageManifest(
     generatedBy: row.generatedBy,
     generatedAt: row.generatedAt.toISOString(),
     evidenceVaultRefs: row.evidenceVaultRefs ?? [],
+    snapshotSchemaVersion: row.snapshotSchemaVersion,
+    snapshotHash: row.snapshotHash,
     retrievalCount: row.retrievalCount,
     lastRetrievedBy: row.lastRetrievedBy ?? undefined,
     lastRetrievedAt: row.lastRetrievedAt?.toISOString(),
