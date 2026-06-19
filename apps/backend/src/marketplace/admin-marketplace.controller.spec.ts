@@ -1,10 +1,13 @@
 import { ROLES_KEY } from '../auth/decorators';
+import { AuthPrincipal } from '../auth/auth.types';
 import { AdminMarketplaceController } from './admin-marketplace.controller';
 
-const principal = {
+const principal: AuthPrincipal = {
   sub: 'admin_1',
   kind: 'admin' as const,
   roles: ['fraud_analyst' as const],
+  adminMfaVerifiedAt: Date.now(),
+  adminDeviceId: 'device_1',
 };
 
 describe('AdminMarketplaceController RBAC metadata', () => {
@@ -256,6 +259,65 @@ describe('AdminMarketplaceController structured decisions', () => {
         note: 'Evidence refs and money trail are ready for lawful escalation.',
       },
     );
+  });
+});
+
+describe('AdminMarketplaceController fresh admin session gates', () => {
+  it('blocks sensitive money reads when admin verification is stale', async () => {
+    const stalePrincipal = {
+      ...principal,
+      adminMfaVerifiedAt: Date.now() - 16 * 60_000,
+    };
+    const money = { moneyTrailForGig: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      money as never,
+      auditMock() as never,
+    );
+
+    await expect(controller.moneyTrail('gig_1', stalePrincipal)).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'admin_fresh_verification_required' }),
+    });
+    expect(money.moneyTrailForGig).not.toHaveBeenCalled();
+  });
+
+  it('blocks evidence refs without a trusted admin device marker', async () => {
+    const marketplace = { listSafetyReportEvidenceRefs: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+    );
+
+    await expect(
+      controller.safetyReportEvidenceRefs('safe_1', { ...principal, adminDeviceId: undefined }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'admin_fresh_verification_required' }),
+    });
+    expect(marketplace.listSafetyReportEvidenceRefs).not.toHaveBeenCalled();
+  });
+
+  it('blocks escalation packages before service calls when admin verification is stale', async () => {
+    const marketplace = { generateSafetyEscalationPackage: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+    );
+
+    await expect(
+      controller.escalationPackage(
+        'safe_1',
+        { ...principal, adminMfaVerifiedAt: Date.now() - 16 * 60_000 },
+        {
+          reasonCode: 'police_escalation_ready',
+          note: 'Evidence refs and money trail are ready for lawful escalation.',
+        },
+      ),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'admin_fresh_verification_required' }),
+    });
+    expect(marketplace.generateSafetyEscalationPackage).not.toHaveBeenCalled();
   });
 });
 

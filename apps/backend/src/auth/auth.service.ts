@@ -52,7 +52,13 @@ export class AuthService {
     }
     const expected = process.env.ADMIN_DEV_SECRET ?? 'dev-admin-secret';
     if (secret !== expected) throw new UnauthorizedException('Bad admin secret');
-    const principal: AuthPrincipal = { sub: adminId, kind: 'admin', roles };
+    const principal: AuthPrincipal = {
+      sub: adminId,
+      kind: 'admin',
+      roles,
+      adminMfaVerifiedAt: Date.now(),
+      adminDeviceId: `dev:${adminId}`,
+    };
     const token = await this.jwt.signAsync(principal);
     return { token };
   }
