@@ -462,4 +462,66 @@ describe('MarketplaceService', () => {
     });
     await expect(svc.getGig(gig.id)).resolves.toMatchObject({ status: 'cancelled' });
   });
+
+  it('generates a lawful escalation package for serious safety reports', async () => {
+    const { svc, givers, moneyRepo } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Giver threatened me after assignment.',
+      evidenceVaultRefs: ['vault_chat_2', 'vault_audio_1'],
+    });
+
+    const pkg = await svc.generateSafetyEscalationPackage(report.id, 'fraud_admin');
+
+    expect(pkg).toMatchObject({
+      purpose: 'lawful_safety_escalation',
+      generatedBy: 'fraud_admin',
+      report: expect.objectContaining({ id: report.id, reason: 'violence_or_threat' }),
+      gig: expect.objectContaining({ id: gig.id, giverId: 'giver_1' }),
+      assignment: expect.objectContaining({ workerId: 'worker_1', agreedAmount: 1200 }),
+      evidenceVaultRefs: ['vault_chat_2', 'vault_audio_1'],
+      piiPolicy: {
+        rawAadhaarStored: false,
+        rawSelfieIncluded: false,
+        evidenceRefsOnly: true,
+      },
+    });
+    expect(pkg.auditTrail.map((entry) => entry.action)).toEqual(
+      expect.arrayContaining([
+        'gig.posted',
+        'gig.worker_selected',
+        'gig.in_progress',
+        'safety.report_raised',
+        'escrow.dispute_opened',
+      ]),
+    );
+    expect(pkg.moneyTrail?.hold).toMatchObject({ amount: 1200, status: 'disputed' });
+    await expect(moneyRepo.findEscrowHoldByGig(gig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'disputed',
+    });
+  });
 });

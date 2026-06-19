@@ -154,6 +154,16 @@ export class AdminMarketplaceController {
     );
   }
 
+  @Post('safety-reports/:reportId/escalation-package')
+  escalationPackage(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.generateSafetyEscalationPackage(reportId, principal.sub),
+    );
+  }
+
   private async wrap<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();

@@ -2,7 +2,7 @@ import { randomBytes } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit/audit.service';
 import { GiverProfileRepository } from '../identity/identity.repository';
-import { MoneyService } from '../money/money.service';
+import { GigMoneyTrail, MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
 import {
   Assignment,
@@ -64,6 +64,24 @@ export interface RaiseSafetyReportInput {
 }
 
 export type DisputeResolutionOutcome = 'release_to_worker' | 'refund_giver' | 'keep_escalated';
+
+export interface SafetyEscalationPackage {
+  id: string;
+  generatedAt: string;
+  generatedBy: string;
+  purpose: 'lawful_safety_escalation';
+  report: SafetyReport;
+  gig: Gig;
+  assignment: Assignment | null;
+  evidenceVaultRefs: string[];
+  auditTrail: Awaited<ReturnType<AuditService['list']>>;
+  moneyTrail: GigMoneyTrail | null;
+  piiPolicy: {
+    rawAadhaarStored: false;
+    rawSelfieIncluded: false;
+    evidenceRefsOnly: true;
+  };
+}
 
 const PLATFORM_FEE_BPS = 1500;
 
@@ -475,6 +493,57 @@ export class MarketplaceService {
     return updated;
   }
 
+  async generateSafetyEscalationPackage(
+    reportId: string,
+    reviewerId: string,
+  ): Promise<SafetyEscalationPackage> {
+    const report = await this.safetyReports.findById(reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    if (!isEscalationWorthy(report)) {
+      throw new MarketplaceError('Only serious safety reports can generate escalation packages', 'invalid_state');
+    }
+    const gig = await this.getGig(report.gigId);
+    const assignment = await this.assignments.findByGig(report.gigId);
+    const [directGigAudit, linkedGigAudit, reportAudit, moneyTrail] = await Promise.all([
+      this.audit.list({ targetType: 'gig', targetId: report.gigId }),
+      this.audit.list({ metadata: { gigId: report.gigId } }),
+      this.audit.list({ targetType: 'safety_report', targetId: reportId }),
+      this.money ? this.money.moneyTrailForGig(report.gigId) : Promise.resolve(null),
+    ]);
+    const auditTrail = uniqueAuditRecords([...directGigAudit, ...linkedGigAudit, ...reportAudit]);
+    const generatedAt = new Date(this.now()).toISOString();
+    const pkg: SafetyEscalationPackage = {
+      id: `escpkg_${this.id()}`,
+      generatedAt,
+      generatedBy: reviewerId,
+      purpose: 'lawful_safety_escalation',
+      report,
+      gig,
+      assignment,
+      evidenceVaultRefs: [...report.evidenceVaultRefs],
+      auditTrail,
+      moneyTrail,
+      piiPolicy: {
+        rawAadhaarStored: false,
+        rawSelfieIncluded: false,
+        evidenceRefsOnly: true,
+      },
+    };
+    this.audit.record({
+      actorId: reviewerId,
+      actorRole: 'fraud_analyst',
+      action: 'safety.escalation_package_generated',
+      targetType: 'safety_report',
+      targetId: reportId,
+      metadata: {
+        gigId: report.gigId,
+        packageId: pkg.id,
+        evidenceCount: report.evidenceVaultRefs.length,
+      },
+    });
+    return pkg;
+  }
+
   async transitionGig(gigId: string, actorId: string, next: Extract<GigStatus, 'in_progress' | 'completed' | 'cancelled'>): Promise<Gig> {
     const gig = await this.getGig(gigId);
     const assignment = await this.assignments.findByGig(gigId);
@@ -667,4 +736,18 @@ function shouldImmediatelyFlag(reason: SafetyReportReason, severity: SafetyRepor
 
 function isDisputeResolutionOutcome(outcome: string): outcome is DisputeResolutionOutcome {
   return ['release_to_worker', 'refund_giver', 'keep_escalated'].includes(outcome);
+}
+
+function isEscalationWorthy(report: SafetyReport): boolean {
+  return (
+    report.status === 'escalated' ||
+    report.severity === 'critical' ||
+    report.severity === 'high' ||
+    ['sexual_misconduct', 'drugs_or_illegal_activity', 'violence_or_threat'].includes(report.reason)
+  );
+}
+
+function uniqueAuditRecords(records: Awaited<ReturnType<AuditService['list']>>) {
+  const byId = new Map(records.map((record) => [record.id, record]));
+  return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
 }
