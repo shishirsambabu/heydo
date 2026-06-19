@@ -182,6 +182,56 @@ describe('MarketplaceService', () => {
     await expect(svc.listGigsForAdmin({ visibilityStatus: 'rejected' })).resolves.toHaveLength(1);
   });
 
+  it('records structured decision metadata for high-impact gig moderation', async () => {
+    const { svc, givers, audit } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Late night cleaning',
+      description: 'Need cleaning help late night alone at a quiet house',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+
+    await svc.moderateGig(
+      gig.id,
+      'fraud_admin',
+      'approve',
+      'Called giver and verified the safe scope.',
+      {
+        reasonCode: 'caller_verified_scope',
+        note: 'Called giver and verified the safe scope.',
+      },
+    );
+
+    await expect(audit.list({ targetType: 'gig', targetId: gig.id })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'gig.moderation_approve',
+          metadata: expect.objectContaining({
+            decision: {
+              reasonCode: 'caller_verified_scope',
+              noteLength: 41,
+            },
+          }),
+        }),
+      ]),
+    );
+    const moderationAudit = (await audit.list({ targetType: 'gig', targetId: gig.id })).find(
+      (entry) => entry.action === 'gig.moderation_approve',
+    );
+    expect(JSON.stringify(moderationAudit?.metadata)).not.toContain(
+      'Called giver and verified the safe scope.',
+    );
+  });
+
   it('lets users raise a serious safety report that flags the gig for admin action', async () => {
     const { svc, givers } = service();
     await givers.save({

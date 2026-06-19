@@ -126,6 +126,58 @@ describe('AdminMarketplaceController sensitive read audit', () => {
   });
 });
 
+describe('AdminMarketplaceController structured decisions', () => {
+  it('passes structured moderation decisions to the service', async () => {
+    const marketplace = { moderateGig: jest.fn().mockResolvedValue({ id: 'gig_1' }) };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+    );
+
+    await controller.approve('gig_1', principal, {
+      reasonCode: 'caller_verified_scope',
+      note: 'Called giver and verified the safe scope.',
+    });
+
+    expect(marketplace.moderateGig).toHaveBeenCalledWith(
+      'gig_1',
+      'admin_1',
+      'approve',
+      'Called giver and verified the safe scope.',
+      {
+        reasonCode: 'caller_verified_scope',
+        note: 'Called giver and verified the safe scope.',
+      },
+    );
+  });
+
+  it('requires a structured decision when generating escalation packages', async () => {
+    const marketplace = {
+      generateSafetyEscalationPackage: jest.fn().mockResolvedValue({ id: 'escpkg_1' }),
+    };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+    );
+
+    await controller.escalationPackage('safe_1', principal, {
+      reasonCode: 'police_escalation_ready',
+      note: 'Evidence refs and money trail are ready for lawful escalation.',
+    });
+
+    expect(marketplace.generateSafetyEscalationPackage).toHaveBeenCalledWith(
+      'safe_1',
+      'admin_1',
+      {
+        reasonCode: 'police_escalation_ready',
+        note: 'Evidence refs and money trail are ready for lawful escalation.',
+      },
+    );
+  });
+});
+
 function auditMock(...listResults: unknown[][]) {
   return {
     list: jest

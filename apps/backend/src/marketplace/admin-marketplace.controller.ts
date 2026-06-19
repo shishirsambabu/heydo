@@ -19,22 +19,30 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { AuditService } from '../common/audit/audit.service';
 import { MoneyService } from '../money/money.service';
-import { MarketplaceError, MarketplaceService } from './marketplace.service';
+import { AdminDecisionNote, MarketplaceError, MarketplaceService } from './marketplace.service';
 
 class ModerationDto {
-  @IsString() @MinLength(3) reason!: string;
+  @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
 }
 
 class SafetyReviewDto {
   @IsString() status!: Extract<SafetyReportStatus, 'under_review' | 'action_taken' | 'escalated' | 'closed'>;
-  @IsString() @MinLength(3) actionTaken!: string;
+  @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
   @IsOptional() @IsString() lawEnforcementRef?: string;
 }
 
 class DisputeResolutionDto {
   @IsString() outcome!: 'release_to_worker' | 'refund_giver' | 'keep_escalated';
-  @IsString() @MinLength(3) actionTaken!: string;
+  @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
   @IsOptional() @IsString() lawEnforcementRef?: string;
+}
+
+class EscalationPackageDto {
+  @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
 }
 
 @Controller('admin/marketplace')
@@ -111,7 +119,13 @@ export class AdminMarketplaceController {
     @Body() dto: ModerationDto,
   ) {
     return this.wrap(() =>
-      this.marketplace.moderateGig(gigId, principal.sub, 'approve', dto.reason),
+      this.marketplace.moderateGig(
+        gigId,
+        principal.sub,
+        'approve',
+        dto.note,
+        decisionFromDto(dto),
+      ),
     );
   }
 
@@ -123,7 +137,13 @@ export class AdminMarketplaceController {
     @Body() dto: ModerationDto,
   ) {
     return this.wrap(() =>
-      this.marketplace.moderateGig(gigId, principal.sub, 'reject', dto.reason),
+      this.marketplace.moderateGig(
+        gigId,
+        principal.sub,
+        'reject',
+        dto.note,
+        decisionFromDto(dto),
+      ),
     );
   }
 
@@ -135,7 +155,13 @@ export class AdminMarketplaceController {
     @Body() dto: ModerationDto,
   ) {
     return this.wrap(() =>
-      this.marketplace.moderateGig(gigId, principal.sub, 'flag', dto.reason),
+      this.marketplace.moderateGig(
+        gigId,
+        principal.sub,
+        'flag',
+        dto.note,
+        decisionFromDto(dto),
+      ),
     );
   }
 
@@ -186,8 +212,9 @@ export class AdminMarketplaceController {
         reportId,
         principal.sub,
         dto.status,
-        dto.actionTaken,
+        dto.note,
         dto.lawEnforcementRef,
+        decisionFromDto(dto),
       ),
     );
   }
@@ -204,8 +231,9 @@ export class AdminMarketplaceController {
         reportId,
         principal.sub,
         dto.outcome,
-        dto.actionTaken,
+        dto.note,
         dto.lawEnforcementRef,
+        decisionFromDto(dto),
       ),
     );
   }
@@ -215,9 +243,14 @@ export class AdminMarketplaceController {
   escalationPackage(
     @Param('reportId') reportId: string,
     @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: EscalationPackageDto,
   ) {
     return this.wrap(() =>
-      this.marketplace.generateSafetyEscalationPackage(reportId, principal.sub),
+      this.marketplace.generateSafetyEscalationPackage(
+        reportId,
+        principal.sub,
+        decisionFromDto(dto),
+      ),
     );
   }
 
@@ -251,4 +284,11 @@ export class AdminMarketplaceController {
 
 function primaryRole(principal: AuthPrincipal): string {
   return principal.roles[0] ?? 'admin';
+}
+
+function decisionFromDto(dto: { reasonCode: string; note: string }): AdminDecisionNote {
+  return {
+    reasonCode: dto.reasonCode.trim(),
+    note: dto.note.trim(),
+  };
 }

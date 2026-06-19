@@ -71,6 +71,11 @@ export interface RaiseSafetyReportInput {
 
 export type DisputeResolutionOutcome = 'release_to_worker' | 'refund_giver' | 'keep_escalated';
 
+export interface AdminDecisionNote {
+  reasonCode: string;
+  note: string;
+}
+
 export interface SafetyEscalationPackage {
   id: string;
   generatedAt: string;
@@ -314,6 +319,7 @@ export class MarketplaceService {
     officerId: string,
     decision: 'approve' | 'reject' | 'flag',
     reason: string,
+    decisionNote?: AdminDecisionNote,
   ): Promise<Gig> {
     const gig = await this.getGig(gigId);
     const visibilityStatus =
@@ -339,6 +345,7 @@ export class MarketplaceService {
         visibilityStatus,
         riskLevel,
         safetyFlags: updated.safetyFlags,
+        decision: summarizeDecision(decisionNote, reason),
       },
     });
     return updated;
@@ -461,6 +468,7 @@ export class MarketplaceService {
     status: Extract<SafetyReportStatus, 'under_review' | 'action_taken' | 'escalated' | 'closed'>,
     actionTaken: string,
     lawEnforcementRef?: string,
+    decisionNote?: AdminDecisionNote,
   ): Promise<SafetyReport> {
     const report = await this.safetyReports.findById(reportId);
     if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
@@ -484,6 +492,7 @@ export class MarketplaceService {
         reason: report.reason,
         severity: report.severity,
         lawEnforcementRef: lawEnforcementRef ? '[recorded]' : undefined,
+        decision: summarizeDecision(decisionNote, actionTaken),
       },
     });
     return updated;
@@ -495,6 +504,7 @@ export class MarketplaceService {
     outcome: DisputeResolutionOutcome,
     actionTaken: string,
     lawEnforcementRef?: string,
+    decisionNote?: AdminDecisionNote,
   ): Promise<SafetyReport> {
     if (!isDisputeResolutionOutcome(outcome)) {
       throw new MarketplaceError('Invalid dispute resolution outcome', 'invalid_dispute_outcome');
@@ -553,6 +563,7 @@ export class MarketplaceService {
         reason: report.reason,
         severity: report.severity,
         lawEnforcementRef: lawEnforcementRef ? '[recorded]' : undefined,
+        decision: summarizeDecision(decisionNote, actionTaken),
       },
     });
     return updated;
@@ -561,6 +572,7 @@ export class MarketplaceService {
   async generateSafetyEscalationPackage(
     reportId: string,
     reviewerId: string,
+    decisionNote?: AdminDecisionNote,
   ): Promise<SafetyEscalationPackage> {
     const report = await this.safetyReports.findById(reportId);
     if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
@@ -633,6 +645,7 @@ export class MarketplaceService {
         packageId: pkg.id,
         evidenceCount: report.evidenceVaultRefs.length,
         snapshotSchemaVersion: manifest.snapshotSchemaVersion,
+        decision: summarizeDecision(decisionNote, 'Escalation package generated'),
       },
     });
     return pkg;
@@ -961,6 +974,15 @@ function isEscalationWorthy(report: SafetyReport): boolean {
 function uniqueAuditRecords(records: Awaited<ReturnType<AuditService['list']>>) {
   const byId = new Map(records.map((record) => [record.id, record]));
   return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+}
+
+function summarizeDecision(decisionNote: AdminDecisionNote | undefined, fallbackNote: string) {
+  const reasonCode = decisionNote?.reasonCode?.trim() || 'free_text_reason';
+  const note = decisionNote?.note?.trim() || fallbackNote.trim();
+  return {
+    reasonCode,
+    noteLength: note.length,
+  };
 }
 
 function classifyEvidenceRef(ref: string): EvidenceVaultRef['classification'] {
