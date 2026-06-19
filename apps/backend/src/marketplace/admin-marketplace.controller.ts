@@ -61,19 +61,40 @@ export class AdminMarketplaceController {
 
   @Get('gigs/:gigId/money-trail')
   @Roles('finance', 'dispute_officer', 'super_admin')
-  moneyTrail(@Param('gigId') gigId: string) {
-    return this.money.moneyTrailForGig(gigId);
+  async moneyTrail(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {
+    const trail = await this.money.moneyTrailForGig(gigId);
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: 'admin.money_trail_viewed',
+      targetType: 'gig',
+      targetId: gigId,
+      metadata: {
+        holdPresent: Boolean(trail.hold),
+        transactionCount: trail.transactions.length,
+      },
+    });
+    return trail;
   }
 
   @Get('gigs/:gigId/audit-trail')
   @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
-  async gigAuditTrail(@Param('gigId') gigId: string) {
+  async gigAuditTrail(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {
     const [direct, linked] = await Promise.all([
       this.audit.list({ targetType: 'gig', targetId: gigId }),
       this.audit.list({ metadata: { gigId } }),
     ]);
     const byId = new Map([...direct, ...linked].map((entry) => [entry.id, entry]));
-    return [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+    const trail = [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: 'admin.gig_audit_trail_viewed',
+      targetType: 'gig',
+      targetId: gigId,
+      metadata: { auditRecordCount: trail.length },
+    });
+    return trail;
   }
 
   @Get('audit-health')
@@ -126,8 +147,20 @@ export class AdminMarketplaceController {
 
   @Get('safety-reports/:reportId/audit-trail')
   @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
-  safetyReportAuditTrail(@Param('reportId') reportId: string) {
-    return this.audit.list({ targetType: 'safety_report', targetId: reportId });
+  async safetyReportAuditTrail(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    const trail = await this.audit.list({ targetType: 'safety_report', targetId: reportId });
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: 'admin.safety_report_audit_trail_viewed',
+      targetType: 'safety_report',
+      targetId: reportId,
+      metadata: { auditRecordCount: trail.length },
+    });
+    return trail;
   }
 
   @Get('safety-reports/:reportId/evidence-refs')
@@ -214,4 +247,8 @@ export class AdminMarketplaceController {
       throw error;
     }
   }
+}
+
+function primaryRole(principal: AuthPrincipal): string {
+  return principal.roles[0] ?? 'admin';
 }
