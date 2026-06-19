@@ -159,6 +159,15 @@ input.field {
 .empty { text-align: center; color: #5b6b65; padding: 40px; }
 .error { color: #b3261e; font-size: 14px; margin-top: 10px; }
 .notice { color: var(--trust-green); font-size: 14px; margin: 10px 0; }
+.meta-strip {
+  background: #edf4f1;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: #40524b;
+  font-size: 13px;
+  margin: -6px 0 18px;
+  padding: 10px 12px;
+}
 .login-wrap { max-width: 380px; margin: 80px auto; }
 
 .stat-grid {

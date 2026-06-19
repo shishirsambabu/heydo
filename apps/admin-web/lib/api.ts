@@ -84,6 +84,33 @@ export interface SafetyReport {
   createdAt: string;
 }
 
+export type AdminDecisionReasonAction =
+  | 'gig.approve'
+  | 'gig.reject'
+  | 'gig.flag'
+  | 'safety.under_review'
+  | 'safety.action_taken'
+  | 'safety.escalated'
+  | 'safety.closed'
+  | 'dispute.release_to_worker'
+  | 'dispute.refund_giver'
+  | 'dispute.keep_escalated'
+  | 'escalation.generate';
+
+export interface AdminDecisionReason {
+  code: string;
+  label: string;
+  requiresLawEnforcementRef?: boolean;
+}
+
+export type AdminDecisionReasonCatalog = Record<AdminDecisionReasonAction, AdminDecisionReason[]>;
+
+export interface AdminDecisionPayload {
+  reasonCode: string;
+  note: string;
+  lawEnforcementRef?: string;
+}
+
 export type AdminSessionStatus = 'active' | 'step_up_required' | 'revoked' | 'expired';
 
 export interface AdminSessionListItem {
@@ -152,10 +179,21 @@ export function listReviewGigs(): Promise<AdminGig[]> {
   return authed('/admin/marketplace/gigs/pending-review') as Promise<AdminGig[]>;
 }
 
-export function moderateGig(gigId: string, decision: 'approve' | 'reject' | 'flag', reason: string) {
+export function getDecisionReasons(): Promise<AdminDecisionReasonCatalog> {
+  return authed('/admin/marketplace/decision-reasons') as Promise<AdminDecisionReasonCatalog>;
+}
+
+export function moderateGig(
+  gigId: string,
+  decision: 'approve' | 'reject' | 'flag',
+  payload: AdminDecisionPayload,
+) {
   return authed(`/admin/marketplace/gigs/${gigId}/${decision}`, {
     method: 'POST',
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({
+      reasonCode: payload.reasonCode,
+      note: payload.note,
+    }),
   });
 }
 
@@ -166,12 +204,16 @@ export function listOpenSafetyReports(): Promise<SafetyReport[]> {
 export function reviewSafetyReport(
   reportId: string,
   status: 'under_review' | 'action_taken' | 'escalated' | 'closed',
-  actionTaken: string,
-  lawEnforcementRef?: string,
+  payload: AdminDecisionPayload,
 ) {
   return authed(`/admin/marketplace/safety-reports/${reportId}/review`, {
     method: 'POST',
-    body: JSON.stringify({ status, actionTaken, lawEnforcementRef }),
+    body: JSON.stringify({
+      status,
+      reasonCode: payload.reasonCode,
+      note: payload.note,
+      lawEnforcementRef: payload.lawEnforcementRef,
+    }),
   });
 }
 

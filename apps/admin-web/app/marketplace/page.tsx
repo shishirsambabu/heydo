@@ -5,8 +5,12 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
+  AdminDecisionPayload,
+  AdminDecisionReasonAction,
+  AdminDecisionReasonCatalog,
   AdminGig,
   clearSession,
+  getDecisionReasons,
   getOfficerName,
   getToken,
   listOpenSafetyReports,
@@ -23,6 +27,7 @@ export default function MarketplaceSafetyPage() {
   const [tab, setTab] = useState<QueueTab>('gigs');
   const [gigs, setGigs] = useState<AdminGig[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
+  const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -39,12 +44,14 @@ export default function MarketplaceSafetyPage() {
     setLoading(true);
     setError(null);
     try {
-      const [gigItems, reportItems] = await Promise.all([
+      const [gigItems, reportItems, reasonCatalog] = await Promise.all([
         listReviewGigs(),
         listOpenSafetyReports(),
+        getDecisionReasons(),
       ]);
       setGigs(gigItems);
       setReports(reportItems);
+      setReasons(reasonCatalog);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load marketplace queues');
     } finally {
@@ -65,12 +72,54 @@ export default function MarketplaceSafetyPage() {
     router.replace('/login');
   }
 
+  function chooseDecisionPayload(action: AdminDecisionReasonAction): AdminDecisionPayload | null {
+    const choices = reasons?.[action] ?? [];
+    if (!choices.length) {
+      setError(`No decision reasons loaded for ${action}`);
+      return null;
+    }
+
+    const reasonMenu = choices
+      .map((reason, index) => `${index + 1}. ${reason.label} (${reason.code})`)
+      .join('\n');
+    const selected = window.prompt(`Choose reason for ${action}:\n${reasonMenu}`);
+    if (!selected) return null;
+
+    const trimmed = selected.trim();
+    const reason = choices[Number(trimmed) - 1] ?? choices.find((item) => item.code === trimmed);
+    if (!reason) {
+      setError('Choose a valid reason number or reason code.');
+      return null;
+    }
+
+    const note = window.prompt('Decision note? Minimum 10 characters.');
+    if (!note) return null;
+    if (note.trim().length < 10) {
+      setError('Decision note must be at least 10 characters.');
+      return null;
+    }
+
+    const lawEnforcementRef = reason.requiresLawEnforcementRef
+      ? window.prompt('Police/legal reference required for this reason.')
+      : undefined;
+    if (reason.requiresLawEnforcementRef && !lawEnforcementRef?.trim()) {
+      setError('Law enforcement reference is required for this decision.');
+      return null;
+    }
+
+    return {
+      reasonCode: reason.code,
+      note: note.trim(),
+      lawEnforcementRef: lawEnforcementRef?.trim() || undefined,
+    };
+  }
+
   async function onGig(gigId: string, decision: 'approve' | 'reject' | 'flag') {
-    const reason = window.prompt('Moderation reason?');
-    if (!reason) return;
+    const payload = chooseDecisionPayload(`gig.${decision}` as AdminDecisionReasonAction);
+    if (!payload) return;
     setActingId(gigId);
     try {
-      await moderateGig(gigId, decision, reason);
+      await moderateGig(gigId, decision, payload);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gig moderation failed');
@@ -80,12 +129,11 @@ export default function MarketplaceSafetyPage() {
   }
 
   async function onReport(reportId: string, status: 'under_review' | 'action_taken' | 'escalated' | 'closed') {
-    const actionTaken = window.prompt('Action taken / case note?');
-    if (!actionTaken) return;
-    const lawRef = status === 'escalated' ? window.prompt('Police/legal reference?') ?? undefined : undefined;
+    const payload = chooseDecisionPayload(`safety.${status}` as AdminDecisionReasonAction);
+    if (!payload) return;
     setActingId(reportId);
     try {
-      await reviewSafetyReport(reportId, status, actionTaken, lawRef);
+      await reviewSafetyReport(reportId, status, payload);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Safety review failed');
@@ -127,6 +175,12 @@ export default function MarketplaceSafetyPage() {
           Safety reports <span>{counts.reports}</span>
         </button>
       </div>
+
+      {reasons && (
+        <div className="meta-strip">
+          Structured admin reasons loaded for {Object.keys(reasons).length} sensitive action sets.
+        </div>
+      )}
 
       {loading && <div className="empty">Loading...</div>}
       {error && <div className="error">{error}</div>}
