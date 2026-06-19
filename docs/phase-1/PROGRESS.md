@@ -11,6 +11,10 @@ The backend **identity/verification domain** — the trust-critical heart of Pha
 - **PII vault** (`common/pii/pii-vault.ts`) — AES-256-GCM; services hold only opaque vault references, never raw Aadhaar. DPDP erasure supported.
 - **PII redaction** (`common/pii/redaction.ts`) — log-safe masking; forbidden keys (aadhaar/otp/token/face) stripped everywhere.
 - **Audit log** (`common/audit/`) — append-only; signals only, never PII.
+- **Admin safety hardening** — fresh admin sessions, server-side session revocation,
+  forced step-up, session monitoring, audit degraded fail-closed behavior, and
+  maker-checker audit recovery. Ops flow documented in
+  [ADMIN_SAFETY_RUNBOOK.md](ADMIN_SAFETY_RUNBOOK.md).
 - **VKYC provider abstraction** (`verification/vkyc/`) — swappable; `MockVkycProvider` for dev so the flow runs without a signed vendor.
 - **Verification state machine** (`verification/verification.service.ts`) — consent → start → vendor result → officer review → approve/reject; auto-reject on liveness/Aadhaar/face-match failure; `canApply()` trust gate; verification expiry.
 

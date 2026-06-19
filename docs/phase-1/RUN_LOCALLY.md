@@ -133,6 +133,15 @@ The last command should return a gig id plus its `visibilityStatus`. A normal sa
 
 ---
 
+## 5. Admin safety operations
+
+For session revocation, forced step-up, audit degraded handling, audit recovery, and lawful
+escalation package flow, use:
+
+[Admin Safety Runbook](ADMIN_SAFETY_RUNBOOK.md)
+
+---
+
 ## Troubleshooting
 - **Port already in use:** run `scripts\dev-down.ps1`, or kill stray `node` processes.
 - **Admin says "Could not find a production build":** run `npx next build` inside `apps/admin-web` first (must run from that folder).
