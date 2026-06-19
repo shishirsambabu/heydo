@@ -6,10 +6,11 @@ import { AdminAuthController } from './admin-auth.controller';
 import { OtpService, OtpConfig } from './otp/otp.service';
 import { MockOtpSender, OTP_SENDER, OtpSender } from './otp/otp-sender';
 import { SecurityModule } from './security.module';
+import { CommonModule } from '../common/common.module';
 import { IdentityModule } from '../identity/identity.module';
 
 @Module({
-  imports: [SecurityModule, IdentityModule],
+  imports: [SecurityModule, CommonModule, IdentityModule],
   controllers: [AuthController, AdminAuthController],
   providers: [
     AuthService,

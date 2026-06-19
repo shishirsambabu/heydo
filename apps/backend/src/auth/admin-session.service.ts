@@ -14,7 +14,8 @@ export class AdminSessionError extends Error {
       | 'admin_fresh_verification_required'
       | 'admin_session_untrusted'
       | 'admin_session_revoked'
-      | 'admin_session_expired',
+      | 'admin_session_expired'
+      | 'admin_session_not_found',
   ) {
     super(message);
   }
@@ -45,8 +46,14 @@ export class AdminSessionService {
     return session;
   }
 
-  async revoke(sessionId: string): Promise<void> {
-    await this.sessions.revoke(sessionId, new Date().toISOString());
+  async revoke(sessionId: string): Promise<AdminSession> {
+    const session = await this.sessions.findById(sessionId);
+    if (!session) {
+      throw new AdminSessionError('Admin session was not found', 'admin_session_not_found');
+    }
+    const revokedAt = new Date().toISOString();
+    await this.sessions.revoke(sessionId, revokedAt);
+    return { ...session, revokedAt };
   }
 
   async assertFresh(principal: AuthPrincipal, freshnessMs = 15 * 60_000): Promise<void> {
