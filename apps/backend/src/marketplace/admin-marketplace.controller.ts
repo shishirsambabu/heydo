@@ -56,6 +56,7 @@ class EscalationPackageDto {
 class AuditRecoveryDto {
   @IsString() @MinLength(10) reason!: string;
   @IsString() @MinLength(3) remediationRef!: string;
+  @IsString() @MinLength(3) investigatedByAdminId!: string;
 }
 
 @Controller('admin/marketplace')
@@ -137,6 +138,13 @@ export class AdminMarketplaceController {
   ) {
     return this.wrap(async () => {
       await this.adminSessions.assertFresh(principal);
+      const investigatedByAdminId = dto.investigatedByAdminId.trim();
+      if (investigatedByAdminId === principal.sub) {
+        throw new MarketplaceError(
+          'A second super admin is required to restore audit operations',
+          'second_reviewer_required',
+        );
+      }
       return this.audit.restoreAfterInvestigation({
         actorId: principal.sub,
         actorRole: primaryRole(principal),
@@ -146,6 +154,7 @@ export class AdminMarketplaceController {
         metadata: {
           reason: dto.reason.trim(),
           remediationRef: dto.remediationRef.trim(),
+          investigatedByAdminId,
         },
       });
     });

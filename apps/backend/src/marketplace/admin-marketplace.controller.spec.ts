@@ -305,6 +305,7 @@ describe('AdminMarketplaceController fresh admin session gates', () => {
       controller.restoreAuditHealth(principal, {
         reason: 'Database write path restored.',
         remediationRef: 'INC-100',
+        investigatedByAdminId: 'super_2',
       }),
     ).resolves.toEqual({ status: 'ok', failedWriteCount: 0, recentFailures: [] });
 
@@ -317,8 +318,30 @@ describe('AdminMarketplaceController fresh admin session gates', () => {
       metadata: {
         reason: 'Database write path restored.',
         remediationRef: 'INC-100',
+        investigatedByAdminId: 'super_2',
       },
     });
+  });
+
+  it('requires a second super admin for audit recovery', async () => {
+    const audit = auditMock();
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(
+      controller.restoreAuditHealth(principal, {
+        reason: 'Database write path restored.',
+        remediationRef: 'INC-100',
+        investigatedByAdminId: 'admin_1',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'second_reviewer_required' }),
+    });
+    expect(audit.restoreAfterInvestigation).not.toHaveBeenCalled();
   });
 
   it('keeps audit degraded when recovery record cannot be written', async () => {
@@ -341,6 +364,7 @@ describe('AdminMarketplaceController fresh admin session gates', () => {
       controller.restoreAuditHealth(principal, {
         reason: 'Database write path restored.',
         remediationRef: 'INC-100',
+        investigatedByAdminId: 'super_2',
       }),
     ).rejects.toMatchObject({
       response: expect.objectContaining({ code: 'audit_degraded', failedWriteCount: 2 }),

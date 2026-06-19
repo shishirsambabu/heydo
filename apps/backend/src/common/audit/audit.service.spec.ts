@@ -122,7 +122,10 @@ describe('AuditService', () => {
         action: 'admin.audit_recovery_confirmed',
         targetType: 'audit_log',
         targetId: 'health',
-        metadata: { reason: 'Database write path restored.' },
+        metadata: {
+          reason: 'Database write path restored.',
+          investigatedByAdminId: 'super_admin_2',
+        },
       }),
     ).resolves.toMatchObject({ status: 'ok', failedWriteCount: 0 });
 
@@ -131,6 +134,7 @@ describe('AuditService', () => {
       action: 'admin.audit_recovery_confirmed',
       metadata: expect.objectContaining({
         reason: 'Database write path restored.',
+        investigatedByAdminId: 'super_admin_2',
         previousFailedWriteCount: 1,
       }),
     });
