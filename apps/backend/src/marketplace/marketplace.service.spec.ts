@@ -491,6 +491,74 @@ describe('MarketplaceService', () => {
     await expect(svc.getGig(gig.id)).resolves.toMatchObject({ status: 'completed' });
   });
 
+  it('requires a second reviewer for disputed escrow resolution after case review', async () => {
+    const { svc, givers, audit } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Giver threatened me after assignment.',
+      evidenceVaultRefs: ['vault_chat_2'],
+    });
+    await svc.reviewSafetyReport(
+      report.id,
+      'fraud_admin',
+      'under_review',
+      'First reviewer triaged the report.',
+    );
+
+    await expect(
+      svc.resolveSafetyDispute(
+        report.id,
+        'fraud_admin',
+        'release_to_worker',
+        'Same reviewer should not release money',
+      ),
+    ).rejects.toMatchObject<Partial<MarketplaceError>>({
+      code: 'second_reviewer_required',
+    });
+    await expect(audit.list({ actionPrefix: 'admin.maker_checker_denied' })).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          targetId: report.id,
+          metadata: expect.objectContaining({
+            attemptedAction: 'safety.dispute_resolution',
+          }),
+        }),
+      ]),
+    );
+
+    await expect(
+      svc.resolveSafetyDispute(
+        report.id,
+        'fraud_admin_2',
+        'release_to_worker',
+        'Second reviewer approved release.',
+      ),
+    ).resolves.toMatchObject({ status: 'action_taken', reviewedBy: 'fraud_admin_2' });
+  });
+
   it('lets admin resolve a disputed escrow by refunding the giver', async () => {
     const { svc, givers, moneyRepo } = service(async () => true, true);
     await givers.save({
@@ -634,6 +702,63 @@ describe('MarketplaceService', () => {
     expect(tampered.manifest).toMatchObject({
       retrievalCount: 2,
       lastRetrievedBy: 'fraud_admin_3',
+    });
+  });
+
+  it('requires a second reviewer to generate escalation package after case review', async () => {
+    const { svc, givers } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Giver threatened me after assignment.',
+      evidenceVaultRefs: ['vault_chat_2'],
+    });
+    await svc.reviewSafetyReport(
+      report.id,
+      'fraud_admin',
+      'escalated',
+      'First reviewer escalated the report.',
+      'POLICE_DD_001',
+    );
+
+    await expect(
+      svc.generateSafetyEscalationPackage(report.id, 'fraud_admin', {
+        reasonCode: 'police_escalation_ready',
+        note: 'Same reviewer should not generate package.',
+      }),
+    ).rejects.toMatchObject<Partial<MarketplaceError>>({
+      code: 'second_reviewer_required',
+    });
+    await expect(
+      svc.generateSafetyEscalationPackage(report.id, 'fraud_admin_2', {
+        reasonCode: 'police_escalation_ready',
+        note: 'Second reviewer prepared lawful package.',
+      }),
+    ).resolves.toMatchObject({
+      generatedBy: 'fraud_admin_2',
+      purpose: 'lawful_safety_escalation',
     });
   });
 });

@@ -589,6 +589,7 @@ export class MarketplaceService {
     }
     const report = await this.safetyReports.findById(reportId);
     if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    this.requireSecondReviewer(report, reviewerId, 'safety.dispute_resolution');
     const gig = await this.getGig(report.gigId);
     const assignment = await this.assignments.findByGig(report.gigId);
     if (!assignment) throw new MarketplaceError('Gig has no assignment', 'not_assigned');
@@ -654,6 +655,7 @@ export class MarketplaceService {
   ): Promise<SafetyEscalationPackage> {
     const report = await this.safetyReports.findById(reportId);
     if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    this.requireSecondReviewer(report, reviewerId, 'safety.escalation_package');
     if (!isEscalationWorthy(report)) {
       throw new MarketplaceError('Only serious safety reports can generate escalation packages', 'invalid_state');
     }
@@ -915,6 +917,29 @@ export class MarketplaceService {
         },
       });
     }
+  }
+
+  private requireSecondReviewer(
+    report: SafetyReport,
+    actorId: string,
+    action: 'safety.dispute_resolution' | 'safety.escalation_package',
+  ): void {
+    if (!report.reviewedBy || report.reviewedBy !== actorId) return;
+    this.audit.record({
+      actorId,
+      actorRole: 'fraud_analyst',
+      action: 'admin.maker_checker_denied',
+      targetType: 'safety_report',
+      targetId: report.id,
+      metadata: {
+        gigId: report.gigId,
+        attemptedAction: action,
+      },
+    });
+    throw new MarketplaceError(
+      'A second reviewer is required for this high-risk admin action',
+      'second_reviewer_required',
+    );
   }
 }
 
