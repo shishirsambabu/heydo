@@ -63,24 +63,34 @@ export class AuditService {
   constructor(private readonly repo: AuditRepository = new InMemoryAuditRepository()) {}
 
   record(entry: Omit<AuditRecord, 'id' | 'at'>): void {
-    const safe: AuditRecord = {
-      id: `audit_${Date.now()}_${randomBytes(6).toString('hex')}`,
-      at: new Date().toISOString(),
-      ...entry,
-      metadata: entry.metadata
-        ? (redactForLog(entry.metadata) as Record<string, unknown>)
-        : undefined,
-    };
+    const safe = this.buildRecord(entry);
     void Promise.resolve(this.repo.append(safe)).catch((error: unknown) => {
-      this.failures.push({
-        recordId: safe.id,
-        action: safe.action,
-        targetType: safe.targetType,
-        targetId: safe.targetId,
-        error: errorMessage(error),
-        at: new Date().toISOString(),
-      });
+      this.rememberFailure(safe, error);
     });
+  }
+
+  async restoreAfterInvestigation(entry: Omit<AuditRecord, 'id' | 'at'>): Promise<AuditHealth> {
+    const previousHealth = this.health();
+    const safe = this.buildRecord({
+      ...entry,
+      metadata: {
+        ...(entry.metadata ?? {}),
+        previousFailedWriteCount: previousHealth.failedWriteCount,
+        previousRecentFailures: previousHealth.recentFailures.slice(-3),
+      },
+    });
+    try {
+      await this.repo.append(safe);
+    } catch (error) {
+      this.rememberFailure(safe, error);
+      throw new AuditHealthError(
+        'Audit log remains degraded; recovery record could not be written',
+        'audit_degraded',
+        this.health(),
+      );
+    }
+    this.failures.splice(0, this.failures.length);
+    return this.health();
   }
 
   /** Read-only view (Super Admin / tests). Never mutated externally. */
@@ -109,6 +119,28 @@ export class AuditService {
         health,
       );
     }
+  }
+
+  private buildRecord(entry: Omit<AuditRecord, 'id' | 'at'>): AuditRecord {
+    return {
+      id: `audit_${Date.now()}_${randomBytes(6).toString('hex')}`,
+      at: new Date().toISOString(),
+      ...entry,
+      metadata: entry.metadata
+        ? (redactForLog(entry.metadata) as Record<string, unknown>)
+        : undefined,
+    };
+  }
+
+  private rememberFailure(record: AuditRecord, error: unknown): void {
+    this.failures.push({
+      recordId: record.id,
+      action: record.action,
+      targetType: record.targetType,
+      targetId: record.targetId,
+      error: errorMessage(error),
+      at: new Date().toISOString(),
+    });
   }
 }
 

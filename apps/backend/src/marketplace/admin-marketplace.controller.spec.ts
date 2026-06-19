@@ -30,6 +30,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     ]);
     expect(rolesFor('moneyTrail')).toEqual(['finance', 'dispute_officer', 'super_admin']);
     expect(rolesFor('auditHealth')).toEqual(['super_admin']);
+    expect(rolesFor('restoreAuditHealth')).toEqual(['super_admin']);
     expect(rolesFor('decisionReasons')).toEqual([
       'fraud_analyst',
       'dispute_officer',
@@ -286,6 +287,66 @@ describe('AdminMarketplaceController structured decisions', () => {
 });
 
 describe('AdminMarketplaceController fresh admin session gates', () => {
+  it('restores audit health only through a fresh admin session and recovery write', async () => {
+    const audit = auditMock();
+    audit.restoreAfterInvestigation = jest.fn().mockResolvedValue({
+      status: 'ok',
+      failedWriteCount: 0,
+      recentFailures: [],
+    });
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(
+      controller.restoreAuditHealth(principal, {
+        reason: 'Database write path restored.',
+        remediationRef: 'INC-100',
+      }),
+    ).resolves.toEqual({ status: 'ok', failedWriteCount: 0, recentFailures: [] });
+
+    expect(audit.restoreAfterInvestigation).toHaveBeenCalledWith({
+      actorId: 'admin_1',
+      actorRole: 'fraud_analyst',
+      action: 'admin.audit_recovery_confirmed',
+      targetType: 'audit_log',
+      targetId: 'health',
+      metadata: {
+        reason: 'Database write path restored.',
+        remediationRef: 'INC-100',
+      },
+    });
+  });
+
+  it('keeps audit degraded when recovery record cannot be written', async () => {
+    const audit = auditMock();
+    audit.restoreAfterInvestigation = jest.fn().mockRejectedValue(
+      new AuditHealthError(
+        'Audit log remains degraded; recovery record could not be written',
+        'audit_degraded',
+        { status: 'degraded', failedWriteCount: 2, recentFailures: [] },
+      ),
+    );
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(
+      controller.restoreAuditHealth(principal, {
+        reason: 'Database write path restored.',
+        remediationRef: 'INC-100',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'audit_degraded', failedWriteCount: 2 }),
+    });
+  });
+
   it('blocks sensitive actions when audit writes are degraded', async () => {
     const marketplace = { moderateGig: jest.fn() };
     const controller = new AdminMarketplaceController(
@@ -387,6 +448,7 @@ function auditMock(...listResults: unknown[][]) {
       .mockImplementation(() => Promise.resolve(listResults.shift() ?? [])),
     record: jest.fn(),
     assertHealthyForSensitiveAction: jest.fn(),
+    restoreAfterInvestigation: jest.fn(),
   };
 }
 

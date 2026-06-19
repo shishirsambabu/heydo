@@ -53,6 +53,11 @@ class EscalationPackageDto {
   @IsString() @MinLength(10) note!: string;
 }
 
+class AuditRecoveryDto {
+  @IsString() @MinLength(10) reason!: string;
+  @IsString() @MinLength(3) remediationRef!: string;
+}
+
 @Controller('admin/marketplace')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin')
@@ -122,6 +127,28 @@ export class AdminMarketplaceController {
   @Roles('super_admin')
   auditHealth() {
     return this.audit.health();
+  }
+
+  @Post('audit-health/restore')
+  @Roles('super_admin')
+  restoreAuditHealth(
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: AuditRecoveryDto,
+  ) {
+    return this.wrap(async () => {
+      await this.adminSessions.assertFresh(principal);
+      return this.audit.restoreAfterInvestigation({
+        actorId: principal.sub,
+        actorRole: primaryRole(principal),
+        action: 'admin.audit_recovery_confirmed',
+        targetType: 'audit_log',
+        targetId: 'health',
+        metadata: {
+          reason: dto.reason.trim(),
+          remediationRef: dto.remediationRef.trim(),
+        },
+      });
+    });
   }
 
   @Get('decision-reasons')

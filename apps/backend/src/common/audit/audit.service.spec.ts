@@ -1,4 +1,4 @@
-import { AuditService } from './audit.service';
+import { AuditRecord, AuditService } from './audit.service';
 
 describe('AuditService', () => {
   it('returns a scoped copy of matching audit records', async () => {
@@ -92,6 +92,80 @@ describe('AuditService', () => {
     expect(() => audit.assertHealthyForSensitiveAction()).toThrow(
       'Audit log is degraded; sensitive admin action blocked',
     );
+  });
+
+  it('restores audit health only after writing a recovery record', async () => {
+    let shouldFail = true;
+    const records: AuditRecord[] = [];
+    const audit = new AuditService({
+      append: async (record) => {
+        if (shouldFail) throw new Error('database unavailable');
+        records.push(record);
+      },
+      list: async () => records,
+    });
+
+    audit.record({
+      actorId: 'fraud_admin',
+      actorRole: 'fraud_analyst',
+      action: 'safety.escalated',
+      targetType: 'safety_report',
+      targetId: 'safe_1',
+    });
+    await flushMicrotasks();
+    shouldFail = false;
+
+    await expect(
+      audit.restoreAfterInvestigation({
+        actorId: 'super_admin',
+        actorRole: 'super_admin',
+        action: 'admin.audit_recovery_confirmed',
+        targetType: 'audit_log',
+        targetId: 'health',
+        metadata: { reason: 'Database write path restored.' },
+      }),
+    ).resolves.toMatchObject({ status: 'ok', failedWriteCount: 0 });
+
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      action: 'admin.audit_recovery_confirmed',
+      metadata: expect.objectContaining({
+        reason: 'Database write path restored.',
+        previousFailedWriteCount: 1,
+      }),
+    });
+    expect(() => audit.assertHealthyForSensitiveAction()).not.toThrow();
+  });
+
+  it('keeps audit degraded when the recovery record cannot be written', async () => {
+    const audit = new AuditService({
+      append: async () => {
+        throw new Error('database unavailable');
+      },
+      list: async () => [],
+    });
+
+    audit.record({
+      actorId: 'fraud_admin',
+      actorRole: 'fraud_analyst',
+      action: 'safety.escalated',
+      targetType: 'safety_report',
+      targetId: 'safe_1',
+    });
+    await flushMicrotasks();
+
+    await expect(
+      audit.restoreAfterInvestigation({
+        actorId: 'super_admin',
+        actorRole: 'super_admin',
+        action: 'admin.audit_recovery_confirmed',
+        targetType: 'audit_log',
+        targetId: 'health',
+      }),
+    ).rejects.toMatchObject({
+      code: 'audit_degraded',
+      health: expect.objectContaining({ status: 'degraded', failedWriteCount: 2 }),
+    });
   });
 });
 
