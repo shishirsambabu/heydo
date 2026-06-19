@@ -164,6 +164,16 @@ export class AdminMarketplaceController {
     );
   }
 
+  @Get('escalation-packages/:packageId')
+  retrieveEscalationPackage(
+    @Param('packageId') packageId: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    return this.wrap(() =>
+      this.marketplace.retrieveSafetyEscalationPackage(packageId, principal.sub),
+    );
+  }
+
   private async wrap<T>(fn: () => Promise<T>): Promise<T> {
     try {
       return await fn();

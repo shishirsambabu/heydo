@@ -220,6 +220,23 @@ CREATE TABLE IF NOT EXISTS "SafetyReport" (
 CREATE INDEX IF NOT EXISTS "SafetyReport_status_idx" ON "SafetyReport"(status);
 CREATE INDEX IF NOT EXISTS "SafetyReport_gigId_idx" ON "SafetyReport"("gigId");
 
+CREATE TABLE IF NOT EXISTS "EscalationPackageManifest" (
+  id text PRIMARY KEY,
+  "reportId" text NOT NULL REFERENCES "SafetyReport"(id) ON DELETE CASCADE,
+  "gigId" text NOT NULL REFERENCES "Gig"(id) ON DELETE CASCADE,
+  "generatedBy" text NOT NULL,
+  "generatedAt" timestamptz NOT NULL DEFAULT now(),
+  "evidenceVaultRefs" text[] NOT NULL DEFAULT '{}',
+  "retrievalCount" integer NOT NULL DEFAULT 0,
+  "lastRetrievedBy" text,
+  "lastRetrievedAt" timestamptz
+);
+
+CREATE INDEX IF NOT EXISTS "EscalationPackageManifest_reportId_idx"
+  ON "EscalationPackageManifest"("reportId");
+CREATE INDEX IF NOT EXISTS "EscalationPackageManifest_gigId_idx"
+  ON "EscalationPackageManifest"("gigId");
+
 CREATE TABLE IF NOT EXISTS "Rating" (
   id text PRIMARY KEY,
   "gigId" text NOT NULL,

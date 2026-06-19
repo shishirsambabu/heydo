@@ -7,6 +7,7 @@ import {
   InMemoryApplicationRepository,
   InMemoryAssignmentRepository,
   InMemoryCategoryRepository,
+  InMemoryEscalationPackageRepository,
   InMemoryGigRepository,
   InMemorySafetyReportRepository,
 } from './marketplace.repository';
@@ -26,6 +27,7 @@ function service(
     new InMemoryApplicationRepository(),
     new InMemoryAssignmentRepository(),
     new InMemorySafetyReportRepository(),
+    new InMemoryEscalationPackageRepository(),
     givers,
     { canApply } as Pick<VerificationService, 'canApply'> as VerificationService,
     audit,
@@ -499,6 +501,12 @@ describe('MarketplaceService', () => {
     expect(pkg).toMatchObject({
       purpose: 'lawful_safety_escalation',
       generatedBy: 'fraud_admin',
+      manifest: expect.objectContaining({
+        reportId: report.id,
+        gigId: gig.id,
+        generatedBy: 'fraud_admin',
+        retrievalCount: 0,
+      }),
       report: expect.objectContaining({ id: report.id, reason: 'violence_or_threat' }),
       gig: expect.objectContaining({ id: gig.id, giverId: 'giver_1' }),
       assignment: expect.objectContaining({ workerId: 'worker_1', agreedAmount: 1200 }),
@@ -523,5 +531,13 @@ describe('MarketplaceService', () => {
       amount: 1200,
       status: 'disputed',
     });
+
+    const retrieved = await svc.retrieveSafetyEscalationPackage(pkg.id, 'fraud_admin_2');
+    expect(retrieved.id).toBe(pkg.id);
+    expect(retrieved.manifest).toMatchObject({
+      retrievalCount: 1,
+      lastRetrievedBy: 'fraud_admin_2',
+    });
+    expect(retrieved.evidenceVaultRefs).toEqual(['vault_chat_2', 'vault_audio_1']);
   });
 });

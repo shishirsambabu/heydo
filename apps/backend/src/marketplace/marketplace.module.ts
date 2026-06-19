@@ -16,14 +16,17 @@ import {
   ApplicationRepository,
   AssignmentRepository,
   CategoryRepository,
+  EscalationPackageRepository,
   GigRepository,
   APPLICATION_REPOSITORY,
   ASSIGNMENT_REPOSITORY,
   CATEGORY_REPOSITORY,
+  ESCALATION_PACKAGE_REPOSITORY,
   GIG_REPOSITORY,
   InMemoryApplicationRepository,
   InMemoryAssignmentRepository,
   InMemoryCategoryRepository,
+  InMemoryEscalationPackageRepository,
   InMemoryGigRepository,
   InMemorySafetyReportRepository,
   SAFETY_REPORT_REPOSITORY,
@@ -32,6 +35,7 @@ import {
   PostgresApplicationRepository,
   PostgresAssignmentRepository,
   PostgresCategoryRepository,
+  PostgresEscalationPackageRepository,
   PostgresGigRepository,
   PostgresSafetyReportRepository,
 } from './postgres-marketplace.repository';
@@ -79,11 +83,20 @@ import { MarketplaceService } from './marketplace.service';
           ? postgres
           : new InMemorySafetyReportRepository(),
     },
+    {
+      provide: ESCALATION_PACKAGE_REPOSITORY,
+      inject: [ConfigService, PostgresEscalationPackageRepository],
+      useFactory: (config: ConfigService, postgres: PostgresEscalationPackageRepository) =>
+        config.get<string>('PERSISTENCE') === 'postgres'
+          ? postgres
+          : new InMemoryEscalationPackageRepository(),
+    },
     PostgresCategoryRepository,
     PostgresGigRepository,
     PostgresApplicationRepository,
     PostgresAssignmentRepository,
     PostgresSafetyReportRepository,
+    PostgresEscalationPackageRepository,
     {
       provide: MarketplaceService,
       inject: [
@@ -92,6 +105,7 @@ import { MarketplaceService } from './marketplace.service';
         APPLICATION_REPOSITORY,
         ASSIGNMENT_REPOSITORY,
         SAFETY_REPORT_REPOSITORY,
+        ESCALATION_PACKAGE_REPOSITORY,
         GiverProfileRepository,
         VerificationService,
         AuditService,
@@ -103,6 +117,7 @@ import { MarketplaceService } from './marketplace.service';
         applications: ApplicationRepository,
         assignments: AssignmentRepository,
         safetyReports,
+        escalationPackages: EscalationPackageRepository,
         givers: GiverProfileRepository,
         verification: VerificationService,
         audit: AuditService,
@@ -114,6 +129,7 @@ import { MarketplaceService } from './marketplace.service';
           applications,
           assignments,
           safetyReports,
+          escalationPackages,
           givers,
           verification,
           audit,

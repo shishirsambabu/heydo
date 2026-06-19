@@ -4,6 +4,7 @@ import {
   Assignment,
   Category,
   DEFAULT_CATEGORIES,
+  EscalationPackageManifest,
   Gig,
   GigApplication,
   SafetyReport,
@@ -12,6 +13,7 @@ import {
   ApplicationRepository,
   AssignmentRepository,
   CategoryRepository,
+  EscalationPackageRepository,
   GigFilters,
   GigRepository,
   SafetyReportRepository,
@@ -81,6 +83,18 @@ interface SafetyReportRow {
   reviewedAt: Date | null;
   lawEnforcementRef: string | null;
   createdAt: Date;
+}
+
+interface EscalationPackageManifestRow {
+  id: string;
+  reportId: string;
+  gigId: string;
+  generatedBy: string;
+  generatedAt: Date;
+  evidenceVaultRefs: string[];
+  retrievalCount: number;
+  lastRetrievedBy: string | null;
+  lastRetrievedAt: Date | null;
 }
 
 @Injectable()
@@ -361,6 +375,62 @@ export class PostgresSafetyReportRepository implements SafetyReportRepository {
   }
 }
 
+@Injectable()
+export class PostgresEscalationPackageRepository implements EscalationPackageRepository {
+  constructor(private readonly pg: PgService) {}
+
+  async save(manifest: EscalationPackageManifest): Promise<void> {
+    await this.pg.query(
+      `INSERT INTO "EscalationPackageManifest"
+        (id, "reportId", "gigId", "generatedBy", "generatedAt", "evidenceVaultRefs",
+         "retrievalCount", "lastRetrievedBy", "lastRetrievedAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         "evidenceVaultRefs" = EXCLUDED."evidenceVaultRefs",
+         "retrievalCount" = EXCLUDED."retrievalCount",
+         "lastRetrievedBy" = EXCLUDED."lastRetrievedBy",
+         "lastRetrievedAt" = EXCLUDED."lastRetrievedAt"`,
+      [
+        manifest.id,
+        manifest.reportId,
+        manifest.gigId,
+        manifest.generatedBy,
+        manifest.generatedAt,
+        manifest.evidenceVaultRefs,
+        manifest.retrievalCount,
+        manifest.lastRetrievedBy ?? null,
+        manifest.lastRetrievedAt ?? null,
+      ],
+    );
+  }
+
+  async findById(id: string): Promise<EscalationPackageManifest | null> {
+    const [row] = await this.pg.query<EscalationPackageManifestRow>(
+      `${selectEscalationPackageManifest()} WHERE id = $1`,
+      [id],
+    );
+    return row ? toEscalationPackageManifest(row) : null;
+  }
+
+  async markRetrieved(
+    id: string,
+    actorId: string,
+    at: string,
+  ): Promise<EscalationPackageManifest | null> {
+    const [row] = await this.pg.query<EscalationPackageManifestRow>(
+      `UPDATE "EscalationPackageManifest"
+       SET "retrievalCount" = "retrievalCount" + 1,
+           "lastRetrievedBy" = $2,
+           "lastRetrievedAt" = $3
+       WHERE id = $1
+       RETURNING id, "reportId", "gigId", "generatedBy", "generatedAt", "evidenceVaultRefs",
+                 "retrievalCount", "lastRetrievedBy", "lastRetrievedAt"`,
+      [id, actorId, at],
+    );
+    return row ? toEscalationPackageManifest(row) : null;
+  }
+}
+
 function selectGig(): string {
   return `SELECT id, "giverId", "categoryId", title, description, location,
                  "scheduledAt", "budgetAmount", currency, status, "visibilityStatus",
@@ -438,6 +508,12 @@ function selectSafetyReport(): string {
           FROM "SafetyReport"`;
 }
 
+function selectEscalationPackageManifest(): string {
+  return `SELECT id, "reportId", "gigId", "generatedBy", "generatedAt", "evidenceVaultRefs",
+                 "retrievalCount", "lastRetrievedBy", "lastRetrievedAt"
+          FROM "EscalationPackageManifest"`;
+}
+
 function toSafetyReport(row: SafetyReportRow): SafetyReport {
   return {
     id: row.id,
@@ -454,5 +530,21 @@ function toSafetyReport(row: SafetyReportRow): SafetyReport {
     reviewedAt: row.reviewedAt?.toISOString(),
     lawEnforcementRef: row.lawEnforcementRef ?? undefined,
     createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toEscalationPackageManifest(
+  row: EscalationPackageManifestRow,
+): EscalationPackageManifest {
+  return {
+    id: row.id,
+    reportId: row.reportId,
+    gigId: row.gigId,
+    generatedBy: row.generatedBy,
+    generatedAt: row.generatedAt.toISOString(),
+    evidenceVaultRefs: row.evidenceVaultRefs ?? [],
+    retrievalCount: row.retrievalCount,
+    lastRetrievedBy: row.lastRetrievedBy ?? undefined,
+    lastRetrievedAt: row.lastRetrievedAt?.toISOString(),
   };
 }

@@ -88,6 +88,18 @@ export interface SafetyReport {
   createdAt: string;
 }
 
+export interface EscalationPackageManifest {
+  id: string;
+  reportId: string;
+  gigId: string;
+  generatedBy: string;
+  generatedAt: string;
+  evidenceVaultRefs: string[];
+  retrievalCount: number;
+  lastRetrievedBy?: string;
+  lastRetrievedAt?: string;
+}
+
 export const DEFAULT_CATEGORIES: Category[] = [
   { id: 'cat_plumbing', nameMl: 'Plumbing', nameEn: 'Plumbing', group: 'home', active: true },
   { id: 'cat_electrical', nameMl: 'Electrical', nameEn: 'Electrical', group: 'home', active: true },

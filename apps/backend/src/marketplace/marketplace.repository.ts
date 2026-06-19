@@ -2,6 +2,7 @@ import {
   Assignment,
   Category,
   DEFAULT_CATEGORIES,
+  EscalationPackageManifest,
   Gig,
   GigApplication,
   SafetyReport,
@@ -43,11 +44,18 @@ export interface SafetyReportRepository {
   list(filters?: { status?: string; gigId?: string }): Promise<SafetyReport[]>;
 }
 
+export interface EscalationPackageRepository {
+  save(manifest: EscalationPackageManifest): Promise<void>;
+  findById(id: string): Promise<EscalationPackageManifest | null>;
+  markRetrieved(id: string, actorId: string, at: string): Promise<EscalationPackageManifest | null>;
+}
+
 export const CATEGORY_REPOSITORY = Symbol('CATEGORY_REPOSITORY');
 export const GIG_REPOSITORY = Symbol('GIG_REPOSITORY');
 export const APPLICATION_REPOSITORY = Symbol('APPLICATION_REPOSITORY');
 export const ASSIGNMENT_REPOSITORY = Symbol('ASSIGNMENT_REPOSITORY');
 export const SAFETY_REPORT_REPOSITORY = Symbol('SAFETY_REPORT_REPOSITORY');
+export const ESCALATION_PACKAGE_REPOSITORY = Symbol('ESCALATION_PACKAGE_REPOSITORY');
 
 export class InMemoryCategoryRepository implements CategoryRepository {
   private readonly items = new Map(DEFAULT_CATEGORIES.map((category) => [category.id, category]));
@@ -149,4 +157,43 @@ export class InMemorySafetyReportRepository implements SafetyReportRepository {
       .map((report) => ({ ...report, evidenceVaultRefs: [...report.evidenceVaultRefs] }))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
+}
+
+export class InMemoryEscalationPackageRepository implements EscalationPackageRepository {
+  private readonly items = new Map<string, EscalationPackageManifest>();
+
+  async save(manifest: EscalationPackageManifest): Promise<void> {
+    this.items.set(manifest.id, copyEscalationPackageManifest(manifest));
+  }
+
+  async findById(id: string): Promise<EscalationPackageManifest | null> {
+    const manifest = this.items.get(id);
+    return manifest ? copyEscalationPackageManifest(manifest) : null;
+  }
+
+  async markRetrieved(
+    id: string,
+    actorId: string,
+    at: string,
+  ): Promise<EscalationPackageManifest | null> {
+    const manifest = this.items.get(id);
+    if (!manifest) return null;
+    const updated: EscalationPackageManifest = {
+      ...manifest,
+      retrievalCount: manifest.retrievalCount + 1,
+      lastRetrievedBy: actorId,
+      lastRetrievedAt: at,
+    };
+    this.items.set(id, copyEscalationPackageManifest(updated));
+    return copyEscalationPackageManifest(updated);
+  }
+}
+
+function copyEscalationPackageManifest(
+  manifest: EscalationPackageManifest,
+): EscalationPackageManifest {
+  return {
+    ...manifest,
+    evidenceVaultRefs: [...manifest.evidenceVaultRefs],
+  };
 }

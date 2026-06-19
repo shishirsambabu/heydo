@@ -8,6 +8,7 @@ import {
   Assignment,
   Category,
   DEFAULT_PRICING_GUIDES,
+  EscalationPackageManifest,
   Gig,
   GigApplication,
   GigStatus,
@@ -25,6 +26,8 @@ import {
   AssignmentRepository,
   CATEGORY_REPOSITORY,
   CategoryRepository,
+  ESCALATION_PACKAGE_REPOSITORY,
+  EscalationPackageRepository,
   GIG_REPOSITORY,
   GigFilters,
   GigRepository,
@@ -73,6 +76,7 @@ export interface SafetyEscalationPackage {
   report: SafetyReport;
   gig: Gig;
   assignment: Assignment | null;
+  manifest: EscalationPackageManifest;
   evidenceVaultRefs: string[];
   auditTrail: Awaited<ReturnType<AuditService['list']>>;
   moneyTrail: GigMoneyTrail | null;
@@ -93,6 +97,8 @@ export class MarketplaceService {
     @Inject(APPLICATION_REPOSITORY) private readonly applications: ApplicationRepository,
     @Inject(ASSIGNMENT_REPOSITORY) private readonly assignments: AssignmentRepository,
     @Inject(SAFETY_REPORT_REPOSITORY) private readonly safetyReports: SafetyReportRepository,
+    @Inject(ESCALATION_PACKAGE_REPOSITORY)
+    private readonly escalationPackages: EscalationPackageRepository,
     private readonly givers: GiverProfileRepository,
     private readonly verification: VerificationService,
     private readonly audit: AuditService,
@@ -512,14 +518,25 @@ export class MarketplaceService {
     ]);
     const auditTrail = uniqueAuditRecords([...directGigAudit, ...linkedGigAudit, ...reportAudit]);
     const generatedAt = new Date(this.now()).toISOString();
-    const pkg: SafetyEscalationPackage = {
+    const manifest: EscalationPackageManifest = {
       id: `escpkg_${this.id()}`,
+      reportId,
+      gigId: report.gigId,
+      generatedBy: reviewerId,
+      generatedAt,
+      evidenceVaultRefs: [...report.evidenceVaultRefs],
+      retrievalCount: 0,
+    };
+    await this.escalationPackages.save(manifest);
+    const pkg: SafetyEscalationPackage = {
+      id: manifest.id,
       generatedAt,
       generatedBy: reviewerId,
       purpose: 'lawful_safety_escalation',
       report,
       gig,
       assignment,
+      manifest,
       evidenceVaultRefs: [...report.evidenceVaultRefs],
       auditTrail,
       moneyTrail,
@@ -542,6 +559,65 @@ export class MarketplaceService {
       },
     });
     return pkg;
+  }
+
+  async retrieveSafetyEscalationPackage(
+    packageId: string,
+    reviewerId: string,
+  ): Promise<SafetyEscalationPackage> {
+    const manifest = await this.escalationPackages.markRetrieved(
+      packageId,
+      reviewerId,
+      new Date(this.now()).toISOString(),
+    );
+    if (!manifest) throw new MarketplaceError('Escalation package not found', 'not_found');
+    const pkg = await this.buildSafetyEscalationPackageFromManifest(manifest);
+    this.audit.record({
+      actorId: reviewerId,
+      actorRole: 'fraud_analyst',
+      action: 'safety.escalation_package_retrieved',
+      targetType: 'safety_report',
+      targetId: manifest.reportId,
+      metadata: {
+        gigId: manifest.gigId,
+        packageId: manifest.id,
+        retrievalCount: manifest.retrievalCount,
+      },
+    });
+    return pkg;
+  }
+
+  private async buildSafetyEscalationPackageFromManifest(
+    manifest: EscalationPackageManifest,
+  ): Promise<SafetyEscalationPackage> {
+    const report = await this.safetyReports.findById(manifest.reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    const gig = await this.getGig(manifest.gigId);
+    const assignment = await this.assignments.findByGig(manifest.gigId);
+    const [directGigAudit, linkedGigAudit, reportAudit, moneyTrail] = await Promise.all([
+      this.audit.list({ targetType: 'gig', targetId: manifest.gigId }),
+      this.audit.list({ metadata: { gigId: manifest.gigId } }),
+      this.audit.list({ targetType: 'safety_report', targetId: manifest.reportId }),
+      this.money ? this.money.moneyTrailForGig(manifest.gigId) : Promise.resolve(null),
+    ]);
+    return {
+      id: manifest.id,
+      generatedAt: manifest.generatedAt,
+      generatedBy: manifest.generatedBy,
+      purpose: 'lawful_safety_escalation',
+      report,
+      gig,
+      assignment,
+      manifest,
+      evidenceVaultRefs: [...manifest.evidenceVaultRefs],
+      auditTrail: uniqueAuditRecords([...directGigAudit, ...linkedGigAudit, ...reportAudit]),
+      moneyTrail,
+      piiPolicy: {
+        rawAadhaarStored: false,
+        rawSelfieIncluded: false,
+        evidenceRefsOnly: true,
+      },
+    };
   }
 
   async transitionGig(gigId: string, actorId: string, next: Extract<GigStatus, 'in_progress' | 'completed' | 'cancelled'>): Promise<Gig> {
