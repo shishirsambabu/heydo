@@ -65,10 +65,13 @@ class HeydoApi {
   Future<Map<String, dynamic>> consent() => _post('/verification/consent');
   Future<Map<String, dynamic>> startVkyc(String locale) =>
       _post('/verification/start', {'locale': locale});
+  Future<Map<String, dynamic>> startGiverVkyc(String locale) =>
+      _post('/verification/giver/start', {'locale': locale});
   // Dev-only: simulate the vendor result callback.
   Future<Map<String, dynamic>> submitVkycResult(String sessionId) =>
       _post('/verification/result', {'sessionId': sessionId});
   Future<Map<String, dynamic>> verificationStatus() => _get('/verification/status');
+  Future<Map<String, dynamic>> giverVerificationStatus() => _get('/verification/giver/status');
 }
 
 class HeydoApiException implements Exception {

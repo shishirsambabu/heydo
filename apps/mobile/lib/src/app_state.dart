@@ -31,8 +31,10 @@ class AppState extends ChangeNotifier {
   String phone = '';
   String? devCode; // dev only (mock SMS surfaces the code)
   String? sessionId;
+  String role = 'worker';
   String verificationStatus = 'unverified';
   bool canApply = false;
+  bool canPost = false;
 
   bool busy = false;
   String? error;
@@ -84,11 +86,25 @@ class AppState extends ChangeNotifier {
       });
 
   Future<bool> selectWorker(String name) =>
-      _guard(() async => await api.selectRole('worker', name));
+      _guard(() async {
+        role = 'worker';
+        canPost = false;
+        await api.selectRole('worker', name);
+      });
+
+  Future<bool> selectGiver(String name) =>
+      _guard(() async {
+        role = 'giver';
+        canApply = false;
+        await api.selectRole('giver', name);
+      });
 
   Future<bool> consentAndStartVkyc() => _guard(() async {
         await api.consent();
-        final res = await api.startVkyc(lang == Lang.ml ? 'ml' : 'en');
+        final locale = lang == Lang.ml ? 'ml' : 'en';
+        final res = role == 'giver'
+            ? await api.startGiverVkyc(locale)
+            : await api.startVkyc(locale);
         sessionId = res['sessionId'] as String?;
       });
 
@@ -103,8 +119,11 @@ class AppState extends ChangeNotifier {
   Future<bool> refreshStatus() => _guard(_loadStatus);
 
   Future<void> _loadStatus() async {
-    final res = await api.verificationStatus();
+    final res = role == 'giver'
+        ? await api.giverVerificationStatus()
+        : await api.verificationStatus();
     verificationStatus = (res['status'] as String?) ?? 'unverified';
     canApply = (res['canApply'] as bool?) ?? false;
+    canPost = (res['canPost'] as bool?) ?? false;
   }
 }

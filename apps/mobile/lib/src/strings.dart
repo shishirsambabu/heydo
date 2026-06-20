@@ -44,6 +44,9 @@ class S {
   String get consentLine => _t(
       'പരിശോധനയ്ക്കായി എന്റെ വിവരങ്ങൾ ഉപയോഗിക്കാൻ ഞാൻ സമ്മതിക്കുന്നു.',
       'I consent to using my details for verification.');
+  String get giverVkycExplainer => _t(
+      'ജോലി പോസ്റ്റ് ചെയ്യുന്നവരും വീഡിയോ പരിശോധന പൂർത്തിയാക്കണം. ഇത് തൊഴിലാളികളുടെ സുരക്ഷയ്ക്കാണ്.',
+      'Gig posters must complete video verification too. This protects workers and keeps Heydo safe.');
   String get startVkyc => _t('വീഡിയോ പരിശോധന തുടങ്ങുക', 'Start video verification');
   String get simulateResult => _t('പരിശോധന പൂർത്തിയാക്കുക (ഡെമോ)', 'Complete verification (demo)');
 
@@ -59,6 +62,10 @@ class S {
       'അഭിനന്ദനങ്ങൾ! ഇപ്പോൾ നിങ്ങൾക്ക് ജോലികൾക്ക് അപേക്ഷിക്കാം.',
       'Congratulations! You can now apply to gigs.');
   String get canApplyYes => _t('ജോലികൾക്ക് അപേക്ഷിക്കാം', 'You can apply to gigs');
+  String get giverApprovedMsg => _t(
+      'അഭിനന്ദനങ്ങൾ! ഇപ്പോൾ നിങ്ങൾക്ക് സുരക്ഷിതമായി ജോലികൾ പോസ്റ്റ് ചെയ്യാം.',
+      'Congratulations! You can now post safe gigs.');
+  String get canPostYes => _t('ജോലി പോസ്റ്റ് ചെയ്യാം', 'You can post gigs');
 
   // Generic
   String get next => _t('അടുത്തത്', 'Next');

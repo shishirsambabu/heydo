@@ -233,7 +233,13 @@ class _RoleScreenState extends State<RoleScreen> {
           label: s.iAmGiver,
           icon: Icons.home_repair_service,
           filled: false,
-          onPressed: () {},
+          busy: app.busy,
+          onPressed: () async {
+            final name = _name.text.trim().isEmpty ? 'Giver' : _name.text.trim();
+            if (await context.read<AppState>().selectGiver(name) && context.mounted) {
+              _go(context, const VkycScreen());
+            }
+          },
         ),
         if (app.error != null) _error(app.error!),
       ],
@@ -261,7 +267,10 @@ class _VkycScreenState extends State<VkycScreen> {
         const SizedBox(height: 12),
         const Icon(Icons.video_camera_front, size: 64, color: HeydoColors.heydoGreen),
         const SizedBox(height: 16),
-        Text(s.vkycExplainer, style: const TextStyle(fontSize: 16, height: 1.4)),
+        Text(
+          app.role == 'giver' ? s.giverVkycExplainer : s.vkycExplainer,
+          style: const TextStyle(fontSize: 16, height: 1.4),
+        ),
         const SizedBox(height: 16),
         CheckboxListTile(
           value: _consented,
@@ -309,7 +318,12 @@ class StatusScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final s = app.s;
     final (label, color, icon, msg) = switch (app.verificationStatus) {
-      'approved' => (s.statusApproved, HeydoColors.trustGreen, Icons.verified, s.approvedMsg),
+      'approved' => (
+          s.statusApproved,
+          HeydoColors.trustGreen,
+          Icons.verified,
+          app.role == 'giver' ? s.giverApprovedMsg : s.approvedMsg
+        ),
       'pending' => (s.statusPending, Colors.orange, Icons.hourglass_top, s.pendingMsg),
       'rejected' => (s.statusRejected, Colors.red, Icons.cancel, s.somethingWrong),
       _ => (s.statusUnverified, Colors.grey, Icons.person_outline, ''),
@@ -336,6 +350,20 @@ class StatusScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                   child: Text(s.canApplyYes,
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
+            ]),
+          ),
+        if (app.canPost)
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: HeydoColors.mintSurface, borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.home_repair_service, color: HeydoColors.heydoGreen),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Text(s.canPostYes,
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
             ]),
           ),
