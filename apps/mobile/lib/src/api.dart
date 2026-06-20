@@ -102,6 +102,27 @@ class HeydoApi {
         'scheduledAt': scheduledAt,
         'budgetAmount': budgetAmount,
       });
+  Future<List<dynamic>> gigs() => _getList('/marketplace/gigs');
+  Future<Map<String, dynamic>> applyToGig({
+    required String gigId,
+    String? messageMl,
+    int? proposedPrice,
+  }) =>
+      _post('/marketplace/gigs/$gigId/applications', {
+        if (messageMl != null && messageMl.trim().isNotEmpty) 'messageMl': messageMl.trim(),
+        if (proposedPrice != null) 'proposedPrice': proposedPrice,
+      });
+  Future<Map<String, dynamic>> raiseSafetyReport({
+    required String gigId,
+    required String reason,
+    required String severity,
+    required String description,
+  }) =>
+      _post('/marketplace/gigs/$gigId/safety-reports', {
+        'reason': reason,
+        'severity': severity,
+        'description': description,
+      });
 }
 
 class HeydoApiException implements Exception {

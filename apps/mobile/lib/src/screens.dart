@@ -228,7 +228,6 @@ class _RoleScreenState extends State<RoleScreen> {
           },
         ),
         const SizedBox(height: 14),
-        // Giver path is lighter (no VKYC) — wired fully in later phases.
         BigButton(
           label: s.iAmGiver,
           icon: Icons.home_repair_service,
@@ -353,6 +352,19 @@ class StatusScreen extends StatelessWidget {
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
             ]),
           ),
+        if (app.canApply) ...[
+          const SizedBox(height: 16),
+          BigButton(
+            label: s.browseSafeGigs,
+            icon: Icons.work,
+            busy: app.busy,
+            onPressed: () async {
+              if (await context.read<AppState>().loadVisibleGigs() && context.mounted) {
+                _go(context, const WorkerGigListScreen());
+              }
+            },
+          ),
+        ],
         if (app.canPost)
           Container(
             margin: const EdgeInsets.only(top: 12),
@@ -392,6 +404,215 @@ class StatusScreen extends StatelessWidget {
     );
   }
 }
+
+class WorkerGigListScreen extends StatelessWidget {
+  const WorkerGigListScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final gigs = app.visibleGigs;
+
+    return HeydoScaffold(
+      title: s.browseSafeGigs,
+      children: [
+        Expanded(
+          child: gigs.isEmpty
+              ? Center(child: Text(s.noGigs, style: const TextStyle(fontSize: 16)))
+              : ListView.separated(
+                  itemCount: gigs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final gig = gigs[index];
+                    return _GigCard(gig: gig);
+                  },
+                ),
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+class _GigCard extends StatelessWidget {
+  const _GigCard({required this.gig});
+
+  final Map<String, dynamic> gig;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>().s;
+    final title = (gig['title'] ?? '') as String;
+    final description = (gig['description'] ?? '') as String;
+    final location = (gig['location'] ?? '') as String;
+    final budget = gig['budgetAmount'];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: HeydoColors.mintSurface),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text('$location · ₹$budget', style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          const SizedBox(height: 8),
+          Text(description, style: const TextStyle(fontSize: 14, height: 1.35)),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _go(context, ApplyGigScreen(gig: gig)),
+            icon: const Icon(Icons.send),
+            label: Text(s.apply),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _go(context, SafetyReportScreen(gig: gig)),
+            icon: const Icon(Icons.report),
+            label: Text(s.reportUnsafe),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ApplyGigScreen extends StatefulWidget {
+  const ApplyGigScreen({super.key, required this.gig});
+
+  final Map<String, dynamic> gig;
+
+  @override
+  State<ApplyGigScreen> createState() => _ApplyGigScreenState();
+}
+
+class _ApplyGigScreenState extends State<ApplyGigScreen> {
+  final _message = TextEditingController();
+  final _price = TextEditingController();
+
+  @override
+  void dispose() {
+    _message.dispose();
+    _price.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    return HeydoScaffold(
+      title: s.apply,
+      children: [
+        Text(widget.gig['title'] as String? ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 12),
+        _field(_message, s.applicationMessage, maxLines: 3),
+        const SizedBox(height: 12),
+        _field(_price, s.proposedPrice, keyboardType: TextInputType.number),
+        const SizedBox(height: 8),
+        Text(s.fairCounteroffer, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+        const SizedBox(height: 18),
+        BigButton(
+          label: s.apply,
+          icon: Icons.send,
+          busy: app.busy,
+          onPressed: () async {
+            final price = int.tryParse(_price.text.trim());
+            final ok = await context.read<AppState>().applyToGig(
+                  gigId: widget.gig['id'] as String,
+                  messageMl: _message.text.trim(),
+                  proposedPrice: price,
+                );
+            if (ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.applicationSent)));
+            }
+          },
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+class SafetyReportScreen extends StatefulWidget {
+  const SafetyReportScreen({super.key, required this.gig});
+
+  final Map<String, dynamic> gig;
+
+  @override
+  State<SafetyReportScreen> createState() => _SafetyReportScreenState();
+}
+
+class _SafetyReportScreenState extends State<SafetyReportScreen> {
+  final _details = TextEditingController();
+  String _reason = 'unsafe_location';
+
+  @override
+  void dispose() {
+    _details.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    return HeydoScaffold(
+      title: s.reportUnsafe,
+      children: [
+        DropdownButtonFormField<String>(
+          value: _reason,
+          decoration: InputDecoration(labelText: s.reportReason, border: const OutlineInputBorder()),
+          items: [
+            DropdownMenuItem(value: 'unsafe_location', child: Text(s.unsafeLocation)),
+            DropdownMenuItem(value: 'harassment', child: Text(s.harassment)),
+            DropdownMenuItem(value: 'off_platform_payment', child: Text(s.offPlatformPayment)),
+            DropdownMenuItem(value: 'sexual_misconduct', child: Text(s.sexualMisconduct)),
+            DropdownMenuItem(value: 'drugs_or_illegal_activity', child: Text(s.illegalActivity)),
+            DropdownMenuItem(value: 'violence_or_threat', child: Text(s.violenceThreat)),
+            DropdownMenuItem(value: 'fraud', child: Text(s.fraud)),
+            DropdownMenuItem(value: 'other', child: Text(s.other)),
+          ],
+          onChanged: (value) => setState(() => _reason = value ?? _reason),
+        ),
+        const SizedBox(height: 12),
+        _field(_details, s.reportDetails, maxLines: 4),
+        const SizedBox(height: 18),
+        BigButton(
+          label: s.reportUnsafe,
+          icon: Icons.report,
+          filled: false,
+          busy: app.busy,
+          onPressed: () async {
+            if (_details.text.trim().length < 10) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.fillAllFields)));
+              return;
+            }
+            final ok = await context.read<AppState>().raiseSafetyReport(
+                  gigId: widget.gig['id'] as String,
+                  reason: _reason,
+                  severity: _highRiskReasons.contains(_reason) ? 'high' : 'medium',
+                  description: _details.text.trim(),
+                );
+            if (ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.reportSent)));
+            }
+          },
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+const _highRiskReasons = {
+  'sexual_misconduct',
+  'drugs_or_illegal_activity',
+  'violence_or_threat',
+};
 
 class PostGigScreen extends StatefulWidget {
   const PostGigScreen({super.key});

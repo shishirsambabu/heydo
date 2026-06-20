@@ -78,6 +78,25 @@ class S {
   String get gigUnderReview => _t('സുരക്ഷാ പരിശോധനയ്ക്കായി പിടിച്ചിരിക്കുന്നു', 'Held for safety review');
   String get gigRejected => _t('സുരക്ഷാ നയപ്രകാരം നിരസിച്ചു', 'Rejected by safety policy');
   String get fillAllFields => _t('എല്ലാ വിവരങ്ങളും പൂരിപ്പിക്കുക', 'Fill all fields');
+  String get browseSafeGigs => _t('സുരക്ഷിത ജോലികൾ കാണുക', 'Browse safe gigs');
+  String get noGigs => _t('ഇപ്പോൾ ലൈവ് ജോലികളില്ല', 'No live gigs right now');
+  String get apply => _t('അപേക്ഷിക്കുക', 'Apply');
+  String get fairCounteroffer => _t('ന്യായമായ നിരക്ക് ചോദിക്കുക', 'Ask fair rate');
+  String get proposedPrice => _t('നിങ്ങളുടെ നിരക്ക് (₹)', 'Your rate (₹)');
+  String get applicationMessage => _t('നിങ്ങളുടെ സന്ദേശം', 'Your message');
+  String get applicationSent => _t('അപേക്ഷ അയച്ചു', 'Application sent');
+  String get reportUnsafe => _t('സുരക്ഷാ പ്രശ്നം റിപ്പോർട്ട് ചെയ്യുക', 'Report safety issue');
+  String get reportReason => _t('കാരണം', 'Reason');
+  String get reportDetails => _t('എന്താണ് സംഭവിച്ചത്?', 'What happened?');
+  String get reportSent => _t('സുരക്ഷാ റിപ്പോർട്ട് അയച്ചു', 'Safety report sent');
+  String get unsafeLocation => _t('സുരക്ഷിതമല്ലാത്ത സ്ഥലം', 'Unsafe location');
+  String get harassment => _t('പീഡനം', 'Harassment');
+  String get offPlatformPayment => _t('ആപ്പിന് പുറത്തുള്ള പണം', 'Off-platform payment');
+  String get sexualMisconduct => _t('ലൈംഗിക ദുരുപയോഗം', 'Sexual misconduct');
+  String get illegalActivity => _t('മയക്കുമരുന്ന് അല്ലെങ്കിൽ നിയമവിരുദ്ധ പ്രവർത്തനം', 'Drugs or illegal activity');
+  String get violenceThreat => _t('അക്രമം അല്ലെങ്കിൽ ഭീഷണി', 'Violence or threat');
+  String get fraud => _t('വഞ്ചന', 'Fraud');
+  String get other => _t('മറ്റുള്ളവ', 'Other');
 
   // Generic
   String get next => _t('അടുത്തത്', 'Next');

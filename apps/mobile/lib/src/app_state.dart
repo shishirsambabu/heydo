@@ -37,7 +37,10 @@ class AppState extends ChangeNotifier {
   bool canPost = false;
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> pricingGuides = [];
+  List<Map<String, dynamic>> visibleGigs = [];
   Map<String, dynamic>? lastPostedGig;
+  Map<String, dynamic>? lastApplication;
+  Map<String, dynamic>? lastSafetyReport;
 
   bool busy = false;
   String? error;
@@ -154,6 +157,41 @@ class AppState extends ChangeNotifier {
           location: location,
           scheduledAt: DateTime.now().add(const Duration(days: 1)).toUtc().toIso8601String(),
           budgetAmount: budgetAmount,
+        );
+      });
+
+  Future<bool> loadVisibleGigs() => _guard(() async {
+        final loaded = await api.gigs();
+        visibleGigs = loaded
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+      });
+
+  Future<bool> applyToGig({
+    required String gigId,
+    String? messageMl,
+    int? proposedPrice,
+  }) =>
+      _guard(() async {
+        lastApplication = await api.applyToGig(
+          gigId: gigId,
+          messageMl: messageMl,
+          proposedPrice: proposedPrice,
+        );
+      });
+
+  Future<bool> raiseSafetyReport({
+    required String gigId,
+    required String reason,
+    required String severity,
+    required String description,
+  }) =>
+      _guard(() async {
+        lastSafetyReport = await api.raiseSafetyReport(
+          gigId: gigId,
+          reason: reason,
+          severity: severity,
+          description: description,
         );
       });
 
