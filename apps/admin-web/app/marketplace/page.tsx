@@ -12,9 +12,13 @@ import {
   clearSession,
   DisputeResolutionOutcome,
   generateEscalationPackage,
+  getGigAuditTrail,
+  getGigMoneyTrail,
   getDecisionReasons,
   getOfficerName,
   getToken,
+  getSafetyReportAuditTrail,
+  listSafetyReportEvidenceRefs,
   listOpenSafetyReports,
   listReviewGigs,
   moderateGig,
@@ -24,6 +28,8 @@ import {
 } from '../../lib/api';
 
 type QueueTab = 'gigs' | 'reports';
+type ContextRow = { label: string; value: string };
+type ContextPanel = { title: string; rows: ContextRow[] };
 
 export default function MarketplaceSafetyPage() {
   const router = useRouter();
@@ -34,6 +40,7 @@ export default function MarketplaceSafetyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [contextPanel, setContextPanel] = useState<ContextPanel | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
   const counts = useMemo(
@@ -48,6 +55,7 @@ export default function MarketplaceSafetyPage() {
     setLoading(true);
     setError(null);
     setNotice(null);
+    setContextPanel(null);
     try {
       const [gigItems, reportItems, reasonCatalog] = await Promise.all([
         listReviewGigs(),
@@ -122,6 +130,7 @@ export default function MarketplaceSafetyPage() {
   async function onGig(gigId: string, decision: 'approve' | 'reject' | 'flag') {
     setError(null);
     setNotice(null);
+    setContextPanel(null);
     const payload = chooseDecisionPayload(`gig.${decision}` as AdminDecisionReasonAction);
     if (!payload) return;
     setActingId(gigId);
@@ -138,6 +147,7 @@ export default function MarketplaceSafetyPage() {
   async function onReport(reportId: string, status: 'under_review' | 'action_taken' | 'escalated' | 'closed') {
     setError(null);
     setNotice(null);
+    setContextPanel(null);
     const payload = chooseDecisionPayload(`safety.${status}` as AdminDecisionReasonAction);
     if (!payload) return;
     setActingId(reportId);
@@ -154,6 +164,7 @@ export default function MarketplaceSafetyPage() {
   async function onDispute(reportId: string, outcome: DisputeResolutionOutcome) {
     setError(null);
     setNotice(null);
+    setContextPanel(null);
     const payload = chooseDecisionPayload(`dispute.${outcome}` as AdminDecisionReasonAction);
     if (!payload) return;
     setActingId(reportId);
@@ -171,6 +182,7 @@ export default function MarketplaceSafetyPage() {
   async function onEscalationPackage(reportId: string) {
     setError(null);
     setNotice(null);
+    setContextPanel(null);
     const payload = chooseDecisionPayload('escalation.generate');
     if (!payload) return;
     setActingId(reportId);
@@ -179,6 +191,96 @@ export default function MarketplaceSafetyPage() {
       setNotice(`Escalation package ${pkg.id} generated and integrity verified: ${pkg.integrity.verified ? 'yes' : 'no'}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Escalation package failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function showGigMoneyTrail(gigId: string) {
+    setError(null);
+    setNotice(null);
+    setActingId(gigId);
+    try {
+      const trail = await getGigMoneyTrail(gigId);
+      const rows: ContextRow[] = [
+        { label: 'Escrow hold', value: trail.hold ? `${trail.hold.status} - INR ${trail.hold.amount}` : 'No escrow hold yet' },
+        { label: 'Transactions', value: String(trail.transactions.length) },
+        ...trail.transactions.flatMap((item) => [
+          {
+            label: item.transaction.type,
+            value: `${item.transaction.status} - ${item.transaction.createdAt}`,
+          },
+          {
+            label: 'Postings',
+            value: item.postings
+              .map((posting) => `${posting.direction} INR ${posting.amount} ${posting.account?.type ?? posting.accountId}`)
+              .join('; ') || 'No postings',
+          },
+        ]),
+      ];
+      setContextPanel({ title: `Money trail for ${gigId}`, rows });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Money trail failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function showGigAuditTrail(gigId: string) {
+    setError(null);
+    setNotice(null);
+    setActingId(gigId);
+    try {
+      const records = await getGigAuditTrail(gigId);
+      setContextPanel({
+        title: `Gig audit trail for ${gigId}`,
+        rows: records.map((record) => ({
+          label: record.action,
+          value: `${record.at} - ${record.actorRole}:${record.actorId} - ${summarizeMetadata(record.metadata)}`,
+        })),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gig audit trail failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function showReportAuditTrail(reportId: string) {
+    setError(null);
+    setNotice(null);
+    setActingId(reportId);
+    try {
+      const records = await getSafetyReportAuditTrail(reportId);
+      setContextPanel({
+        title: `Safety report audit trail for ${reportId}`,
+        rows: records.map((record) => ({
+          label: record.action,
+          value: `${record.at} - ${record.actorRole}:${record.actorId} - ${summarizeMetadata(record.metadata)}`,
+        })),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Report audit trail failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function showEvidenceRefs(reportId: string) {
+    setError(null);
+    setNotice(null);
+    setActingId(reportId);
+    try {
+      const refs = await listSafetyReportEvidenceRefs(reportId);
+      setContextPanel({
+        title: `Evidence refs for ${reportId}`,
+        rows: refs.map((ref) => ({
+          label: ref.classification,
+          value: `${ref.ref} - ${ref.retentionPolicy}${ref.legalHold ? ' - legal hold' : ''} - accessed ${ref.accessCount} times`,
+        })),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Evidence refs failed');
     } finally {
       setActingId(null);
     }
@@ -227,6 +329,7 @@ export default function MarketplaceSafetyPage() {
       {loading && <div className="empty">Loading...</div>}
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
+      {contextPanel && <ContextPanelView panel={contextPanel} />}
 
       {!loading && tab === 'gigs' && (
         <Queue
@@ -257,6 +360,12 @@ export default function MarketplaceSafetyPage() {
                   </button>
                   <button className="btn btn-danger" disabled={actingId === gig.id} onClick={() => void onGig(gig.id, 'reject')}>
                     Reject
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === gig.id} onClick={() => void showGigAuditTrail(gig.id)}>
+                    Audit
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === gig.id} onClick={() => void showGigMoneyTrail(gig.id)}>
+                    Money
                   </button>
                 </div>
               </div>
@@ -310,6 +419,12 @@ export default function MarketplaceSafetyPage() {
                   <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onEscalationPackage(report.id)}>
                     Package
                   </button>
+                  <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void showEvidenceRefs(report.id)}>
+                    Evidence
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void showReportAuditTrail(report.id)}>
+                    Audit
+                  </button>
                 </div>
               </div>
             </div>
@@ -323,4 +438,43 @@ export default function MarketplaceSafetyPage() {
 function Queue({ empty, items }: { empty: string; items: ReactNode[] }) {
   if (items.length === 0) return <div className="card empty">{empty}</div>;
   return <>{items}</>;
+}
+
+function ContextPanelView({ panel }: { panel: ContextPanel }) {
+  return (
+    <div className="card context-panel">
+      <div className="row">
+        <div>
+          <div className="label">Decision context</div>
+          <div className="display compact">{panel.title}</div>
+        </div>
+      </div>
+      <div className="mini-table">
+        {panel.rows.length === 0 ? (
+          <div className="muted">No records found.</div>
+        ) : (
+          panel.rows.map((row, index) => (
+            <div className="mini-row context-row" key={`${row.label}-${index}`}>
+              <div>{row.label}</div>
+              <div>{row.value}</div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function summarizeMetadata(metadata?: Record<string, unknown>): string {
+  if (!metadata || Object.keys(metadata).length === 0) return 'no metadata';
+  return Object.entries(metadata)
+    .slice(0, 4)
+    .map(([key, value]) => `${key}=${formatMetadataValue(value)}`)
+    .join(', ');
+}
+
+function formatMetadataValue(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.join(',')}]`;
+  if (value && typeof value === 'object') return JSON.stringify(value);
+  return String(value);
 }

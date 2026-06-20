@@ -209,6 +209,12 @@ input.field {
   font-size: 13px;
   grid-template-columns: 1fr 1fr 1.4fr;
 }
+.context-row {
+  grid-template-columns: minmax(140px, 0.45fr) minmax(0, 1fr);
+}
+.context-row div {
+  overflow-wrap: anywhere;
+}
 .session-title {
   align-items: center;
   display: flex;

@@ -133,6 +133,74 @@ export interface SafetyEscalationPackage {
   };
 }
 
+export interface AuditRecord {
+  id: string;
+  actorId: string;
+  actorRole: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  metadata?: Record<string, unknown>;
+  at: string;
+}
+
+export interface EvidenceVaultRef {
+  ref: string;
+  reportId: string;
+  gigId: string;
+  classification: string;
+  retentionPolicy: string;
+  legalHold: boolean;
+  allowedRoles: string[];
+  createdBy: string;
+  createdAt: string;
+  accessCount: number;
+  lastAccessedBy?: string;
+  lastAccessedAt?: string;
+}
+
+export interface MoneyTrailAccount {
+  id: string;
+  ownerType: string;
+  ownerId: string;
+  type: string;
+  currency: 'INR';
+}
+
+export interface MoneyTrailPosting {
+  id: string;
+  transactionId: string;
+  accountId: string;
+  direction: 'debit' | 'credit';
+  amount: number;
+  currency: 'INR';
+  account: MoneyTrailAccount | null;
+}
+
+export interface MoneyTrailTransaction {
+  transaction: {
+    id: string;
+    type: string;
+    gigId?: string;
+    idempotencyKey: string;
+    status: 'posted';
+    createdAt: string;
+  };
+  postings: MoneyTrailPosting[];
+}
+
+export interface GigMoneyTrail {
+  hold: {
+    id: string;
+    gigId: string;
+    amount: number;
+    status: string;
+    providerRef?: string;
+    createdAt: string;
+  } | null;
+  transactions: MoneyTrailTransaction[];
+}
+
 export type AdminSessionStatus = 'active' | 'step_up_required' | 'revoked' | 'expired';
 
 export interface AdminSessionListItem {
@@ -266,6 +334,22 @@ export function generateEscalationPackage(
       note: payload.note,
     }),
   }) as Promise<SafetyEscalationPackage>;
+}
+
+export function getGigMoneyTrail(gigId: string): Promise<GigMoneyTrail> {
+  return authed(`/admin/marketplace/gigs/${gigId}/money-trail`) as Promise<GigMoneyTrail>;
+}
+
+export function getGigAuditTrail(gigId: string): Promise<AuditRecord[]> {
+  return authed(`/admin/marketplace/gigs/${gigId}/audit-trail`) as Promise<AuditRecord[]>;
+}
+
+export function getSafetyReportAuditTrail(reportId: string): Promise<AuditRecord[]> {
+  return authed(`/admin/marketplace/safety-reports/${reportId}/audit-trail`) as Promise<AuditRecord[]>;
+}
+
+export function listSafetyReportEvidenceRefs(reportId: string): Promise<EvidenceVaultRef[]> {
+  return authed(`/admin/marketplace/safety-reports/${reportId}/evidence-refs`) as Promise<EvidenceVaultRef[]>;
 }
 
 // --- Admin safety operations ---
