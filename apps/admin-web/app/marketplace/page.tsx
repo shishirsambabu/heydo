@@ -10,12 +10,15 @@ import {
   AdminDecisionReasonCatalog,
   AdminGig,
   clearSession,
+  DisputeResolutionOutcome,
+  generateEscalationPackage,
   getDecisionReasons,
   getOfficerName,
   getToken,
   listOpenSafetyReports,
   listReviewGigs,
   moderateGig,
+  resolveSafetyDispute,
   reviewSafetyReport,
   SafetyReport,
 } from '../../lib/api';
@@ -30,6 +33,7 @@ export default function MarketplaceSafetyPage() {
   const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
 
   const counts = useMemo(
@@ -43,6 +47,7 @@ export default function MarketplaceSafetyPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setNotice(null);
     try {
       const [gigItems, reportItems, reasonCatalog] = await Promise.all([
         listReviewGigs(),
@@ -115,6 +120,8 @@ export default function MarketplaceSafetyPage() {
   }
 
   async function onGig(gigId: string, decision: 'approve' | 'reject' | 'flag') {
+    setError(null);
+    setNotice(null);
     const payload = chooseDecisionPayload(`gig.${decision}` as AdminDecisionReasonAction);
     if (!payload) return;
     setActingId(gigId);
@@ -129,6 +136,8 @@ export default function MarketplaceSafetyPage() {
   }
 
   async function onReport(reportId: string, status: 'under_review' | 'action_taken' | 'escalated' | 'closed') {
+    setError(null);
+    setNotice(null);
     const payload = chooseDecisionPayload(`safety.${status}` as AdminDecisionReasonAction);
     if (!payload) return;
     setActingId(reportId);
@@ -137,6 +146,39 @@ export default function MarketplaceSafetyPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Safety review failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function onDispute(reportId: string, outcome: DisputeResolutionOutcome) {
+    setError(null);
+    setNotice(null);
+    const payload = chooseDecisionPayload(`dispute.${outcome}` as AdminDecisionReasonAction);
+    if (!payload) return;
+    setActingId(reportId);
+    try {
+      await resolveSafetyDispute(reportId, outcome, payload);
+      await load();
+      setNotice('Dispute outcome recorded. Escrow action is auditable in the money trail.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Dispute resolution failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function onEscalationPackage(reportId: string) {
+    setError(null);
+    setNotice(null);
+    const payload = chooseDecisionPayload('escalation.generate');
+    if (!payload) return;
+    setActingId(reportId);
+    try {
+      const pkg = await generateEscalationPackage(reportId, payload);
+      setNotice(`Escalation package ${pkg.id} generated and integrity verified: ${pkg.integrity.verified ? 'yes' : 'no'}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Escalation package failed');
     } finally {
       setActingId(null);
     }
@@ -184,6 +226,7 @@ export default function MarketplaceSafetyPage() {
 
       {loading && <div className="empty">Loading...</div>}
       {error && <div className="error">{error}</div>}
+      {notice && <div className="notice">{notice}</div>}
 
       {!loading && tab === 'gigs' && (
         <Queue
@@ -251,6 +294,21 @@ export default function MarketplaceSafetyPage() {
                   </button>
                   <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onReport(report.id, 'escalated')}>
                     Escalate
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void onReport(report.id, 'closed')}>
+                    Close
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void onDispute(report.id, 'release_to_worker')}>
+                    Pay worker
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void onDispute(report.id, 'refund_giver')}>
+                    Refund giver
+                  </button>
+                  <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void onDispute(report.id, 'keep_escalated')}>
+                    Keep escalated
+                  </button>
+                  <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onEscalationPackage(report.id)}>
+                    Package
                   </button>
                 </div>
               </div>

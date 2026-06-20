@@ -111,6 +111,28 @@ export interface AdminDecisionPayload {
   lawEnforcementRef?: string;
 }
 
+export type DisputeResolutionOutcome = 'release_to_worker' | 'refund_giver' | 'keep_escalated';
+
+export interface SafetyEscalationPackage {
+  id: string;
+  generatedAt: string;
+  generatedBy: string;
+  purpose: 'lawful_safety_escalation';
+  evidenceVaultRefs: string[];
+  integrity: {
+    algorithm: 'sha256';
+    snapshotSchemaVersion: number;
+    snapshotHash: string;
+    verified: boolean;
+    verifiedAt: string;
+  };
+  piiPolicy: {
+    rawAadhaarStored: false;
+    rawSelfieIncluded: false;
+    evidenceRefsOnly: true;
+  };
+}
+
 export type AdminSessionStatus = 'active' | 'step_up_required' | 'revoked' | 'expired';
 
 export interface AdminSessionListItem {
@@ -215,6 +237,35 @@ export function reviewSafetyReport(
       lawEnforcementRef: payload.lawEnforcementRef,
     }),
   });
+}
+
+export function resolveSafetyDispute(
+  reportId: string,
+  outcome: DisputeResolutionOutcome,
+  payload: AdminDecisionPayload,
+) {
+  return authed(`/admin/marketplace/safety-reports/${reportId}/resolve-dispute`, {
+    method: 'POST',
+    body: JSON.stringify({
+      outcome,
+      reasonCode: payload.reasonCode,
+      note: payload.note,
+      lawEnforcementRef: payload.lawEnforcementRef,
+    }),
+  });
+}
+
+export function generateEscalationPackage(
+  reportId: string,
+  payload: AdminDecisionPayload,
+): Promise<SafetyEscalationPackage> {
+  return authed(`/admin/marketplace/safety-reports/${reportId}/escalation-package`, {
+    method: 'POST',
+    body: JSON.stringify({
+      reasonCode: payload.reasonCode,
+      note: payload.note,
+    }),
+  }) as Promise<SafetyEscalationPackage>;
 }
 
 // --- Admin safety operations ---
