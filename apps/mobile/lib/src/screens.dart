@@ -367,6 +367,19 @@ class StatusScreen extends StatelessWidget {
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
             ]),
           ),
+        if (app.canPost) ...[
+          const SizedBox(height: 16),
+          BigButton(
+            label: s.postSafeGig,
+            icon: Icons.add_business,
+            busy: app.busy,
+            onPressed: () async {
+              if (await context.read<AppState>().loadMarketplaceSetup() && context.mounted) {
+                _go(context, const PostGigScreen());
+              }
+            },
+          ),
+        ],
         const Spacer(),
         BigButton(
           label: app.s.next,
@@ -376,6 +389,144 @@ class StatusScreen extends StatelessWidget {
           onPressed: () => context.read<AppState>().refreshStatus(),
         ),
       ],
+    );
+  }
+}
+
+class PostGigScreen extends StatefulWidget {
+  const PostGigScreen({super.key});
+
+  @override
+  State<PostGigScreen> createState() => _PostGigScreenState();
+}
+
+class _PostGigScreenState extends State<PostGigScreen> {
+  final _title = TextEditingController();
+  final _description = TextEditingController();
+  final _location = TextEditingController();
+  final _budget = TextEditingController();
+  String? _categoryId;
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _description.dispose();
+    _location.dispose();
+    _budget.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final categories = app.categories;
+    _categoryId ??= categories.isNotEmpty ? categories.first['id'] as String? : null;
+    final guide = _categoryId == null ? null : app.pricingGuideFor(_categoryId!);
+
+    return HeydoScaffold(
+      title: s.postSafeGig,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                DropdownButtonFormField<String>(
+                  value: _categoryId,
+                  decoration: InputDecoration(labelText: s.category, border: const OutlineInputBorder()),
+                  items: categories
+                      .map((category) => DropdownMenuItem<String>(
+                            value: category['id'] as String,
+                            child: Text((category['nameMl'] ?? category['nameEn']) as String),
+                          ))
+                      .toList(),
+                  onChanged: (value) => setState(() => _categoryId = value),
+                ),
+                const SizedBox(height: 12),
+                _field(_title, s.gigTitle),
+                const SizedBox(height: 12),
+                _field(_description, s.gigDescription, maxLines: 3),
+                const SizedBox(height: 12),
+                _field(_location, s.gigLocation),
+                const SizedBox(height: 12),
+                _field(_budget, s.budgetInr, keyboardType: TextInputType.number),
+                if (guide != null) ...[
+                  const SizedBox(height: 12),
+                  _GuideBox(guide: guide, label: s.fairPriceGuide),
+                ],
+                const SizedBox(height: 18),
+                BigButton(
+                  label: s.submitGig,
+                  icon: Icons.shield,
+                  busy: app.busy,
+                  onPressed: () async {
+                    final budget = int.tryParse(_budget.text.trim());
+                    if (_categoryId == null ||
+                        _title.text.trim().isEmpty ||
+                        _description.text.trim().isEmpty ||
+                        _location.text.trim().isEmpty ||
+                        budget == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.fillAllFields)));
+                      return;
+                    }
+                    final posted = await context.read<AppState>().postGig(
+                          categoryId: _categoryId!,
+                          title: _title.text.trim(),
+                          description: _description.text.trim(),
+                          location: _location.text.trim(),
+                          budgetAmount: budget,
+                        );
+                    if (!posted || !context.mounted) return;
+                    final gig = context.read<AppState>().lastPostedGig;
+                    final status = gig?['visibilityStatus'] as String?;
+                    final message = switch (status) {
+                      'visible' => s.gigVisible,
+                      'rejected' => s.gigRejected,
+                      _ => s.gigUnderReview,
+                    };
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                  },
+                ),
+                if (app.error != null) _error(app.error!),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Widget _field(
+  TextEditingController controller,
+  String label, {
+  int maxLines = 1,
+  TextInputType? keyboardType,
+}) =>
+    TextField(
+      controller: controller,
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+    );
+
+class _GuideBox extends StatelessWidget {
+  const _GuideBox({required this.guide, required this.label});
+
+  final Map<String, dynamic> guide;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: HeydoColors.mintSurface, borderRadius: BorderRadius.circular(12)),
+      child: Text(
+        '$label: ₹${guide['minBudgetAmount']} - ₹${guide['highReviewAmount']} · ${guide['notes']}',
+        style: const TextStyle(fontSize: 14, height: 1.35),
+      ),
     );
   }
 }

@@ -35,6 +35,9 @@ class AppState extends ChangeNotifier {
   String verificationStatus = 'unverified';
   bool canApply = false;
   bool canPost = false;
+  List<Map<String, dynamic>> categories = [];
+  List<Map<String, dynamic>> pricingGuides = [];
+  Map<String, dynamic>? lastPostedGig;
 
   bool busy = false;
   String? error;
@@ -117,6 +120,42 @@ class AppState extends ChangeNotifier {
       });
 
   Future<bool> refreshStatus() => _guard(_loadStatus);
+
+  Future<bool> loadMarketplaceSetup() => _guard(() async {
+        final loadedCategories = await api.categories();
+        final loadedGuides = await api.pricingGuides();
+        categories = loadedCategories
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+        pricingGuides = loadedGuides
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+      });
+
+  Map<String, dynamic>? pricingGuideFor(String categoryId) {
+    for (final guide in pricingGuides) {
+      if (guide['categoryId'] == categoryId) return guide;
+    }
+    return null;
+  }
+
+  Future<bool> postGig({
+    required String categoryId,
+    required String title,
+    required String description,
+    required String location,
+    required int budgetAmount,
+  }) =>
+      _guard(() async {
+        lastPostedGig = await api.postGig(
+          categoryId: categoryId,
+          title: title,
+          description: description,
+          location: location,
+          scheduledAt: DateTime.now().add(const Duration(days: 1)).toUtc().toIso8601String(),
+          budgetAmount: budgetAmount,
+        );
+      });
 
   Future<void> _loadStatus() async {
     final res = role == 'giver'

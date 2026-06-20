@@ -41,6 +41,16 @@ class HeydoApi {
     return _decode(res);
   }
 
+  Future<List<dynamic>> _getList(String path) async {
+    final res = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    if (res.statusCode >= 400) {
+      throw HeydoApiException(res.statusCode, res.body);
+    }
+    if (res.body.isEmpty) return [];
+    final decoded = jsonDecode(res.body);
+    return decoded is List<dynamic> ? decoded : [];
+  }
+
   Map<String, dynamic> _decode(http.Response res) {
     if (res.statusCode >= 400) {
       throw HeydoApiException(res.statusCode, res.body);
@@ -72,6 +82,26 @@ class HeydoApi {
       _post('/verification/result', {'sessionId': sessionId});
   Future<Map<String, dynamic>> verificationStatus() => _get('/verification/status');
   Future<Map<String, dynamic>> giverVerificationStatus() => _get('/verification/giver/status');
+
+  // --- Marketplace ---
+  Future<List<dynamic>> categories() => _getList('/marketplace/categories');
+  Future<List<dynamic>> pricingGuides() => _getList('/marketplace/pricing-guides');
+  Future<Map<String, dynamic>> postGig({
+    required String categoryId,
+    required String title,
+    required String description,
+    required String location,
+    required String scheduledAt,
+    required int budgetAmount,
+  }) =>
+      _post('/marketplace/gigs', {
+        'categoryId': categoryId,
+        'title': title,
+        'description': description,
+        'location': location,
+        'scheduledAt': scheduledAt,
+        'budgetAmount': budgetAmount,
+      });
 }
 
 class HeydoApiException implements Exception {

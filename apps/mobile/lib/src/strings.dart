@@ -66,6 +66,18 @@ class S {
       'അഭിനന്ദനങ്ങൾ! ഇപ്പോൾ നിങ്ങൾക്ക് സുരക്ഷിതമായി ജോലികൾ പോസ്റ്റ് ചെയ്യാം.',
       'Congratulations! You can now post safe gigs.');
   String get canPostYes => _t('ജോലി പോസ്റ്റ് ചെയ്യാം', 'You can post gigs');
+  String get postSafeGig => _t('സുരക്ഷിത ജോലി പോസ്റ്റ് ചെയ്യുക', 'Post a safe gig');
+  String get category => _t('വിഭാഗം', 'Category');
+  String get gigTitle => _t('ജോലിയുടെ പേര്', 'Gig title');
+  String get gigDescription => _t('ജോലിയുടെ വിശദാംശങ്ങൾ', 'Gig details');
+  String get gigLocation => _t('സ്ഥലം', 'Location');
+  String get budgetInr => _t('ബജറ്റ് (₹)', 'Budget (₹)');
+  String get fairPriceGuide => _t('ന്യായമായ നിരക്ക്', 'Fair price guide');
+  String get submitGig => _t('ജോലി സമർപ്പിക്കുക', 'Submit gig');
+  String get gigVisible => _t('ജോലി ലൈവായി', 'Gig is live');
+  String get gigUnderReview => _t('സുരക്ഷാ പരിശോധനയ്ക്കായി പിടിച്ചിരിക്കുന്നു', 'Held for safety review');
+  String get gigRejected => _t('സുരക്ഷാ നയപ്രകാരം നിരസിച്ചു', 'Rejected by safety policy');
+  String get fillAllFields => _t('എല്ലാ വിവരങ്ങളും പൂരിപ്പിക്കുക', 'Fill all fields');
 
   // Generic
   String get next => _t('അടുത്തത്', 'Next');
