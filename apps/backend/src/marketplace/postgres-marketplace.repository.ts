@@ -231,6 +231,10 @@ export class PostgresGigRepository implements GigRepository {
       params.push(filters.visibilityStatus);
       clauses.push(`"visibilityStatus" = $${params.length}`);
     }
+    if (filters.giverId) {
+      params.push(filters.giverId);
+      clauses.push(`"giverId" = $${params.length}`);
+    }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : '';
     const rows = await this.pg.query<GigRow>(
       `${selectGig()} ${where} ORDER BY "scheduledAt" ASC`,

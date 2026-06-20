@@ -65,6 +65,11 @@ export class MarketplaceController {
     return this.marketplace.listGigs({ status, categoryId });
   }
 
+  @Get('my-gigs')
+  listMyGigs(@CurrentUser() principal: AuthPrincipal) {
+    return this.marketplace.listGiverGigs(principal.sub);
+  }
+
   @Get('gigs/:gigId')
   async getGig(@Param('gigId') gigId: string) {
     return this.wrap(() => this.marketplace.getGig(gigId));

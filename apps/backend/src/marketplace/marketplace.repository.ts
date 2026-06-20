@@ -13,6 +13,7 @@ export interface GigFilters {
   status?: string;
   categoryId?: string;
   visibilityStatus?: string;
+  giverId?: string;
 }
 
 export interface CategoryRepository {
@@ -102,6 +103,7 @@ export class InMemoryGigRepository implements GigRepository {
       .filter((gig) => !filters.status || gig.status === filters.status)
       .filter((gig) => !filters.categoryId || gig.categoryId === filters.categoryId)
       .filter((gig) => !filters.visibilityStatus || gig.visibilityStatus === filters.visibilityStatus)
+      .filter((gig) => !filters.giverId || gig.giverId === filters.giverId)
       .map((gig) => ({ ...gig }))
       .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   }

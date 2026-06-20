@@ -182,6 +182,54 @@ describe('MarketplaceService', () => {
     await expect(svc.listGigsForAdmin({ visibilityStatus: 'rejected' })).resolves.toHaveLength(1);
   });
 
+  it('lets givers list their own gigs across safety review states', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    await givers.save({
+      userId: 'giver_2',
+      displayName: 'Other giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+
+    const held = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Late night cleaning',
+      description: 'Need cleaning help late night alone at a quiet house',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const rejected = await svc.postGig('giver_1', {
+      categoryId: 'cat_event_help',
+      title: 'Private service',
+      description: 'Need adult service for a private party',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 5000,
+    });
+    await svc.postGig('giver_2', {
+      categoryId: 'cat_plumbing',
+      title: 'Pipe leak repair',
+      description: 'Kitchen pipe is leaking and needs repair',
+      location: 'Thrissur',
+      scheduledAt: '2026-06-20T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+
+    await expect(svc.listGiverGigs('giver_1')).resolves.toEqual([
+      expect.objectContaining({ id: held.id, visibilityStatus: 'pending_review' }),
+      expect.objectContaining({ id: rejected.id, visibilityStatus: 'rejected' }),
+    ]);
+  });
+
   it('records structured decision metadata for high-impact gig moderation', async () => {
     const { svc, givers, audit } = service();
     await givers.save({

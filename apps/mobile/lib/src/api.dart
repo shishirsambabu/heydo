@@ -103,6 +103,9 @@ class HeydoApi {
         'budgetAmount': budgetAmount,
       });
   Future<List<dynamic>> gigs() => _getList('/marketplace/gigs');
+  Future<List<dynamic>> myGigs() => _getList('/marketplace/my-gigs');
+  Future<List<dynamic>> applications(String gigId) =>
+      _getList('/marketplace/gigs/$gigId/applications');
   Future<Map<String, dynamic>> applyToGig({
     required String gigId,
     String? messageMl,
@@ -112,6 +115,11 @@ class HeydoApi {
         if (messageMl != null && messageMl.trim().isNotEmpty) 'messageMl': messageMl.trim(),
         if (proposedPrice != null) 'proposedPrice': proposedPrice,
       });
+  Future<Map<String, dynamic>> selectApplication({
+    required String gigId,
+    required String applicationId,
+  }) =>
+      _post('/marketplace/gigs/$gigId/applications/$applicationId/select');
   Future<Map<String, dynamic>> raiseSafetyReport({
     required String gigId,
     required String reason,

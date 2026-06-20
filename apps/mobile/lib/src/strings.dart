@@ -66,6 +66,14 @@ class S {
       'അഭിനന്ദനങ്ങൾ! ഇപ്പോൾ നിങ്ങൾക്ക് സുരക്ഷിതമായി ജോലികൾ പോസ്റ്റ് ചെയ്യാം.',
       'Congratulations! You can now post safe gigs.');
   String get canPostYes => _t('ജോലി പോസ്റ്റ് ചെയ്യാം', 'You can post gigs');
+  String get manageMyGigs => _t('എന്റെ ജോലികൾ നിയന്ത്രിക്കുക', 'Manage my gigs');
+  String get noMyGigs => _t('ഇപ്പോൾ നിങ്ങളുടെ ജോലികളില്ല', 'No gigs posted yet');
+  String get viewApplicants => _t('അപേക്ഷകർ കാണുക', 'View applicants');
+  String get applicants => _t('അപേക്ഷകർ', 'Applicants');
+  String get noApplicants => _t('ഇപ്പോൾ അപേക്ഷകളില്ല', 'No applications yet');
+  String get selectWorker => _t('തൊഴിലാളിയെ തിരഞ്ഞെടുക്കുക', 'Select worker');
+  String get workerSelected => _t('തൊഴിലാളിയെ തിരഞ്ഞെടുത്തു', 'Worker selected');
+  String get agreedAmount => _t('ഒപ്പുവെച്ച തുക', 'Agreed amount');
   String get postSafeGig => _t('സുരക്ഷിത ജോലി പോസ്റ്റ് ചെയ്യുക', 'Post a safe gig');
   String get category => _t('വിഭാഗം', 'Category');
   String get gigTitle => _t('ജോലിയുടെ പേര്', 'Gig title');

@@ -391,6 +391,18 @@ class StatusScreen extends StatelessWidget {
               }
             },
           ),
+          const SizedBox(height: 10),
+          BigButton(
+            label: s.manageMyGigs,
+            icon: Icons.assignment,
+            filled: false,
+            busy: app.busy,
+            onPressed: () async {
+              if (await context.read<AppState>().loadMyGigs() && context.mounted) {
+                _go(context, const GiverGigListScreen());
+              }
+            },
+          ),
         ],
         const Spacer(),
         BigButton(
@@ -431,6 +443,204 @@ class WorkerGigListScreen extends StatelessWidget {
         ),
         if (app.error != null) _error(app.error!),
       ],
+    );
+  }
+}
+
+class GiverGigListScreen extends StatelessWidget {
+  const GiverGigListScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final gigs = app.myGigs;
+
+    return HeydoScaffold(
+      title: s.manageMyGigs,
+      children: [
+        Expanded(
+          child: gigs.isEmpty
+              ? Center(child: Text(s.noMyGigs, style: const TextStyle(fontSize: 16)))
+              : ListView.separated(
+                  itemCount: gigs.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final gig = gigs[index];
+                    return _GiverGigCard(gig: gig);
+                  },
+                ),
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+class _GiverGigCard extends StatelessWidget {
+  const _GiverGigCard({required this.gig});
+
+  final Map<String, dynamic> gig;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final title = (gig['title'] ?? '') as String;
+    final location = (gig['location'] ?? '') as String;
+    final budget = gig['budgetAmount'];
+    final visibility = (gig['visibilityStatus'] ?? '') as String;
+    final status = (gig['status'] ?? '') as String;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: HeydoColors.mintSurface),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text('$location · ₹$budget', style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusPill(label: visibility),
+              _StatusPill(label: status),
+            ],
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: app.busy
+                ? null
+                : () async {
+                    final gigId = gig['id'] as String;
+                    if (await context.read<AppState>().loadApplications(gigId) && context.mounted) {
+                      _go(context, ApplicantListScreen(gig: gig));
+                    }
+                  },
+            icon: const Icon(Icons.people),
+            label: Text(s.viewApplicants),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class ApplicantListScreen extends StatelessWidget {
+  const ApplicantListScreen({super.key, required this.gig});
+
+  final Map<String, dynamic> gig;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final applications = app.currentApplications;
+
+    return HeydoScaffold(
+      title: s.applicants,
+      children: [
+        Text(
+          gig['title'] as String? ?? '',
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: applications.isEmpty
+              ? Center(child: Text(s.noApplicants, style: const TextStyle(fontSize: 16)))
+              : ListView.separated(
+                  itemCount: applications.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final application = applications[index];
+                    return _ApplicantCard(gig: gig, application: application);
+                  },
+                ),
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+class _ApplicantCard extends StatelessWidget {
+  const _ApplicantCard({required this.gig, required this.application});
+
+  final Map<String, dynamic> gig;
+  final Map<String, dynamic> application;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final workerId = (application['workerId'] ?? '') as String;
+    final message = (application['messageMl'] ?? '') as String;
+    final proposedPrice = application['proposedPrice'] ?? gig['budgetAmount'];
+    final status = (application['status'] ?? '') as String;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: HeydoColors.mintSurface),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(workerId, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text('${s.agreedAmount}: ₹$proposedPrice',
+              style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          if (message.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(message, style: const TextStyle(fontSize: 14, height: 1.35)),
+          ],
+          const SizedBox(height: 10),
+          _StatusPill(label: status),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: app.busy || status != 'applied'
+                ? null
+                : () async {
+                    final ok = await context.read<AppState>().selectApplication(
+                          gigId: gig['id'] as String,
+                          applicationId: application['id'] as String,
+                        );
+                    if (ok && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(s.workerSelected)),
+                      );
+                    }
+                  },
+            icon: const Icon(Icons.check_circle),
+            label: Text(s.selectWorker),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: HeydoColors.mintSurface,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 }

@@ -281,6 +281,10 @@ export class MarketplaceService {
     return this.gigs.list(filters);
   }
 
+  listGiverGigs(giverId: string): Promise<Gig[]> {
+    return this.gigs.list({ giverId });
+  }
+
   async getGig(gigId: string): Promise<Gig> {
     const gig = await this.gigs.findById(gigId);
     if (!gig) throw new MarketplaceError('Gig not found', 'not_found');

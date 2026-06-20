@@ -38,8 +38,11 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> pricingGuides = [];
   List<Map<String, dynamic>> visibleGigs = [];
+  List<Map<String, dynamic>> myGigs = [];
+  List<Map<String, dynamic>> currentApplications = [];
   Map<String, dynamic>? lastPostedGig;
   Map<String, dynamic>? lastApplication;
+  Map<String, dynamic>? lastSelection;
   Map<String, dynamic>? lastSafetyReport;
 
   bool busy = false;
@@ -167,6 +170,20 @@ class AppState extends ChangeNotifier {
             .toList(growable: false);
       });
 
+  Future<bool> loadMyGigs() => _guard(() async {
+        final loaded = await api.myGigs();
+        myGigs = loaded
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+      });
+
+  Future<bool> loadApplications(String gigId) => _guard(() async {
+        final loaded = await api.applications(gigId);
+        currentApplications = loaded
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+      });
+
   Future<bool> applyToGig({
     required String gigId,
     String? messageMl,
@@ -177,6 +194,17 @@ class AppState extends ChangeNotifier {
           gigId: gigId,
           messageMl: messageMl,
           proposedPrice: proposedPrice,
+        );
+      });
+
+  Future<bool> selectApplication({
+    required String gigId,
+    required String applicationId,
+  }) =>
+      _guard(() async {
+        lastSelection = await api.selectApplication(
+          gigId: gigId,
+          applicationId: applicationId,
         );
       });
 
