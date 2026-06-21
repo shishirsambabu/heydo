@@ -106,6 +106,8 @@ class HeydoApi {
   Future<List<dynamic>> myGigs() => _getList('/marketplace/my-gigs');
   Future<List<dynamic>> myApplications() => _getList('/marketplace/my-applications');
   Future<Map<String, dynamic>> myReputation() => _get('/marketplace/my-reputation');
+  Future<Map<String, dynamic>> reputation(String userId) =>
+      _get('/marketplace/reputation/$userId');
   Future<List<dynamic>> applications(String gigId) =>
       _getList('/marketplace/gigs/$gigId/applications');
   Future<Map<String, dynamic>> applyToGig({

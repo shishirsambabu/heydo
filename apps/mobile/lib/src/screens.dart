@@ -927,6 +927,11 @@ class _ApplicantCard extends StatelessWidget {
     final message = (application['messageMl'] ?? '') as String;
     final proposedPrice = application['proposedPrice'] ?? gig['budgetAmount'];
     final status = (application['status'] ?? '') as String;
+    final reputation = app.applicantReputations[workerId];
+    final asWorker = (reputation?['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
+    final score = asWorker['heydoScore'];
+    final averageStars = asWorker['averageStars'];
+    final ratingCount = asWorker['ratingCount'] ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -941,6 +946,13 @@ class _ApplicantCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text('${s.agreedAmount}: ₹$proposedPrice',
               style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          const SizedBox(height: 6),
+          Text(
+            score == null
+                ? s.noScoreYet
+                : '${s.heydoScore}: $score · $averageStars / 5 · $ratingCount ${s.ratingsCount}',
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          ),
           if (message.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(message, style: const TextStyle(fontSize: 14, height: 1.35)),
