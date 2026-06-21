@@ -67,6 +67,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     expect(rolesFor('gigAuditTrail')).toEqual(trustOperatorRoles);
     expect(rolesFor('safetyReportAuditTrail')).toEqual(trustOperatorRoles);
     expect(rolesFor('lowRatingReviews')).toEqual(trustOperatorRoles);
+    expect(rolesFor('openSafetyReportFromRating')).toEqual(trustOperatorRoles);
   });
 });
 
@@ -413,6 +414,50 @@ describe('AdminMarketplaceController fresh admin session gates', () => {
       response: expect.objectContaining({ code: 'audit_degraded', failedWriteCount: 1 }),
     });
     expect(marketplace.moderateGig).not.toHaveBeenCalled();
+  });
+
+  it('requires fresh admin session before converting low ratings into safety reports', async () => {
+    const marketplace = { openSafetyReportFromRating: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+      adminSessionsMock('admin_fresh_verification_required') as never,
+    );
+
+    await expect(
+      controller.openSafetyReportFromRating('gig_1', principal, {
+        direction: 'worker_to_giver',
+        note: 'Low rating indicates a possible safety issue.',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'admin_fresh_verification_required' }),
+    });
+    expect(marketplace.openSafetyReportFromRating).not.toHaveBeenCalled();
+  });
+
+  it('passes low-rating safety conversion requests to the service', async () => {
+    const marketplace = {
+      openSafetyReportFromRating: jest.fn().mockResolvedValue({ id: 'safe_1' }),
+    };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+      adminSessionsMock() as never,
+    );
+
+    await controller.openSafetyReportFromRating('gig_1', principal, {
+      direction: 'worker_to_giver',
+      note: 'Low rating indicates a possible safety issue.',
+    });
+
+    expect(marketplace.openSafetyReportFromRating).toHaveBeenCalledWith(
+      'gig_1',
+      'worker_to_giver',
+      'admin_1',
+      'Low rating indicates a possible safety issue.',
+    );
   });
 
   it('blocks sensitive money reads when the registry rejects the admin session', async () => {

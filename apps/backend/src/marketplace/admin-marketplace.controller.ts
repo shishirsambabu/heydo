@@ -13,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { IsOptional, IsString, MinLength } from 'class-validator';
-import { SafetyReportStatus } from './marketplace.entities';
+import { RatingDirection, SafetyReportStatus } from './marketplace.entities';
 import { AdminSessionError, AdminSessionService } from '../auth/admin-session.service';
 import { AuthPrincipal } from '../auth/auth.types';
 import { CurrentUser, Roles } from '../auth/decorators';
@@ -50,6 +50,11 @@ class DisputeResolutionDto {
 
 class EscalationPackageDto {
   @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
+}
+
+class LowRatingSafetyReportDto {
+  @IsString() direction!: RatingDirection;
   @IsString() @MinLength(10) note!: string;
 }
 
@@ -179,6 +184,25 @@ export class AdminMarketplaceController {
       metadata: { itemCount: items.length },
     });
     return items;
+  }
+
+  @Post('gigs/:gigId/ratings/safety-report')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  openSafetyReportFromRating(
+    @Param('gigId') gigId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: LowRatingSafetyReportDto,
+  ) {
+    return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
+      await this.adminSessions.assertFresh(principal);
+      return this.marketplace.openSafetyReportFromRating(
+        gigId,
+        dto.direction,
+        principal.sub,
+        dto.note,
+      );
+    });
   }
 
   @Post('gigs/:gigId/approve')

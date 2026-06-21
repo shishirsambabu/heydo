@@ -637,6 +637,73 @@ describe('MarketplaceService', () => {
     expect(JSON.stringify(items)).not.toContain('Giver changed the location');
   });
 
+  it('lets admins convert a low rating into a safety report with rating evidence', async () => {
+    const { svc, givers, audit } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    await svc.transitionGig(gig.id, 'giver_1', 'completed');
+    const rating = await svc.rateGig(gig.id, 'worker_1', {
+      stars: 1,
+      tags: ['violence_or_threat'],
+      comment: 'Giver threatened me after the gig.',
+    });
+
+    const report = await svc.openSafetyReportFromRating(
+      gig.id,
+      'worker_to_giver',
+      'fraud_admin',
+      'Low rating indicates a threat; open a formal case.',
+    );
+
+    expect(report).toMatchObject({
+      gigId: gig.id,
+      reporterId: 'fraud_admin',
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      evidenceVaultRefs: [`rating:${rating.id}`],
+      status: 'open',
+    });
+    await expect(svc.listSafetyReports({ gigId: gig.id })).resolves.toEqual([
+      expect.objectContaining({ id: report.id }),
+    ]);
+    expect(audit.entries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'admin.low_rating_safety_report_opened',
+          targetType: 'safety_report',
+          targetId: report.id,
+          metadata: expect.objectContaining({
+            ratingId: rating.id,
+            direction: 'worker_to_giver',
+            stars: 1,
+            reportedUserId: 'giver_1',
+            reason: 'violence_or_threat',
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('refunds held escrow when an assigned gig is cancelled', async () => {
     const { svc, givers, moneyRepo } = service(async () => true, true);
     await givers.save({

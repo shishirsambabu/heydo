@@ -361,6 +361,42 @@ export class MarketplaceService {
     );
   }
 
+  async openSafetyReportFromRating(
+    gigId: string,
+    direction: RatingDirection,
+    officerId: string,
+    note: string,
+  ): Promise<SafetyReport> {
+    const rating = await this.ratings.findByGigAndDirection(gigId, direction);
+    if (!rating || rating.stars > 2) {
+      throw new MarketplaceError('Low rating not found for safety conversion', 'not_found');
+    }
+    const reason = safetyReasonForRating(rating);
+    const report = await this.raiseSafetyReport(gigId, officerId, {
+      reportedUserId: rating.rateeId,
+      reason,
+      severity: rating.stars <= 1 ? 'high' : 'medium',
+      description: `Admin converted low rating ${rating.id} into a safety review: ${note.trim()}`,
+      evidenceVaultRefs: [`rating:${rating.id}`],
+    });
+    this.audit.record({
+      actorId: officerId,
+      actorRole: 'fraud_analyst',
+      action: 'admin.low_rating_safety_report_opened',
+      targetType: 'safety_report',
+      targetId: report.id,
+      metadata: {
+        gigId,
+        ratingId: rating.id,
+        direction: rating.direction,
+        stars: rating.stars,
+        reportedUserId: rating.rateeId,
+        reason,
+      },
+    });
+    return report;
+  }
+
   async getGig(gigId: string): Promise<Gig> {
     const gig = await this.gigs.findById(gigId);
     if (!gig) throw new MarketplaceError('Gig not found', 'not_found');
@@ -1193,6 +1229,23 @@ function ratingReviewSummary(rating: Rating): RatingReviewItem['rating'] {
     ...safeRating,
     commentLength: comment?.length ?? 0,
   };
+}
+
+function safetyReasonForRating(rating: Rating): SafetyReportReason {
+  const tagReasons: Record<string, SafetyReportReason> = {
+    unsafe_location: 'unsafe_location',
+    harassment: 'harassment',
+    off_platform_payment: 'off_platform_payment',
+    sexual_misconduct: 'sexual_misconduct',
+    drugs_or_illegal_activity: 'drugs_or_illegal_activity',
+    violence_or_threat: 'violence_or_threat',
+    fraud: 'fraud',
+  };
+  for (const tag of rating.tags) {
+    const reason = tagReasons[tag];
+    if (reason) return reason;
+  }
+  return 'other';
 }
 
 function screenGigRequest(input: PostGigInput, pricingGuide?: PricingGuide): {
