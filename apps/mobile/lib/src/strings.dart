@@ -87,8 +87,16 @@ class S {
   String get gigRejected => _t('സുരക്ഷാ നയപ്രകാരം നിരസിച്ചു', 'Rejected by safety policy');
   String get fillAllFields => _t('എല്ലാ വിവരങ്ങളും പൂരിപ്പിക്കുക', 'Fill all fields');
   String get browseSafeGigs => _t('സുരക്ഷിത ജോലികൾ കാണുക', 'Browse safe gigs');
+  String get myApplications => _t('എന്റെ അപേക്ഷകൾ', 'My applications');
   String get noGigs => _t('ഇപ്പോൾ ലൈവ് ജോലികളില്ല', 'No live gigs right now');
+  String get noApplications => _t('ഇപ്പോൾ അപേക്ഷകളില്ല', 'No applications yet');
   String get apply => _t('അപേക്ഷിക്കുക', 'Apply');
+  String get startGig => _t('ജോലി തുടങ്ങുക', 'Start gig');
+  String get completeGig => _t('ജോലി പൂർത്തിയായി', 'Complete gig');
+  String get cancelGig => _t('റദ്ദാക്കുക', 'Cancel gig');
+  String get gigStarted => _t('ജോലി തുടങ്ങി', 'Gig started');
+  String get gigCompleted => _t('ജോലി പൂർത്തിയായി', 'Gig completed');
+  String get gigCancelled => _t('ജോലി റദ്ദാക്കി', 'Gig cancelled');
   String get fairCounteroffer => _t('ന്യായമായ നിരക്ക് ചോദിക്കുക', 'Ask fair rate');
   String get proposedPrice => _t('നിങ്ങളുടെ നിരക്ക് (₹)', 'Your rate (₹)');
   String get applicationMessage => _t('നിങ്ങളുടെ സന്ദേശം', 'Your message');

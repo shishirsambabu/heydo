@@ -39,10 +39,12 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> pricingGuides = [];
   List<Map<String, dynamic>> visibleGigs = [];
   List<Map<String, dynamic>> myGigs = [];
+  List<Map<String, dynamic>> myApplications = [];
   List<Map<String, dynamic>> currentApplications = [];
   Map<String, dynamic>? lastPostedGig;
   Map<String, dynamic>? lastApplication;
   Map<String, dynamic>? lastSelection;
+  Map<String, dynamic>? lastGigTransition;
   Map<String, dynamic>? lastSafetyReport;
 
   bool busy = false;
@@ -171,11 +173,26 @@ class AppState extends ChangeNotifier {
       });
 
   Future<bool> loadMyGigs() => _guard(() async {
+        await _loadMyGigs();
+      });
+
+  Future<void> _loadMyGigs() async {
         final loaded = await api.myGigs();
         myGigs = loaded
             .whereType<Map<String, dynamic>>()
             .toList(growable: false);
+  }
+
+  Future<bool> loadMyApplications() => _guard(() async {
+        await _loadMyApplications();
       });
+
+  Future<void> _loadMyApplications() async {
+        final loaded = await api.myApplications();
+        myApplications = loaded
+            .whereType<Map<String, dynamic>>()
+            .toList(growable: false);
+  }
 
   Future<bool> loadApplications(String gigId) => _guard(() async {
         final loaded = await api.applications(gigId);
@@ -206,6 +223,25 @@ class AppState extends ChangeNotifier {
           gigId: gigId,
           applicationId: applicationId,
         );
+      });
+
+  Future<bool> startGig(String gigId) => _guard(() async {
+        lastGigTransition = await api.startGig(gigId);
+        await _loadMyApplications();
+      });
+
+  Future<bool> completeGig(String gigId) => _guard(() async {
+        lastGigTransition = await api.completeGig(gigId);
+        await _loadMyGigs();
+      });
+
+  Future<bool> cancelGig(String gigId, {required bool asWorker}) => _guard(() async {
+        lastGigTransition = await api.cancelGig(gigId);
+        if (asWorker) {
+          await _loadMyApplications();
+        } else {
+          await _loadMyGigs();
+        }
       });
 
   Future<bool> raiseSafetyReport({

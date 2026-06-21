@@ -33,6 +33,7 @@ export interface ApplicationRepository {
   findById(id: string): Promise<GigApplication | null>;
   findByGigAndWorker(gigId: string, workerId: string): Promise<GigApplication | null>;
   listForGig(gigId: string): Promise<GigApplication[]>;
+  listForWorker(workerId: string): Promise<GigApplication[]>;
 }
 
 export interface AssignmentRepository {
@@ -133,6 +134,13 @@ export class InMemoryApplicationRepository implements ApplicationRepository {
       .filter((application) => application.gigId === gigId)
       .map((application) => ({ ...application }))
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async listForWorker(workerId: string): Promise<GigApplication[]> {
+    return [...this.items.values()]
+      .filter((application) => application.workerId === workerId)
+      .map((application) => ({ ...application }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 }
 

@@ -440,6 +440,20 @@ describe('MarketplaceService', () => {
         expect.objectContaining({ id: second.id, status: 'rejected' }),
       ]),
     );
+    await expect(svc.listWorkerApplications('worker_1')).resolves.toEqual([
+      expect.objectContaining({
+        application: expect.objectContaining({ id: first.id, status: 'selected' }),
+        gig: expect.objectContaining({ id: gig.id, status: 'assigned' }),
+        assignment: expect.objectContaining({ workerId: 'worker_1', agreedAmount: 3200 }),
+      }),
+    ]);
+    await expect(svc.listWorkerApplications('worker_2')).resolves.toEqual([
+      expect.objectContaining({
+        application: expect.objectContaining({ id: second.id, status: 'rejected' }),
+        gig: expect.objectContaining({ id: gig.id, status: 'assigned' }),
+        assignment: null,
+      }),
+    ]);
 
     await expect(svc.transitionGig(gig.id, 'worker_2', 'in_progress')).rejects.toMatchObject({
       code: 'forbidden',

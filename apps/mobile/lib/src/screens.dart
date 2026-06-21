@@ -364,6 +364,18 @@ class StatusScreen extends StatelessWidget {
               }
             },
           ),
+          const SizedBox(height: 10),
+          BigButton(
+            label: s.myApplications,
+            icon: Icons.assignment_turned_in,
+            filled: false,
+            busy: app.busy,
+            onPressed: () async {
+              if (await context.read<AppState>().loadMyApplications() && context.mounted) {
+                _go(context, const WorkerApplicationListScreen());
+              }
+            },
+          ),
         ],
         if (app.canPost)
           Container(
@@ -447,6 +459,121 @@ class WorkerGigListScreen extends StatelessWidget {
   }
 }
 
+class WorkerApplicationListScreen extends StatelessWidget {
+  const WorkerApplicationListScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final applications = app.myApplications;
+
+    return HeydoScaffold(
+      title: s.myApplications,
+      children: [
+        Expanded(
+          child: applications.isEmpty
+              ? Center(child: Text(s.noApplications, style: const TextStyle(fontSize: 16)))
+              : ListView.separated(
+                  itemCount: applications.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) {
+                    final view = applications[index];
+                    return _WorkerApplicationCard(view: view);
+                  },
+                ),
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+class _WorkerApplicationCard extends StatelessWidget {
+  const _WorkerApplicationCard({required this.view});
+
+  final Map<String, dynamic> view;
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final gig = (view['gig'] as Map?)?.cast<String, dynamic>() ?? {};
+    final application = (view['application'] as Map?)?.cast<String, dynamic>() ?? {};
+    final assignment = (view['assignment'] as Map?)?.cast<String, dynamic>();
+    final title = (gig['title'] ?? '') as String;
+    final location = (gig['location'] ?? '') as String;
+    final gigStatus = (gig['status'] ?? '') as String;
+    final applicationStatus = (application['status'] ?? '') as String;
+    final agreedAmount = assignment?['agreedAmount'] ?? application['proposedPrice'] ?? gig['budgetAmount'];
+    final canStart = applicationStatus == 'selected' && gigStatus == 'assigned';
+    final canCancel = applicationStatus == 'selected' &&
+        (gigStatus == 'assigned' || gigStatus == 'in_progress');
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: HeydoColors.mintSurface),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          Text('$location · ${s.agreedAmount}: ₹$agreedAmount',
+              style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusPill(label: applicationStatus),
+              _StatusPill(label: gigStatus),
+            ],
+          ),
+          if (canStart) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: app.busy
+                  ? null
+                  : () async {
+                      final ok = await context.read<AppState>().startGig(gig['id'] as String);
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.gigStarted)),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.play_arrow),
+              label: Text(s.startGig),
+            ),
+          ],
+          if (canCancel) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: app.busy
+                  ? null
+                  : () async {
+                      final ok = await context
+                          .read<AppState>()
+                          .cancelGig(gig['id'] as String, asWorker: true);
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.gigCancelled)),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.cancel),
+              label: Text(s.cancelGig),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class GiverGigListScreen extends StatelessWidget {
   const GiverGigListScreen({super.key});
 
@@ -491,6 +618,8 @@ class _GiverGigCard extends StatelessWidget {
     final budget = gig['budgetAmount'];
     final visibility = (gig['visibilityStatus'] ?? '') as String;
     final status = (gig['status'] ?? '') as String;
+    final canComplete = status == 'in_progress';
+    final canCancel = status == 'assigned' || status == 'in_progress';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -526,6 +655,42 @@ class _GiverGigCard extends StatelessWidget {
             icon: const Icon(Icons.people),
             label: Text(s.viewApplicants),
           ),
+          if (canComplete) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: app.busy
+                  ? null
+                  : () async {
+                      final ok = await context.read<AppState>().completeGig(gig['id'] as String);
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.gigCompleted)),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.done_all),
+              label: Text(s.completeGig),
+            ),
+          ],
+          if (canCancel) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: app.busy
+                  ? null
+                  : () async {
+                      final ok = await context
+                          .read<AppState>()
+                          .cancelGig(gig['id'] as String, asWorker: false);
+                      if (ok && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.gigCancelled)),
+                        );
+                      }
+                    },
+              icon: const Icon(Icons.cancel),
+              label: Text(s.cancelGig),
+            ),
+          ],
         ],
       ),
     );

@@ -180,6 +180,12 @@ export interface SafetyEscalationPackage {
   };
 }
 
+export interface WorkerGigApplicationView {
+  application: GigApplication;
+  gig: Gig;
+  assignment: Assignment | null;
+}
+
 const PLATFORM_FEE_BPS = 1500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
@@ -283,6 +289,19 @@ export class MarketplaceService {
 
   listGiverGigs(giverId: string): Promise<Gig[]> {
     return this.gigs.list({ giverId });
+  }
+
+  async listWorkerApplications(workerId: string): Promise<WorkerGigApplicationView[]> {
+    const applications = await this.applications.listForWorker(workerId);
+    const views = await Promise.all(
+      applications.map(async (application) => {
+        const gig = await this.getGig(application.gigId);
+        const assignment =
+          application.status === 'selected' ? await this.assignments.findByGig(gig.id) : null;
+        return { application, gig, assignment };
+      }),
+    );
+    return views;
   }
 
   async getGig(gigId: string): Promise<Gig> {

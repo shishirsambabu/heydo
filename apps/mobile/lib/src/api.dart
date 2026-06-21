@@ -104,6 +104,7 @@ class HeydoApi {
       });
   Future<List<dynamic>> gigs() => _getList('/marketplace/gigs');
   Future<List<dynamic>> myGigs() => _getList('/marketplace/my-gigs');
+  Future<List<dynamic>> myApplications() => _getList('/marketplace/my-applications');
   Future<List<dynamic>> applications(String gigId) =>
       _getList('/marketplace/gigs/$gigId/applications');
   Future<Map<String, dynamic>> applyToGig({
@@ -120,6 +121,12 @@ class HeydoApi {
     required String applicationId,
   }) =>
       _post('/marketplace/gigs/$gigId/applications/$applicationId/select');
+  Future<Map<String, dynamic>> startGig(String gigId) =>
+      _post('/marketplace/gigs/$gigId/start');
+  Future<Map<String, dynamic>> completeGig(String gigId) =>
+      _post('/marketplace/gigs/$gigId/complete');
+  Future<Map<String, dynamic>> cancelGig(String gigId) =>
+      _post('/marketplace/gigs/$gigId/cancel');
   Future<Map<String, dynamic>> raiseSafetyReport({
     required String gigId,
     required String reason,

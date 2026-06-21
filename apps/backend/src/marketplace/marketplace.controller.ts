@@ -70,6 +70,11 @@ export class MarketplaceController {
     return this.marketplace.listGiverGigs(principal.sub);
   }
 
+  @Get('my-applications')
+  listMyApplications(@CurrentUser() principal: AuthPrincipal) {
+    return this.marketplace.listWorkerApplications(principal.sub);
+  }
+
   @Get('gigs/:gigId')
   async getGig(@Param('gigId') gigId: string) {
     return this.wrap(() => this.marketplace.getGig(gigId));

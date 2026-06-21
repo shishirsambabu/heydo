@@ -291,6 +291,14 @@ export class PostgresApplicationRepository implements ApplicationRepository {
     );
     return rows.map(toApplication);
   }
+
+  async listForWorker(workerId: string): Promise<GigApplication[]> {
+    const rows = await this.pg.query<ApplicationRow>(
+      `${selectApplication()} WHERE "workerId" = $1 ORDER BY "createdAt" DESC`,
+      [workerId],
+    );
+    return rows.map(toApplication);
+  }
 }
 
 @Injectable()
