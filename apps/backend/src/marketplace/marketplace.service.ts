@@ -97,7 +97,8 @@ export type AdminDecisionReasonAction =
   | 'dispute.release_to_worker'
   | 'dispute.refund_giver'
   | 'dispute.keep_escalated'
-  | 'escalation.generate';
+  | 'escalation.generate'
+  | 'giver.deactivate_abusive';
 
 export interface AdminDecisionReason {
   code: string;
@@ -161,6 +162,11 @@ export const ADMIN_DECISION_REASON_CATALOG: Record<
   'escalation.generate': [
     { code: 'police_escalation_ready', label: 'Police escalation package ready' },
     { code: 'legal_hold_package_ready', label: 'Legal hold package ready' },
+  ],
+  'giver.deactivate_abusive': [
+    { code: 'worker_safety_risk', label: 'Worker safety risk' },
+    { code: 'repeated_or_severe_abuse', label: 'Repeated or severe abuse' },
+    { code: 'illegal_or_criminal_activity', label: 'Illegal or criminal activity' },
   ],
 };
 
@@ -702,6 +708,45 @@ export class MarketplaceService {
       },
     });
     return updated;
+  }
+
+  async deactivateGiverFromSafetyReport(
+    reportId: string,
+    reviewerId: string,
+    decisionNote: AdminDecisionNote,
+  ) {
+    const report = await this.safetyReports.findById(reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    const gig = await this.getGig(report.gigId);
+    if (report.reportedUserId !== gig.giverId) {
+      throw new MarketplaceError('Safety report does not target the gig giver', 'invalid_state');
+    }
+    if (!['under_review', 'action_taken', 'escalated'].includes(report.status)) {
+      throw new MarketplaceError('Safety report must be under review before deactivation', 'invalid_state');
+    }
+    const giver = await this.givers.findByUser(gig.giverId);
+    if (!giver) throw new MarketplaceError('Giver profile not found', 'not_found');
+    const updatedGiver = {
+      ...giver,
+      status: 'deactivated_abusive' as const,
+      reverificationReason: `safety_report:${report.id}:${decisionNote.reasonCode}`,
+    };
+    await this.givers.save(updatedGiver);
+    this.audit.record({
+      actorId: reviewerId,
+      actorRole: 'fraud_analyst',
+      action: 'giver.deactivated_abusive',
+      targetType: 'giver',
+      targetId: gig.giverId,
+      metadata: {
+        reportId,
+        gigId: gig.id,
+        reason: report.reason,
+        severity: report.severity,
+        decision: summarizeDecision(decisionNote, 'Giver deactivated from safety report'),
+      },
+    });
+    return updatedGiver;
   }
 
   async resolveSafetyDispute(

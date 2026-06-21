@@ -325,6 +325,24 @@ export class AdminMarketplaceController {
     });
   }
 
+  @Post('safety-reports/:reportId/deactivate-giver')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  deactivateGiverFromSafetyReport(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: ModerationDto,
+  ) {
+    return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
+      await this.adminSessions.assertFresh(principal);
+      return this.marketplace.deactivateGiverFromSafetyReport(
+        reportId,
+        principal.sub,
+        decisionFromDto('giver.deactivate_abusive', dto),
+      );
+    });
+  }
+
   @Post('safety-reports/:reportId/resolve-dispute')
   @Roles('dispute_officer', 'super_admin')
   resolveDispute(

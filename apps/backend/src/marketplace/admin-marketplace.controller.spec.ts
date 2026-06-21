@@ -68,6 +68,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     expect(rolesFor('safetyReportAuditTrail')).toEqual(trustOperatorRoles);
     expect(rolesFor('lowRatingReviews')).toEqual(trustOperatorRoles);
     expect(rolesFor('openSafetyReportFromRating')).toEqual(trustOperatorRoles);
+    expect(rolesFor('deactivateGiverFromSafetyReport')).toEqual(trustOperatorRoles);
   });
 });
 
@@ -194,6 +195,9 @@ describe('AdminMarketplaceController structured decisions', () => {
       ]),
       'escalation.generate': expect.arrayContaining([
         expect.objectContaining({ code: 'police_escalation_ready' }),
+      ]),
+      'giver.deactivate_abusive': expect.arrayContaining([
+        expect.objectContaining({ code: 'worker_safety_risk' }),
       ]),
     });
   });
@@ -457,6 +461,52 @@ describe('AdminMarketplaceController fresh admin session gates', () => {
       'worker_to_giver',
       'admin_1',
       'Low rating indicates a possible safety issue.',
+    );
+  });
+
+  it('requires fresh admin session before deactivating abusive givers', async () => {
+    const marketplace = { deactivateGiverFromSafetyReport: jest.fn() };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+      adminSessionsMock('admin_fresh_verification_required') as never,
+    );
+
+    await expect(
+      controller.deactivateGiverFromSafetyReport('safe_1', principal, {
+        reasonCode: 'worker_safety_risk',
+        note: 'Threat evidence is credible; deactivate the giver.',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'admin_fresh_verification_required' }),
+    });
+    expect(marketplace.deactivateGiverFromSafetyReport).not.toHaveBeenCalled();
+  });
+
+  it('passes structured giver deactivation decisions to the service', async () => {
+    const marketplace = {
+      deactivateGiverFromSafetyReport: jest.fn().mockResolvedValue({ userId: 'giver_1' }),
+    };
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      auditMock() as never,
+      adminSessionsMock() as never,
+    );
+
+    await controller.deactivateGiverFromSafetyReport('safe_1', principal, {
+      reasonCode: 'worker_safety_risk',
+      note: 'Threat evidence is credible; deactivate the giver.',
+    });
+
+    expect(marketplace.deactivateGiverFromSafetyReport).toHaveBeenCalledWith(
+      'safe_1',
+      'admin_1',
+      {
+        reasonCode: 'worker_safety_risk',
+        note: 'Threat evidence is credible; deactivate the giver.',
+      },
     );
   });
 

@@ -704,6 +704,83 @@ describe('MarketplaceService', () => {
     );
   });
 
+  it('deactivates abusive givers from reviewed safety reports and blocks future posting', async () => {
+    const { svc, givers, audit } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const report = await svc.raiseSafetyReport(gig.id, 'worker_1', {
+      reportedUserId: 'giver_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Giver threatened me after I arrived.',
+      evidenceVaultRefs: ['vault_chat_threat_1'],
+    });
+    await svc.reviewSafetyReport(
+      report.id,
+      'fraud_admin_1',
+      'under_review',
+      'Case triaged by trust operator.',
+      undefined,
+      {
+        reasonCode: 'triage_started',
+        note: 'Case triaged by trust operator.',
+      },
+    );
+
+    await expect(
+      svc.deactivateGiverFromSafetyReport(report.id, 'fraud_admin_2', {
+        reasonCode: 'worker_safety_risk',
+        note: 'Threat evidence is credible; deactivate the giver.',
+      }),
+    ).resolves.toMatchObject({
+      userId: 'giver_1',
+      status: 'deactivated_abusive',
+      reverificationReason: `safety_report:${report.id}:worker_safety_risk`,
+    });
+    await expect(
+      svc.postGig('giver_1', {
+        categoryId: 'cat_cleaning',
+        title: 'New cleaning',
+        description: 'Need cleaning help for another home',
+        location: 'Kochi',
+        scheduledAt: '2026-06-20T10:00:00.000Z',
+        budgetAmount: 1000,
+      }),
+    ).rejects.toMatchObject({ code: 'giver_required' });
+    expect(audit.entries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'giver.deactivated_abusive',
+          targetType: 'giver',
+          targetId: 'giver_1',
+          metadata: expect.objectContaining({
+            reportId: report.id,
+            gigId: gig.id,
+            reason: 'violence_or_threat',
+            severity: 'high',
+          decision: {
+            reasonCode: 'worker_safety_risk',
+            noteLength: 50,
+          },
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('refunds held escrow when an assigned gig is cancelled', async () => {
     const { svc, givers, moneyRepo } = service(async () => true, true);
     await givers.save({
