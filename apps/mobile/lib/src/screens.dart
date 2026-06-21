@@ -474,7 +474,8 @@ class _ScorePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = context.watch<AppState>().s;
+    final app = context.watch<AppState>();
+    final s = app.s;
     final score = summary['heydoScore'];
     final averageStars = summary['averageStars'];
     final ratingCount = summary['ratingCount'] ?? 0;
@@ -1008,11 +1009,18 @@ class _GigCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final s = context.watch<AppState>().s;
+    final app = context.watch<AppState>();
+    final s = app.s;
     final title = (gig['title'] ?? '') as String;
     final description = (gig['description'] ?? '') as String;
     final location = (gig['location'] ?? '') as String;
     final budget = gig['budgetAmount'];
+    final giverId = (gig['giverId'] ?? '') as String;
+    final reputation = app.giverReputations[giverId];
+    final asGiver = (reputation?['asGiver'] as Map?)?.cast<String, dynamic>() ?? {};
+    final score = asGiver['heydoScore'];
+    final averageStars = asGiver['averageStars'];
+    final ratingCount = asGiver['ratingCount'] ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1026,6 +1034,13 @@ class _GigCard extends StatelessWidget {
           Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Text('$location · ₹$budget', style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          const SizedBox(height: 8),
+          Text(
+            score == null
+                ? s.noScoreYet
+                : '${s.heydoScore}: $score · $averageStars / 5 · $ratingCount ${s.ratingsCount}',
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          ),
           const SizedBox(height: 8),
           Text(description, style: const TextStyle(fontSize: 14, height: 1.35)),
           const SizedBox(height: 12),
