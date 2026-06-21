@@ -411,6 +411,14 @@ export class PostgresRatingRepository implements RatingRepository {
     );
     return rows.map(toRating);
   }
+
+  async listAtOrBelowStars(maxStars: number): Promise<Rating[]> {
+    const rows = await this.pg.query<RatingRow>(
+      `${selectRating()} WHERE stars <= $1 ORDER BY "createdAt" ASC`,
+      [maxStars],
+    );
+    return rows.map(toRating);
+  }
 }
 
 @Injectable()

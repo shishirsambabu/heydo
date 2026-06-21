@@ -66,6 +66,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     expect(rolesFor('reviewSafetyReport')).toEqual(trustOperatorRoles);
     expect(rolesFor('gigAuditTrail')).toEqual(trustOperatorRoles);
     expect(rolesFor('safetyReportAuditTrail')).toEqual(trustOperatorRoles);
+    expect(rolesFor('lowRatingReviews')).toEqual(trustOperatorRoles);
   });
 });
 
@@ -147,6 +148,29 @@ describe('AdminMarketplaceController sensitive read audit', () => {
       targetType: 'safety_report',
       targetId: 'safe_1',
       metadata: { auditRecordCount: 1 },
+    });
+  });
+
+  it('audits low rating queue reads with count-only metadata', async () => {
+    const items = [{ rating: { id: 'rating_1', stars: 2, commentLength: 32 } }];
+    const marketplace = { listLowRatingReviewItems: jest.fn().mockResolvedValue(items) };
+    const audit = auditMock();
+    const controller = new AdminMarketplaceController(
+      marketplace as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(controller.lowRatingReviews(principal)).resolves.toBe(items);
+
+    expect(audit.record).toHaveBeenCalledWith({
+      actorId: 'admin_1',
+      actorRole: 'fraud_analyst',
+      action: 'admin.low_rating_review_queue_viewed',
+      targetType: 'reputation',
+      targetId: 'low_ratings',
+      metadata: { itemCount: 1 },
     });
   });
 });

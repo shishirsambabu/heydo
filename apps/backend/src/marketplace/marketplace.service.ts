@@ -209,6 +209,12 @@ export interface ReputationSummary {
   asGiver: ReputationSignalSummary;
 }
 
+export interface RatingReviewItem {
+  rating: Omit<Rating, 'comment'> & { commentLength: number };
+  gig: Gig;
+  rateeReputation: ReputationSummary;
+}
+
 const PLATFORM_FEE_BPS = 1500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
@@ -342,6 +348,17 @@ export class MarketplaceService {
       asWorker: reputationSignal('giver_to_worker', asWorkerRatings),
       asGiver: reputationSignal('worker_to_giver', asGiverRatings),
     };
+  }
+
+  async listLowRatingReviewItems(maxStars = 2): Promise<RatingReviewItem[]> {
+    const ratings = await this.ratings.listAtOrBelowStars(maxStars);
+    return Promise.all(
+      ratings.map(async (rating) => ({
+        rating: ratingReviewSummary(rating),
+        gig: await this.getGig(rating.gigId),
+        rateeReputation: await this.reputationForUser(rating.rateeId),
+      })),
+    );
   }
 
   async getGig(gigId: string): Promise<Gig> {
@@ -1167,6 +1184,14 @@ function reputationSignal(
     averageStars,
     ratingCount: ratings.length,
     heydoScore: Math.round(averageStars * 20),
+  };
+}
+
+function ratingReviewSummary(rating: Rating): RatingReviewItem['rating'] {
+  const { comment, ...safeRating } = rating;
+  return {
+    ...safeRating,
+    commentLength: comment?.length ?? 0,
   };
 }
 

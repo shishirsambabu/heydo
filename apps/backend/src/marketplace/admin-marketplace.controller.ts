@@ -166,6 +166,21 @@ export class AdminMarketplaceController {
     return ADMIN_DECISION_REASON_CATALOG;
   }
 
+  @Get('reputation/low-ratings')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  async lowRatingReviews(@CurrentUser() principal: AuthPrincipal) {
+    const items = await this.marketplace.listLowRatingReviewItems();
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: 'admin.low_rating_review_queue_viewed',
+      targetType: 'reputation',
+      targetId: 'low_ratings',
+      metadata: { itemCount: items.length },
+    });
+    return items;
+  }
+
   @Post('gigs/:gigId/approve')
   @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   approve(

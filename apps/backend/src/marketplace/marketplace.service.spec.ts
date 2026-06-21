@@ -587,6 +587,56 @@ describe('MarketplaceService', () => {
     });
   });
 
+  it('surfaces low ratings for admin review without exposing comment text in the queue', async () => {
+    const { svc, givers } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    await svc.transitionGig(gig.id, 'giver_1', 'completed');
+    await svc.rateGig(gig.id, 'worker_1', {
+      stars: 2,
+      tags: ['unsafe_location'],
+      comment: 'Giver changed the location after selection.',
+    });
+
+    const items = await svc.listLowRatingReviewItems();
+
+    expect(items).toEqual([
+      expect.objectContaining({
+        rating: expect.objectContaining({
+          direction: 'worker_to_giver',
+          stars: 2,
+          tags: ['unsafe_location'],
+          commentLength: 43,
+        }),
+        gig: expect.objectContaining({ id: gig.id }),
+        rateeReputation: expect.objectContaining({
+          userId: 'giver_1',
+          asGiver: expect.objectContaining({ heydoScore: 40, ratingCount: 1 }),
+        }),
+      }),
+    ]);
+    expect(JSON.stringify(items)).not.toContain('Giver changed the location');
+  });
+
   it('refunds held escrow when an assigned gig is cancelled', async () => {
     const { svc, givers, moneyRepo } = service(async () => true, true);
     await givers.save({
