@@ -31,7 +31,10 @@ import {
   InMemoryEvidenceVaultRefRepository,
   InMemoryEscalationPackageRepository,
   InMemoryGigRepository,
+  InMemoryRatingRepository,
   InMemorySafetyReportRepository,
+  RATING_REPOSITORY,
+  RatingRepository,
   SAFETY_REPORT_REPOSITORY,
 } from './marketplace.repository';
 import {
@@ -41,6 +44,7 @@ import {
   PostgresEvidenceVaultRefRepository,
   PostgresEscalationPackageRepository,
   PostgresGigRepository,
+  PostgresRatingRepository,
   PostgresSafetyReportRepository,
 } from './postgres-marketplace.repository';
 import { MarketplaceService } from './marketplace.service';
@@ -88,6 +92,14 @@ import { MarketplaceService } from './marketplace.service';
           : new InMemorySafetyReportRepository(),
     },
     {
+      provide: RATING_REPOSITORY,
+      inject: [ConfigService, PostgresRatingRepository],
+      useFactory: (config: ConfigService, postgres: PostgresRatingRepository) =>
+        config.get<string>('PERSISTENCE') === 'postgres'
+          ? postgres
+          : new InMemoryRatingRepository(),
+    },
+    {
       provide: EVIDENCE_VAULT_REF_REPOSITORY,
       inject: [ConfigService, PostgresEvidenceVaultRefRepository],
       useFactory: (config: ConfigService, postgres: PostgresEvidenceVaultRefRepository) =>
@@ -107,6 +119,7 @@ import { MarketplaceService } from './marketplace.service';
     PostgresGigRepository,
     PostgresApplicationRepository,
     PostgresAssignmentRepository,
+    PostgresRatingRepository,
     PostgresSafetyReportRepository,
     PostgresEvidenceVaultRefRepository,
     PostgresEscalationPackageRepository,
@@ -117,6 +130,7 @@ import { MarketplaceService } from './marketplace.service';
         GIG_REPOSITORY,
         APPLICATION_REPOSITORY,
         ASSIGNMENT_REPOSITORY,
+        RATING_REPOSITORY,
         SAFETY_REPORT_REPOSITORY,
         EVIDENCE_VAULT_REF_REPOSITORY,
         ESCALATION_PACKAGE_REPOSITORY,
@@ -130,6 +144,7 @@ import { MarketplaceService } from './marketplace.service';
         gigs: GigRepository,
         applications: ApplicationRepository,
         assignments: AssignmentRepository,
+        ratings: RatingRepository,
         safetyReports,
         evidenceVaultRefs: EvidenceVaultRefRepository,
         escalationPackages: EscalationPackageRepository,
@@ -143,6 +158,7 @@ import { MarketplaceService } from './marketplace.service';
           gigs,
           applications,
           assignments,
+          ratings,
           safetyReports,
           evidenceVaultRefs,
           escalationPackages,

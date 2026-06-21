@@ -45,6 +45,7 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic>? lastApplication;
   Map<String, dynamic>? lastSelection;
   Map<String, dynamic>? lastGigTransition;
+  Map<String, dynamic>? lastRating;
   Map<String, dynamic>? lastSafetyReport;
 
   bool busy = false;
@@ -237,6 +238,25 @@ class AppState extends ChangeNotifier {
 
   Future<bool> cancelGig(String gigId, {required bool asWorker}) => _guard(() async {
         lastGigTransition = await api.cancelGig(gigId);
+        if (asWorker) {
+          await _loadMyApplications();
+        } else {
+          await _loadMyGigs();
+        }
+      });
+
+  Future<bool> rateGig({
+    required String gigId,
+    required int stars,
+    String? comment,
+    required bool asWorker,
+  }) =>
+      _guard(() async {
+        lastRating = await api.rateGig(
+          gigId: gigId,
+          stars: stars,
+          comment: comment,
+        );
         if (asWorker) {
           await _loadMyApplications();
         } else {

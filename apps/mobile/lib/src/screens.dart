@@ -509,6 +509,7 @@ class _WorkerApplicationCard extends StatelessWidget {
     final canStart = applicationStatus == 'selected' && gigStatus == 'assigned';
     final canCancel = applicationStatus == 'selected' &&
         (gigStatus == 'assigned' || gigStatus == 'in_progress');
+    final canRate = applicationStatus == 'selected' && gigStatus == 'completed';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -568,8 +569,94 @@ class _WorkerApplicationCard extends StatelessWidget {
               label: Text(s.cancelGig),
             ),
           ],
+          if (canRate) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => _go(
+                context,
+                RateGigScreen(
+                  gigId: gig['id'] as String,
+                  title: s.rateGiver,
+                  asWorker: true,
+                ),
+              ),
+              icon: const Icon(Icons.star),
+              label: Text(s.rateGiver),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class RateGigScreen extends StatefulWidget {
+  const RateGigScreen({
+    super.key,
+    required this.gigId,
+    required this.title,
+    required this.asWorker,
+  });
+
+  final String gigId;
+  final String title;
+  final bool asWorker;
+
+  @override
+  State<RateGigScreen> createState() => _RateGigScreenState();
+}
+
+class _RateGigScreenState extends State<RateGigScreen> {
+  final _comment = TextEditingController();
+  int _stars = 5;
+
+  @override
+  void dispose() {
+    _comment.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+
+    return HeydoScaffold(
+      title: widget.title,
+      children: [
+        DropdownButtonFormField<int>(
+          value: _stars,
+          decoration: InputDecoration(labelText: s.rating, border: const OutlineInputBorder()),
+          items: [1, 2, 3, 4, 5]
+              .map((stars) => DropdownMenuItem<int>(
+                    value: stars,
+                    child: Text('$stars'),
+                  ))
+              .toList(),
+          onChanged: (value) => setState(() => _stars = value ?? _stars),
+        ),
+        const SizedBox(height: 12),
+        _field(_comment, s.ratingComment, maxLines: 3),
+        const SizedBox(height: 18),
+        BigButton(
+          label: s.submitRating,
+          icon: Icons.star,
+          busy: app.busy,
+          onPressed: () async {
+            final ok = await context.read<AppState>().rateGig(
+                  gigId: widget.gigId,
+                  stars: _stars,
+                  comment: _comment.text.trim(),
+                  asWorker: widget.asWorker,
+                );
+            if (ok && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.ratingSent)));
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
     );
   }
 }
@@ -620,6 +707,7 @@ class _GiverGigCard extends StatelessWidget {
     final status = (gig['status'] ?? '') as String;
     final canComplete = status == 'in_progress';
     final canCancel = status == 'assigned' || status == 'in_progress';
+    final canRate = status == 'completed';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -689,6 +777,21 @@ class _GiverGigCard extends StatelessWidget {
                     },
               icon: const Icon(Icons.cancel),
               label: Text(s.cancelGig),
+            ),
+          ],
+          if (canRate) ...[
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () => _go(
+                context,
+                RateGigScreen(
+                  gigId: gig['id'] as String,
+                  title: s.rateWorker,
+                  asWorker: false,
+                ),
+              ),
+              icon: const Icon(Icons.star),
+              label: Text(s.rateWorker),
             ),
           ],
         ],

@@ -8,6 +8,8 @@ import {
   EvidenceVaultRef,
   Gig,
   GigApplication,
+  Rating,
+  RatingDirection,
   SafetyReport,
 } from './marketplace.entities';
 import {
@@ -18,6 +20,7 @@ import {
   EscalationPackageRepository,
   GigFilters,
   GigRepository,
+  RatingRepository,
   SafetyReportRepository,
 } from './marketplace.repository';
 
@@ -68,6 +71,18 @@ interface AssignmentRow {
   platformFeeAmount: number;
   workerPayoutAmount: number;
   selectedAt: Date;
+}
+
+interface RatingRow {
+  id: string;
+  gigId: string;
+  raterId: string;
+  rateeId: string;
+  direction: RatingDirection;
+  stars: number;
+  tags: string[] | null;
+  comment: string | null;
+  createdAt: Date;
 }
 
 interface SafetyReportRow {
@@ -344,6 +359,53 @@ export class PostgresAssignmentRepository implements AssignmentRepository {
 }
 
 @Injectable()
+export class PostgresRatingRepository implements RatingRepository {
+  constructor(private readonly pg: PgService) {}
+
+  async save(rating: Rating): Promise<void> {
+    await this.pg.query(
+      `INSERT INTO "Rating"
+        (id, "gigId", "raterId", "rateeId", direction, stars, tags, comment, "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)
+       ON CONFLICT ("gigId", direction) DO UPDATE SET
+         stars = EXCLUDED.stars,
+         tags = EXCLUDED.tags,
+         comment = EXCLUDED.comment`,
+      [
+        rating.id,
+        rating.gigId,
+        rating.raterId,
+        rating.rateeId,
+        rating.direction,
+        rating.stars,
+        JSON.stringify(rating.tags),
+        rating.comment ?? null,
+        rating.createdAt,
+      ],
+    );
+  }
+
+  async findByGigAndDirection(
+    gigId: string,
+    direction: RatingDirection,
+  ): Promise<Rating | null> {
+    const [row] = await this.pg.query<RatingRow>(
+      `${selectRating()} WHERE "gigId" = $1 AND direction = $2`,
+      [gigId, direction],
+    );
+    return row ? toRating(row) : null;
+  }
+
+  async listForGig(gigId: string): Promise<Rating[]> {
+    const rows = await this.pg.query<RatingRow>(
+      `${selectRating()} WHERE "gigId" = $1 ORDER BY "createdAt" ASC`,
+      [gigId],
+    );
+    return rows.map(toRating);
+  }
+}
+
+@Injectable()
 export class PostgresSafetyReportRepository implements SafetyReportRepository {
   constructor(private readonly pg: PgService) {}
 
@@ -544,6 +606,11 @@ function selectApplication(): string {
           FROM "Application"`;
 }
 
+function selectRating(): string {
+  return `SELECT id, "gigId", "raterId", "rateeId", direction, stars, tags, comment, "createdAt"
+          FROM "Rating"`;
+}
+
 function toCategory(row: CategoryRow): Category {
   return {
     id: row.id,
@@ -598,6 +665,20 @@ function toAssignment(row: AssignmentRow): Assignment {
     platformFeeAmount: row.platformFeeAmount,
     workerPayoutAmount: row.workerPayoutAmount,
     selectedAt: row.selectedAt.toISOString(),
+  };
+}
+
+function toRating(row: RatingRow): Rating {
+  return {
+    id: row.id,
+    gigId: row.gigId,
+    raterId: row.raterId,
+    rateeId: row.rateeId,
+    direction: row.direction,
+    stars: row.stars,
+    tags: row.tags ?? [],
+    comment: row.comment ?? undefined,
+    createdAt: row.createdAt.toISOString(),
   };
 }
 

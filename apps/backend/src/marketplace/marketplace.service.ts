@@ -14,6 +14,8 @@ import {
   GigApplication,
   GigStatus,
   PricingGuide,
+  Rating,
+  RatingDirection,
   SafetyReport,
   SafetyReportReason,
   SafetyReportSeverity,
@@ -23,6 +25,7 @@ import {
   APPLICATION_REPOSITORY,
   ASSIGNMENT_REPOSITORY,
   EVIDENCE_VAULT_REF_REPOSITORY,
+  RATING_REPOSITORY,
   SAFETY_REPORT_REPOSITORY,
   ApplicationRepository,
   AssignmentRepository,
@@ -34,6 +37,7 @@ import {
   GIG_REPOSITORY,
   GigFilters,
   GigRepository,
+  RatingRepository,
   SafetyReportRepository,
 } from './marketplace.repository';
 
@@ -59,6 +63,12 @@ export interface PostGigInput {
 export interface ApplyInput {
   messageMl?: string;
   proposedPrice?: number;
+}
+
+export interface RateGigInput {
+  stars: number;
+  tags?: string[];
+  comment?: string;
 }
 
 export interface RaiseSafetyReportInput {
@@ -205,6 +215,7 @@ export class MarketplaceService {
     @Inject(GIG_REPOSITORY) private readonly gigs: GigRepository,
     @Inject(APPLICATION_REPOSITORY) private readonly applications: ApplicationRepository,
     @Inject(ASSIGNMENT_REPOSITORY) private readonly assignments: AssignmentRepository,
+    @Inject(RATING_REPOSITORY) private readonly ratings: RatingRepository,
     @Inject(SAFETY_REPORT_REPOSITORY) private readonly safetyReports: SafetyReportRepository,
     @Inject(EVIDENCE_VAULT_REF_REPOSITORY)
     private readonly evidenceVaultRefs: EvidenceVaultRefRepository,
@@ -302,6 +313,10 @@ export class MarketplaceService {
       }),
     );
     return views;
+  }
+
+  listRatingsForGig(gigId: string): Promise<Rating[]> {
+    return this.ratings.listForGig(gigId);
   }
 
   async getGig(gigId: string): Promise<Gig> {
@@ -914,6 +929,60 @@ export class MarketplaceService {
     return updated;
   }
 
+  async rateGig(gigId: string, raterId: string, input: RateGigInput): Promise<Rating> {
+    if (!Number.isInteger(input.stars) || input.stars < 1 || input.stars > 5) {
+      throw new MarketplaceError('Rating stars must be between 1 and 5', 'invalid_rating');
+    }
+    const gig = await this.getGig(gigId);
+    if (gig.status !== 'completed') {
+      throw new MarketplaceError('Gig must be completed before rating', 'rating_not_open');
+    }
+    const assignment = await this.assignments.findByGig(gigId);
+    if (!assignment) throw new MarketplaceError('Gig has no assignment', 'not_assigned');
+
+    let direction: RatingDirection;
+    let rateeId: string;
+    if (raterId === gig.giverId) {
+      direction = 'giver_to_worker';
+      rateeId = assignment.workerId;
+    } else if (raterId === assignment.workerId) {
+      direction = 'worker_to_giver';
+      rateeId = gig.giverId;
+    } else {
+      throw new MarketplaceError('Only gig parties can rate this gig', 'forbidden');
+    }
+
+    const existing = await this.ratings.findByGigAndDirection(gigId, direction);
+    if (existing) return existing;
+
+    const rating: Rating = {
+      id: `rating_${this.id()}`,
+      gigId,
+      raterId,
+      rateeId,
+      direction,
+      stars: input.stars,
+      tags: sanitizeRatingTags(input.tags),
+      comment: sanitizeRatingComment(input.comment),
+      createdAt: new Date(this.now()).toISOString(),
+    };
+    await this.ratings.save(rating);
+    this.audit.record({
+      actorId: raterId,
+      actorRole: direction === 'giver_to_worker' ? 'giver' : 'worker',
+      action: 'gig.rating_submitted',
+      targetType: 'gig',
+      targetId: gigId,
+      metadata: {
+        direction,
+        stars: rating.stars,
+        tags: rating.tags,
+        commentLength: rating.comment?.length ?? 0,
+      },
+    });
+    return rating;
+  }
+
   private async requireGiverGig(gigId: string, giverId: string): Promise<Gig> {
     const gig = await this.getGig(gigId);
     if (gig.giverId !== giverId) {
@@ -1040,6 +1109,17 @@ function assignmentEconomics(agreedAmount: number): Pick<
     platformFeeAmount,
     workerPayoutAmount: agreedAmount - platformFeeAmount,
   };
+}
+
+function sanitizeRatingTags(tags: string[] = []): string[] {
+  return [...new Set(tags.map((tag) => tag.trim()).filter(Boolean))]
+    .slice(0, 5)
+    .map((tag) => tag.slice(0, 32));
+}
+
+function sanitizeRatingComment(comment?: string): string | undefined {
+  const cleaned = comment?.trim();
+  return cleaned ? cleaned.slice(0, 500) : undefined;
 }
 
 function screenGigRequest(input: PostGigInput, pricingGuide?: PricingGuide): {

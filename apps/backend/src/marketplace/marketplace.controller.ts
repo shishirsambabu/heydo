@@ -11,7 +11,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { IsInt, IsISO8601, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import {
+  IsArray,
+  IsInt,
+  IsISO8601,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { CurrentUser } from '../auth/decorators';
 import { AuthPrincipal } from '../auth/auth.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -38,6 +47,12 @@ class SafetyReportDto {
   @IsString() severity!: SafetyReportSeverity;
   @IsString() @MinLength(10) description!: string;
   @IsOptional() evidenceVaultRefs?: string[];
+}
+
+class RateGigDto {
+  @IsInt() @Min(1) @Max(5) stars!: number;
+  @IsOptional() @IsArray() @IsString({ each: true }) tags?: string[];
+  @IsOptional() @IsString() comment?: string;
 }
 
 @Controller('marketplace')
@@ -113,6 +128,20 @@ export class MarketplaceController {
     return this.wrap(() => this.marketplace.transitionGig(gigId, principal.sub, 'completed'));
   }
 
+  @Post('gigs/:gigId/ratings')
+  async rateGig(
+    @Param('gigId') gigId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: RateGigDto,
+  ) {
+    return this.wrap(() => this.marketplace.rateGig(gigId, principal.sub, dto));
+  }
+
+  @Get('gigs/:gigId/ratings')
+  ratings(@Param('gigId') gigId: string) {
+    return this.marketplace.listRatingsForGig(gigId);
+  }
+
   @Post('gigs/:gigId/cancel')
   async cancel(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {
     return this.wrap(() => this.marketplace.transitionGig(gigId, principal.sub, 'cancelled'));
@@ -144,6 +173,7 @@ export class MarketplaceController {
             'application_not_selectable',
             'own_gig',
             'giver_kyc_required',
+            'rating_not_open',
           ].includes(error.code)
         ) {
           throw new ConflictException({ code: error.code, message: error.message });

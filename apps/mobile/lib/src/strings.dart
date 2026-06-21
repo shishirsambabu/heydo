@@ -97,6 +97,12 @@ class S {
   String get gigStarted => _t('ജോലി തുടങ്ങി', 'Gig started');
   String get gigCompleted => _t('ജോലി പൂർത്തിയായി', 'Gig completed');
   String get gigCancelled => _t('ജോലി റദ്ദാക്കി', 'Gig cancelled');
+  String get rateWorker => _t('തൊഴിലാളിയെ റേറ്റ് ചെയ്യുക', 'Rate worker');
+  String get rateGiver => _t('ജോലി നൽകിയ ആളെ റേറ്റ് ചെയ്യുക', 'Rate giver');
+  String get rating => _t('റേറ്റിംഗ്', 'Rating');
+  String get ratingComment => _t('അഭിപ്രായം', 'Comment');
+  String get submitRating => _t('റേറ്റിംഗ് അയയ്ക്കുക', 'Submit rating');
+  String get ratingSent => _t('റേറ്റിംഗ് അയച്ചു', 'Rating sent');
   String get fairCounteroffer => _t('ന്യായമായ നിരക്ക് ചോദിക്കുക', 'Ask fair rate');
   String get proposedPrice => _t('നിങ്ങളുടെ നിരക്ക് (₹)', 'Your rate (₹)');
   String get applicationMessage => _t('നിങ്ങളുടെ സന്ദേശം', 'Your message');

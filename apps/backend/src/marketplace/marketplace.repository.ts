@@ -6,6 +6,8 @@ import {
   EvidenceVaultRef,
   Gig,
   GigApplication,
+  Rating,
+  RatingDirection,
   SafetyReport,
 } from './marketplace.entities';
 
@@ -41,6 +43,12 @@ export interface AssignmentRepository {
   findByGig(gigId: string): Promise<Assignment | null>;
 }
 
+export interface RatingRepository {
+  save(rating: Rating): Promise<void>;
+  findByGigAndDirection(gigId: string, direction: RatingDirection): Promise<Rating | null>;
+  listForGig(gigId: string): Promise<Rating[]>;
+}
+
 export interface SafetyReportRepository {
   save(report: SafetyReport): Promise<void>;
   findById(id: string): Promise<SafetyReport | null>;
@@ -64,6 +72,7 @@ export const CATEGORY_REPOSITORY = Symbol('CATEGORY_REPOSITORY');
 export const GIG_REPOSITORY = Symbol('GIG_REPOSITORY');
 export const APPLICATION_REPOSITORY = Symbol('APPLICATION_REPOSITORY');
 export const ASSIGNMENT_REPOSITORY = Symbol('ASSIGNMENT_REPOSITORY');
+export const RATING_REPOSITORY = Symbol('RATING_REPOSITORY');
 export const SAFETY_REPORT_REPOSITORY = Symbol('SAFETY_REPORT_REPOSITORY');
 export const EVIDENCE_VAULT_REF_REPOSITORY = Symbol('EVIDENCE_VAULT_REF_REPOSITORY');
 export const ESCALATION_PACKAGE_REPOSITORY = Symbol('ESCALATION_PACKAGE_REPOSITORY');
@@ -157,6 +166,29 @@ export class InMemoryAssignmentRepository implements AssignmentRepository {
   }
 }
 
+export class InMemoryRatingRepository implements RatingRepository {
+  private readonly items = new Map<string, Rating>();
+
+  async save(rating: Rating): Promise<void> {
+    this.items.set(`${rating.gigId}:${rating.direction}`, copyRating(rating));
+  }
+
+  async findByGigAndDirection(
+    gigId: string,
+    direction: RatingDirection,
+  ): Promise<Rating | null> {
+    const rating = this.items.get(`${gigId}:${direction}`);
+    return rating ? copyRating(rating) : null;
+  }
+
+  async listForGig(gigId: string): Promise<Rating[]> {
+    return [...this.items.values()]
+      .filter((rating) => rating.gigId === gigId)
+      .map(copyRating)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+}
+
 export class InMemorySafetyReportRepository implements SafetyReportRepository {
   private readonly items = new Map<string, SafetyReport>();
 
@@ -239,6 +271,13 @@ export class InMemoryEscalationPackageRepository implements EscalationPackageRep
     this.items.set(id, copyEscalationPackageManifest(updated));
     return copyEscalationPackageManifest(updated);
   }
+}
+
+function copyRating(rating: Rating): Rating {
+  return {
+    ...rating,
+    tags: [...rating.tags],
+  };
 }
 
 function copyEvidenceVaultRef(ref: EvidenceVaultRef): EvidenceVaultRef {

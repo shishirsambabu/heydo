@@ -127,6 +127,15 @@ class HeydoApi {
       _post('/marketplace/gigs/$gigId/complete');
   Future<Map<String, dynamic>> cancelGig(String gigId) =>
       _post('/marketplace/gigs/$gigId/cancel');
+  Future<Map<String, dynamic>> rateGig({
+    required String gigId,
+    required int stars,
+    String? comment,
+  }) =>
+      _post('/marketplace/gigs/$gigId/ratings', {
+        'stars': stars,
+        if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+      });
   Future<Map<String, dynamic>> raiseSafetyReport({
     required String gigId,
     required String reason,

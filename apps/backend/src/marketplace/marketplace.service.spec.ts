@@ -10,6 +10,7 @@ import {
   InMemoryEvidenceVaultRefRepository,
   InMemoryEscalationPackageRepository,
   InMemoryGigRepository,
+  InMemoryRatingRepository,
   InMemorySafetyReportRepository,
 } from './marketplace.repository';
 import { MarketplaceError, MarketplaceService } from './marketplace.service';
@@ -29,6 +30,7 @@ function service(
     new InMemoryGigRepository(),
     new InMemoryApplicationRepository(),
     new InMemoryAssignmentRepository(),
+    new InMemoryRatingRepository(),
     safetyReports,
     evidenceVaultRefs,
     new InMemoryEscalationPackageRepository(),
@@ -470,6 +472,88 @@ describe('MarketplaceService', () => {
     });
     await expect(svc.transitionGig(gig.id, 'giver_1', 'cancelled')).rejects.toMatchObject({
       code: 'invalid_state',
+    });
+  });
+
+  it('accepts dual-side ratings only after completion and keeps audit comment-safe', async () => {
+    const { svc, givers, audit } = service(async () => true, true);
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'House cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-19T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const application = await svc.apply(gig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(gig.id, application.id, 'giver_1');
+
+    await expect(
+      svc.rateGig(gig.id, 'giver_1', { stars: 5, tags: ['on_time'] }),
+    ).rejects.toMatchObject({ code: 'rating_not_open' });
+
+    await svc.transitionGig(gig.id, 'worker_1', 'in_progress');
+    await svc.transitionGig(gig.id, 'giver_1', 'completed');
+
+    await expect(
+      svc.rateGig(gig.id, 'giver_1', {
+        stars: 5,
+        tags: ['on_time', 'clean_work'],
+        comment: 'Arrived on time and completed the work neatly.',
+      }),
+    ).resolves.toMatchObject({
+      direction: 'giver_to_worker',
+      raterId: 'giver_1',
+      rateeId: 'worker_1',
+      stars: 5,
+    });
+    await expect(
+      svc.rateGig(gig.id, 'worker_1', {
+        stars: 4,
+        tags: ['respectful'],
+        comment: 'Giver was respectful and released payment.',
+      }),
+    ).resolves.toMatchObject({
+      direction: 'worker_to_giver',
+      raterId: 'worker_1',
+      rateeId: 'giver_1',
+      stars: 4,
+    });
+    await expect(
+      svc.rateGig(gig.id, 'stranger', { stars: 1 }),
+    ).rejects.toMatchObject({ code: 'forbidden' });
+
+    await expect(svc.listRatingsForGig(gig.id)).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ direction: 'giver_to_worker', stars: 5 }),
+        expect.objectContaining({ direction: 'worker_to_giver', stars: 4 }),
+      ]),
+    );
+    await expect(
+      svc.rateGig(gig.id, 'giver_1', { stars: 1, tags: ['retry'] }),
+    ).resolves.toMatchObject({ direction: 'giver_to_worker', stars: 5 });
+    const ratingAudit = audit
+      .entries()
+      .filter((entry) => entry.action === 'gig.rating_submitted');
+    expect(ratingAudit).toHaveLength(2);
+    expect(JSON.stringify(ratingAudit)).not.toContain('Arrived on time');
+    expect(ratingAudit[0]).toMatchObject({
+      metadata: expect.objectContaining({
+        direction: 'giver_to_worker',
+        stars: 5,
+        tags: ['on_time', 'clean_work'],
+        commentLength: 46,
+      }),
     });
   });
 

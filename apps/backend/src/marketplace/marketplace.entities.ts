@@ -2,6 +2,7 @@ export type GigStatus = 'posted' | 'applied' | 'assigned' | 'in_progress' | 'com
 export type ApplicationStatus = 'applied' | 'withdrawn' | 'selected' | 'rejected';
 export type GigVisibilityStatus = 'pending_review' | 'visible' | 'rejected' | 'flagged';
 export type GigRiskLevel = 'low' | 'medium' | 'high';
+export type RatingDirection = 'giver_to_worker' | 'worker_to_giver';
 export type SafetyReportReason =
   | 'sexual_misconduct'
   | 'drugs_or_illegal_activity'
@@ -79,6 +80,18 @@ export interface Assignment {
   platformFeeAmount: number;
   workerPayoutAmount: number;
   selectedAt: string;
+}
+
+export interface Rating {
+  id: string;
+  gigId: string;
+  raterId: string;
+  rateeId: string;
+  direction: RatingDirection;
+  stars: number;
+  tags: string[];
+  comment?: string;
+  createdAt: string;
 }
 
 export interface SafetyReport {
