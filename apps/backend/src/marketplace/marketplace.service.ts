@@ -196,6 +196,19 @@ export interface WorkerGigApplicationView {
   assignment: Assignment | null;
 }
 
+export interface ReputationSignalSummary {
+  direction: RatingDirection;
+  averageStars: number | null;
+  ratingCount: number;
+  heydoScore: number | null;
+}
+
+export interface ReputationSummary {
+  userId: string;
+  asWorker: ReputationSignalSummary;
+  asGiver: ReputationSignalSummary;
+}
+
 const PLATFORM_FEE_BPS = 1500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
@@ -317,6 +330,18 @@ export class MarketplaceService {
 
   listRatingsForGig(gigId: string): Promise<Rating[]> {
     return this.ratings.listForGig(gigId);
+  }
+
+  async reputationForUser(userId: string): Promise<ReputationSummary> {
+    const [asWorkerRatings, asGiverRatings] = await Promise.all([
+      this.ratings.listForRatee(userId, 'giver_to_worker'),
+      this.ratings.listForRatee(userId, 'worker_to_giver'),
+    ]);
+    return {
+      userId,
+      asWorker: reputationSignal('giver_to_worker', asWorkerRatings),
+      asGiver: reputationSignal('worker_to_giver', asGiverRatings),
+    };
   }
 
   async getGig(gigId: string): Promise<Gig> {
@@ -1120,6 +1145,29 @@ function sanitizeRatingTags(tags: string[] = []): string[] {
 function sanitizeRatingComment(comment?: string): string | undefined {
   const cleaned = comment?.trim();
   return cleaned ? cleaned.slice(0, 500) : undefined;
+}
+
+function reputationSignal(
+  direction: RatingDirection,
+  ratings: Rating[],
+): ReputationSignalSummary {
+  if (!ratings.length) {
+    return {
+      direction,
+      averageStars: null,
+      ratingCount: 0,
+      heydoScore: null,
+    };
+  }
+  const averageStars =
+    Math.round((ratings.reduce((sum, rating) => sum + rating.stars, 0) / ratings.length) * 100) /
+    100;
+  return {
+    direction,
+    averageStars,
+    ratingCount: ratings.length,
+    heydoScore: Math.round(averageStars * 20),
+  };
 }
 
 function screenGigRequest(input: PostGigInput, pricingGuide?: PricingGuide): {

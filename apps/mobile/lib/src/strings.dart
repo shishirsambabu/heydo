@@ -88,6 +88,12 @@ class S {
   String get fillAllFields => _t('എല്ലാ വിവരങ്ങളും പൂരിപ്പിക്കുക', 'Fill all fields');
   String get browseSafeGigs => _t('സുരക്ഷിത ജോലികൾ കാണുക', 'Browse safe gigs');
   String get myApplications => _t('എന്റെ അപേക്ഷകൾ', 'My applications');
+  String get myReputation => _t('എന്റെ വിശ്വാസ സ്കോർ', 'My reputation');
+  String get heydoScore => _t('Heydo സ്കോർ', 'Heydo Score');
+  String get asWorker => _t('തൊഴിലാളിയായി', 'As worker');
+  String get asGiver => _t('ജോലി നൽകുന്നയാളായി', 'As giver');
+  String get noScoreYet => _t('ആദ്യ റേറ്റിംഗിന് ശേഷം സ്കോർ വരും', 'Score appears after the first rating');
+  String get ratingsCount => _t('റേറ്റിംഗുകൾ', 'ratings');
   String get noGigs => _t('ഇപ്പോൾ ലൈവ് ജോലികളില്ല', 'No live gigs right now');
   String get noApplications => _t('ഇപ്പോൾ അപേക്ഷകളില്ല', 'No applications yet');
   String get apply => _t('അപേക്ഷിക്കുക', 'Apply');

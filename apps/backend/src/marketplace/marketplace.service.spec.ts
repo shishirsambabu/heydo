@@ -555,6 +555,36 @@ describe('MarketplaceService', () => {
         commentLength: 46,
       }),
     });
+    await expect(svc.reputationForUser('worker_1')).resolves.toEqual({
+      userId: 'worker_1',
+      asWorker: {
+        direction: 'giver_to_worker',
+        averageStars: 5,
+        ratingCount: 1,
+        heydoScore: 100,
+      },
+      asGiver: {
+        direction: 'worker_to_giver',
+        averageStars: null,
+        ratingCount: 0,
+        heydoScore: null,
+      },
+    });
+    await expect(svc.reputationForUser('giver_1')).resolves.toEqual({
+      userId: 'giver_1',
+      asWorker: {
+        direction: 'giver_to_worker',
+        averageStars: null,
+        ratingCount: 0,
+        heydoScore: null,
+      },
+      asGiver: {
+        direction: 'worker_to_giver',
+        averageStars: 4,
+        ratingCount: 1,
+        heydoScore: 80,
+      },
+    });
   });
 
   it('refunds held escrow when an assigned gig is cancelled', async () => {

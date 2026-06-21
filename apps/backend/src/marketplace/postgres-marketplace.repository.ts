@@ -403,6 +403,14 @@ export class PostgresRatingRepository implements RatingRepository {
     );
     return rows.map(toRating);
   }
+
+  async listForRatee(rateeId: string, direction: RatingDirection): Promise<Rating[]> {
+    const rows = await this.pg.query<RatingRow>(
+      `${selectRating()} WHERE "rateeId" = $1 AND direction = $2 ORDER BY "createdAt" ASC`,
+      [rateeId, direction],
+    );
+    return rows.map(toRating);
+  }
 }
 
 @Injectable()

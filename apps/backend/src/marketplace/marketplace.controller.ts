@@ -90,6 +90,16 @@ export class MarketplaceController {
     return this.marketplace.listWorkerApplications(principal.sub);
   }
 
+  @Get('my-reputation')
+  myReputation(@CurrentUser() principal: AuthPrincipal) {
+    return this.marketplace.reputationForUser(principal.sub);
+  }
+
+  @Get('reputation/:userId')
+  reputation(@Param('userId') userId: string) {
+    return this.marketplace.reputationForUser(userId);
+  }
+
   @Get('gigs/:gigId')
   async getGig(@Param('gigId') gigId: string) {
     return this.wrap(() => this.marketplace.getGig(gigId));

@@ -377,6 +377,20 @@ class StatusScreen extends StatelessWidget {
             },
           ),
         ],
+        if (app.canApply || app.canPost) ...[
+          const SizedBox(height: 10),
+          BigButton(
+            label: s.myReputation,
+            icon: Icons.verified_user,
+            filled: false,
+            busy: app.busy,
+            onPressed: () async {
+              if (await context.read<AppState>().loadMyReputation() && context.mounted) {
+                _go(context, const ReputationScreen());
+              }
+            },
+          ),
+        ],
         if (app.canPost)
           Container(
             margin: const EdgeInsets.only(top: 12),
@@ -425,6 +439,68 @@ class StatusScreen extends StatelessWidget {
           onPressed: () => context.read<AppState>().refreshStatus(),
         ),
       ],
+    );
+  }
+}
+
+class ReputationScreen extends StatelessWidget {
+  const ReputationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+    final reputation = app.myReputation ?? {};
+    final asWorker = (reputation['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
+    final asGiver = (reputation['asGiver'] as Map?)?.cast<String, dynamic>() ?? {};
+
+    return HeydoScaffold(
+      title: s.myReputation,
+      children: [
+        _ScorePanel(title: s.asWorker, summary: asWorker),
+        const SizedBox(height: 12),
+        _ScorePanel(title: s.asGiver, summary: asGiver),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
+class _ScorePanel extends StatelessWidget {
+  const _ScorePanel({required this.title, required this.summary});
+
+  final String title;
+  final Map<String, dynamic> summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>().s;
+    final score = summary['heydoScore'];
+    final averageStars = summary['averageStars'];
+    final ratingCount = summary['ratingCount'] ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: HeydoColors.mintSurface,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          Text(
+            score == null ? s.noScoreYet : '${s.heydoScore}: $score',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            averageStars == null ? s.noScoreYet : '$averageStars / 5 · $ratingCount ${s.ratingsCount}',
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
+          ),
+        ],
+      ),
     );
   }
 }

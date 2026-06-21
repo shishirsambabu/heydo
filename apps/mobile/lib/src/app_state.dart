@@ -41,6 +41,7 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> myGigs = [];
   List<Map<String, dynamic>> myApplications = [];
   List<Map<String, dynamic>> currentApplications = [];
+  Map<String, dynamic>? myReputation;
   Map<String, dynamic>? lastPostedGig;
   Map<String, dynamic>? lastApplication;
   Map<String, dynamic>? lastSelection;
@@ -194,6 +195,10 @@ class AppState extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .toList(growable: false);
   }
+
+  Future<bool> loadMyReputation() => _guard(() async {
+        myReputation = await api.myReputation();
+      });
 
   Future<bool> loadApplications(String gigId) => _guard(() async {
         final loaded = await api.applications(gigId);

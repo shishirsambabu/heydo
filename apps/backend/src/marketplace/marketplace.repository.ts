@@ -47,6 +47,7 @@ export interface RatingRepository {
   save(rating: Rating): Promise<void>;
   findByGigAndDirection(gigId: string, direction: RatingDirection): Promise<Rating | null>;
   listForGig(gigId: string): Promise<Rating[]>;
+  listForRatee(rateeId: string, direction: RatingDirection): Promise<Rating[]>;
 }
 
 export interface SafetyReportRepository {
@@ -184,6 +185,13 @@ export class InMemoryRatingRepository implements RatingRepository {
   async listForGig(gigId: string): Promise<Rating[]> {
     return [...this.items.values()]
       .filter((rating) => rating.gigId === gigId)
+      .map(copyRating)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async listForRatee(rateeId: string, direction: RatingDirection): Promise<Rating[]> {
+    return [...this.items.values()]
+      .filter((rating) => rating.rateeId === rateeId && rating.direction === direction)
       .map(copyRating)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
