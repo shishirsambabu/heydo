@@ -732,6 +732,11 @@ export class MarketplaceService {
       reverificationReason: `safety_report:${report.id}:${decisionNote.reasonCode}`,
     };
     await this.givers.save(updatedGiver);
+    const quarantine = await this.quarantineGiverGigs(
+      gig.giverId,
+      reviewerId,
+      `safety_report:${report.id}:${decisionNote.reasonCode}`,
+    );
     this.audit.record({
       actorId: reviewerId,
       actorRole: 'fraud_analyst',
@@ -743,10 +748,63 @@ export class MarketplaceService {
         gigId: gig.id,
         reason: report.reason,
         severity: report.severity,
+        quarantinedGigIds: quarantine.quarantinedGigIds,
+        flaggedGigIds: quarantine.flaggedGigIds,
+        withdrawnApplicationIds: quarantine.withdrawnApplicationIds,
         decision: summarizeDecision(decisionNote, 'Giver deactivated from safety report'),
       },
     });
     return updatedGiver;
+  }
+
+  private async quarantineGiverGigs(
+    giverId: string,
+    reviewerId: string,
+    reason: string,
+  ): Promise<{
+    quarantinedGigIds: string[];
+    flaggedGigIds: string[];
+    withdrawnApplicationIds: string[];
+  }> {
+    const gigs = await this.gigs.list({ giverId });
+    const quarantinedGigIds: string[] = [];
+    const flaggedGigIds: string[] = [];
+    const withdrawnApplicationIds: string[] = [];
+    const moderatedAt = new Date(this.now()).toISOString();
+
+    for (const gig of gigs) {
+      if (gig.status === 'completed' || gig.status === 'cancelled') continue;
+      const safetyFlags = [...new Set([...gig.safetyFlags, 'giver_deactivated_abusive'])].sort();
+      const shouldCancel = gig.status === 'posted' || gig.status === 'applied';
+      const updatedGig: Gig = {
+        ...gig,
+        status: shouldCancel ? 'cancelled' : gig.status,
+        visibilityStatus: 'flagged',
+        riskLevel: 'high',
+        safetyFlags,
+        moderatedBy: reviewerId,
+        moderatedAt,
+        moderationReason: reason,
+      };
+      await this.gigs.save(updatedGig);
+      if (shouldCancel) {
+        quarantinedGigIds.push(gig.id);
+        const applications = await this.applications.listForGig(gig.id);
+        for (const application of applications) {
+          if (application.status !== 'applied') continue;
+          await this.applications.save({ ...application, status: 'withdrawn' });
+          withdrawnApplicationIds.push(application.id);
+        }
+      } else {
+        flaggedGigIds.push(gig.id);
+      }
+    }
+
+    return {
+      quarantinedGigIds: quarantinedGigIds.sort(),
+      flaggedGigIds: flaggedGigIds.sort(),
+      withdrawnApplicationIds: withdrawnApplicationIds.sort(),
+    };
   }
 
   async resolveSafetyDispute(

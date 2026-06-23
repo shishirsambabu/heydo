@@ -728,6 +728,18 @@ describe('MarketplaceService', () => {
       description: 'Giver threatened me after I arrived.',
       evidenceVaultRefs: ['vault_chat_threat_1'],
     });
+    const openGig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Another house cleaning',
+      description: 'Need cleaning help for another family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-20T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const openApplication = await svc.apply(openGig.id, 'worker_2', {
+      messageMl: 'I can help',
+      proposedPrice: 1100,
+    });
     await svc.reviewSafetyReport(
       report.id,
       'fraud_admin_1',
@@ -750,6 +762,29 @@ describe('MarketplaceService', () => {
       status: 'deactivated_abusive',
       reverificationReason: `safety_report:${report.id}:worker_safety_risk`,
     });
+    await expect(svc.getGig(gig.id)).resolves.toMatchObject({
+      status: 'cancelled',
+      visibilityStatus: 'flagged',
+      riskLevel: 'high',
+      safetyFlags: expect.arrayContaining(['giver_deactivated_abusive']),
+      moderatedBy: 'fraud_admin_2',
+    });
+    await expect(svc.getGig(openGig.id)).resolves.toMatchObject({
+      status: 'cancelled',
+      visibilityStatus: 'flagged',
+      riskLevel: 'high',
+      safetyFlags: expect.arrayContaining(['giver_deactivated_abusive']),
+      moderatedBy: 'fraud_admin_2',
+    });
+    await expect(svc.listGigs()).resolves.toEqual([]);
+    await expect(svc.listWorkerApplications('worker_2')).resolves.toEqual([
+      expect.objectContaining({
+        application: expect.objectContaining({
+          id: openApplication.id,
+          status: 'withdrawn',
+        }),
+      }),
+    ]);
     await expect(
       svc.postGig('giver_1', {
         categoryId: 'cat_cleaning',
@@ -771,10 +806,13 @@ describe('MarketplaceService', () => {
             gigId: gig.id,
             reason: 'violence_or_threat',
             severity: 'high',
-          decision: {
-            reasonCode: 'worker_safety_risk',
-            noteLength: 50,
-          },
+            quarantinedGigIds: [openGig.id, gig.id].sort(),
+            flaggedGigIds: [],
+            withdrawnApplicationIds: [openApplication.id],
+            decision: {
+              reasonCode: 'worker_safety_risk',
+              noteLength: 50,
+            },
           }),
         }),
       ]),
