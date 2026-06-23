@@ -95,7 +95,8 @@ export type AdminDecisionReasonAction =
   | 'dispute.release_to_worker'
   | 'dispute.refund_giver'
   | 'dispute.keep_escalated'
-  | 'escalation.generate';
+  | 'escalation.generate'
+  | 'giver.deactivate_abusive';
 
 export interface AdminDecisionReason {
   code: string;
@@ -291,6 +292,11 @@ export function listOpenSafetyReports(): Promise<SafetyReport[]> {
   return authed('/admin/marketplace/safety-reports?status=open') as Promise<SafetyReport[]>;
 }
 
+export async function listActiveSafetyReports(): Promise<SafetyReport[]> {
+  const reports = (await authed('/admin/marketplace/safety-reports')) as SafetyReport[];
+  return reports.filter((report) => report.status !== 'closed');
+}
+
 export function reviewSafetyReport(
   reportId: string,
   status: 'under_review' | 'action_taken' | 'escalated' | 'closed',
@@ -303,6 +309,16 @@ export function reviewSafetyReport(
       reasonCode: payload.reasonCode,
       note: payload.note,
       lawEnforcementRef: payload.lawEnforcementRef,
+    }),
+  });
+}
+
+export function deactivateGiverFromSafetyReport(reportId: string, payload: AdminDecisionPayload) {
+  return authed(`/admin/marketplace/safety-reports/${reportId}/deactivate-giver`, {
+    method: 'POST',
+    body: JSON.stringify({
+      reasonCode: payload.reasonCode,
+      note: payload.note,
     }),
   });
 }

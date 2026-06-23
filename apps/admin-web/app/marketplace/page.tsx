@@ -10,6 +10,7 @@ import {
   AdminDecisionReasonCatalog,
   AdminGig,
   clearSession,
+  deactivateGiverFromSafetyReport,
   DisputeResolutionOutcome,
   generateEscalationPackage,
   getGigAuditTrail,
@@ -19,7 +20,7 @@ import {
   getToken,
   getSafetyReportAuditTrail,
   listSafetyReportEvidenceRefs,
-  listOpenSafetyReports,
+  listActiveSafetyReports,
   listReviewGigs,
   moderateGig,
   resolveSafetyDispute,
@@ -59,7 +60,7 @@ export default function MarketplaceSafetyPage() {
     try {
       const [gigItems, reportItems, reasonCatalog] = await Promise.all([
         listReviewGigs(),
-        listOpenSafetyReports(),
+        listActiveSafetyReports(),
         getDecisionReasons(),
       ]);
       setGigs(gigItems);
@@ -191,6 +192,28 @@ export default function MarketplaceSafetyPage() {
       setNotice(`Escalation package ${pkg.id} generated and integrity verified: ${pkg.integrity.verified ? 'yes' : 'no'}.`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Escalation package failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function onDeactivateGiver(reportId: string) {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const payload = chooseDecisionPayload('giver.deactivate_abusive');
+    if (!payload) return;
+    const confirmed = window.confirm(
+      'Deactivate this gig giver and quarantine their open gigs? This is a high-impact safety action.',
+    );
+    if (!confirmed) return;
+    setActingId(reportId);
+    try {
+      await deactivateGiverFromSafetyReport(reportId, payload);
+      await load();
+      setNotice('Giver deactivated. Open gigs were quarantined and active gig lifecycle is locked for safety review.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Giver deactivation failed');
     } finally {
       setActingId(null);
     }
@@ -385,12 +408,14 @@ export default function MarketplaceSafetyPage() {
                   <div className="display compact">{report.reason}</div>
                   <div className="muted">
                     {report.id} - gig {report.gigId} - reporter {report.reporterId}
+                    {report.reportedUserId ? ` - reported ${report.reportedUserId}` : ''}
                   </div>
                   <p className="body-copy">{report.description}</p>
                   <div className="signals">
                     <span className={`pill ${['high', 'critical'].includes(report.severity) ? 'bad' : 'warn'}`}>
                       {report.severity}
                     </span>
+                    <span className="pill warn">{report.status}</span>
                     <span className="signal">Evidence refs <b>{report.evidenceVaultRefs.length}</b></span>
                   </div>
                 </div>
@@ -419,6 +444,11 @@ export default function MarketplaceSafetyPage() {
                   <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onEscalationPackage(report.id)}>
                     Package
                   </button>
+                  {report.reportedUserId && (
+                    <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onDeactivateGiver(report.id)}>
+                      Deactivate giver
+                    </button>
+                  )}
                   <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void showEvidenceRefs(report.id)}>
                     Evidence
                   </button>
