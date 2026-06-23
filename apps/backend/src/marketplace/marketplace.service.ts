@@ -1051,6 +1051,9 @@ export class MarketplaceService {
     const gig = await this.getGig(gigId);
     const assignment = await this.assignments.findByGig(gigId);
     if (!assignment) throw new MarketplaceError('Gig has no assignment', 'not_assigned');
+    if (requiresSafetyResolution(gig)) {
+      throw new MarketplaceError('Gig is locked for safety review', 'safety_review_required');
+    }
 
     if (next === 'in_progress') {
       if (actorId !== assignment.workerId) {
@@ -1451,6 +1454,10 @@ function shouldImmediatelyFlag(reason: SafetyReportReason, severity: SafetyRepor
 
 function isDisputeResolutionOutcome(outcome: string): outcome is DisputeResolutionOutcome {
   return ['release_to_worker', 'refund_giver', 'keep_escalated'].includes(outcome);
+}
+
+function requiresSafetyResolution(gig: Gig): boolean {
+  return gig.visibilityStatus === 'flagged' && gig.riskLevel === 'high';
 }
 
 function isEscalationWorthy(report: SafetyReport): boolean {

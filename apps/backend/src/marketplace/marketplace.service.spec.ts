@@ -705,7 +705,7 @@ describe('MarketplaceService', () => {
   });
 
   it('deactivates abusive givers from reviewed safety reports and blocks future posting', async () => {
-    const { svc, givers, audit } = service(async () => true, true);
+    const { svc, givers, audit, moneyRepo } = service(async () => true, true);
     await givers.save({
       userId: 'giver_1',
       displayName: 'Giver',
@@ -739,6 +739,23 @@ describe('MarketplaceService', () => {
     const openApplication = await svc.apply(openGig.id, 'worker_2', {
       messageMl: 'I can help',
       proposedPrice: 1100,
+    });
+    const assignedGig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Booked house cleaning',
+      description: 'Need cleaning help for a booked family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-21T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const assignedApplication = await svc.apply(assignedGig.id, 'worker_3', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(assignedGig.id, assignedApplication.id, 'giver_1');
+    await expect(moneyRepo.findEscrowHoldByGig(assignedGig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'held',
     });
     await svc.reviewSafetyReport(
       report.id,
@@ -776,6 +793,20 @@ describe('MarketplaceService', () => {
       safetyFlags: expect.arrayContaining(['giver_deactivated_abusive']),
       moderatedBy: 'fraud_admin_2',
     });
+    await expect(svc.getGig(assignedGig.id)).resolves.toMatchObject({
+      status: 'assigned',
+      visibilityStatus: 'flagged',
+      riskLevel: 'high',
+      safetyFlags: expect.arrayContaining(['giver_deactivated_abusive']),
+      moderatedBy: 'fraud_admin_2',
+    });
+    await expect(svc.transitionGig(assignedGig.id, 'worker_3', 'in_progress')).rejects.toMatchObject({
+      code: 'safety_review_required',
+    });
+    await expect(moneyRepo.findEscrowHoldByGig(assignedGig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'held',
+    });
     await expect(svc.listGigs()).resolves.toEqual([]);
     await expect(svc.listWorkerApplications('worker_2')).resolves.toEqual([
       expect.objectContaining({
@@ -807,7 +838,7 @@ describe('MarketplaceService', () => {
             reason: 'violence_or_threat',
             severity: 'high',
             quarantinedGigIds: [openGig.id, gig.id].sort(),
-            flaggedGigIds: [],
+            flaggedGigIds: [assignedGig.id],
             withdrawnApplicationIds: [openApplication.id],
             decision: {
               reasonCode: 'worker_safety_risk',
@@ -893,12 +924,12 @@ describe('MarketplaceService', () => {
       amount: 1200,
       status: 'disputed',
     });
-    await expect(svc.transitionGig(gig.id, 'giver_1', 'completed')).rejects.toThrow(
-      'Cannot release escrow in status disputed',
-    );
-    await expect(svc.transitionGig(gig.id, 'worker_1', 'cancelled')).rejects.toThrow(
-      'Cannot refund escrow in status disputed',
-    );
+    await expect(svc.transitionGig(gig.id, 'giver_1', 'completed')).rejects.toMatchObject({
+      code: 'safety_review_required',
+    });
+    await expect(svc.transitionGig(gig.id, 'worker_1', 'cancelled')).rejects.toMatchObject({
+      code: 'safety_review_required',
+    });
   });
 
   it('lets admin resolve a disputed escrow by releasing funds to the worker', async () => {
