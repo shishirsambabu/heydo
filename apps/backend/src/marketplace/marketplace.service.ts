@@ -357,13 +357,23 @@ export class MarketplaceService {
   }
 
   async listLowRatingReviewItems(maxStars = 2): Promise<RatingReviewItem[]> {
-    const ratings = await this.ratings.listAtOrBelowStars(maxStars);
+    const [ratings, reports] = await Promise.all([
+      this.ratings.listAtOrBelowStars(maxStars),
+      this.safetyReports.list(),
+    ]);
+    const convertedRatingRefs = new Set(
+      reports.flatMap((report) =>
+        report.evidenceVaultRefs.filter((ref) => ref.startsWith('rating:')),
+      ),
+    );
     return Promise.all(
-      ratings.map(async (rating) => ({
-        rating: ratingReviewSummary(rating),
-        gig: await this.getGig(rating.gigId),
-        rateeReputation: await this.reputationForUser(rating.rateeId),
-      })),
+      ratings
+        .filter((rating) => !convertedRatingRefs.has(`rating:${rating.id}`))
+        .map(async (rating) => ({
+          rating: ratingReviewSummary(rating),
+          gig: await this.getGig(rating.gigId),
+          rateeReputation: await this.reputationForUser(rating.rateeId),
+        })),
     );
   }
 
@@ -377,13 +387,19 @@ export class MarketplaceService {
     if (!rating || rating.stars > 2) {
       throw new MarketplaceError('Low rating not found for safety conversion', 'not_found');
     }
+    const ratingEvidenceRef = `rating:${rating.id}`;
+    const existingReport = (await this.safetyReports.list({ gigId })).find((report) =>
+      report.evidenceVaultRefs.includes(ratingEvidenceRef),
+    );
+    if (existingReport) return existingReport;
+
     const reason = safetyReasonForRating(rating);
     const report = await this.raiseSafetyReport(gigId, officerId, {
       reportedUserId: rating.rateeId,
       reason,
       severity: rating.stars <= 1 ? 'high' : 'medium',
       description: `Admin converted low rating ${rating.id} into a safety review: ${note.trim()}`,
-      evidenceVaultRefs: [`rating:${rating.id}`],
+      evidenceVaultRefs: [ratingEvidenceRef],
     });
     this.audit.record({
       actorId: officerId,

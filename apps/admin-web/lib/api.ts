@@ -84,6 +84,35 @@ export interface SafetyReport {
   createdAt: string;
 }
 
+export type RatingDirection = 'giver_to_worker' | 'worker_to_giver';
+
+export interface ReputationSignalSummary {
+  direction: RatingDirection;
+  averageStars: number | null;
+  ratingCount: number;
+  heydoScore: number | null;
+}
+
+export interface RatingReviewItem {
+  rating: {
+    id: string;
+    gigId: string;
+    raterId: string;
+    rateeId: string;
+    direction: RatingDirection;
+    stars: number;
+    tags: string[];
+    createdAt: string;
+    commentLength: number;
+  };
+  gig: AdminGig;
+  rateeReputation: {
+    userId: string;
+    asWorker: ReputationSignalSummary;
+    asGiver: ReputationSignalSummary;
+  };
+}
+
 export type AdminDecisionReasonAction =
   | 'gig.approve'
   | 'gig.reject'
@@ -295,6 +324,21 @@ export function listOpenSafetyReports(): Promise<SafetyReport[]> {
 export async function listActiveSafetyReports(): Promise<SafetyReport[]> {
   const reports = (await authed('/admin/marketplace/safety-reports')) as SafetyReport[];
   return reports.filter((report) => report.status !== 'closed');
+}
+
+export function listLowRatingReviews(): Promise<RatingReviewItem[]> {
+  return authed('/admin/marketplace/reputation/low-ratings') as Promise<RatingReviewItem[]>;
+}
+
+export function openSafetyReportFromRating(
+  gigId: string,
+  direction: RatingDirection,
+  note: string,
+): Promise<SafetyReport> {
+  return authed(`/admin/marketplace/gigs/${gigId}/ratings/safety-report`, {
+    method: 'POST',
+    body: JSON.stringify({ direction, note }),
+  }) as Promise<SafetyReport>;
 }
 
 export function reviewSafetyReport(

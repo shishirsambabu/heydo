@@ -686,6 +686,16 @@ describe('MarketplaceService', () => {
     await expect(svc.listSafetyReports({ gigId: gig.id })).resolves.toEqual([
       expect.objectContaining({ id: report.id }),
     ]);
+    await expect(svc.listLowRatingReviewItems()).resolves.toEqual([]);
+    await expect(
+      svc.openSafetyReportFromRating(
+        gig.id,
+        'worker_to_giver',
+        'second_fraud_admin',
+        'A repeated conversion must reuse the existing safety case.',
+      ),
+    ).resolves.toEqual(report);
+    await expect(svc.listSafetyReports({ gigId: gig.id })).resolves.toHaveLength(1);
     expect(audit.entries()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

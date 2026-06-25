@@ -19,16 +19,19 @@ import {
   getOfficerName,
   getToken,
   getSafetyReportAuditTrail,
+  listLowRatingReviews,
   listSafetyReportEvidenceRefs,
   listActiveSafetyReports,
   listReviewGigs,
   moderateGig,
+  openSafetyReportFromRating,
+  RatingReviewItem,
   resolveSafetyDispute,
   reviewSafetyReport,
   SafetyReport,
 } from '../../lib/api';
 
-type QueueTab = 'gigs' | 'reports';
+type QueueTab = 'gigs' | 'ratings' | 'reports';
 type ContextRow = { label: string; value: string };
 type ContextPanel = { title: string; rows: ContextRow[] };
 
@@ -36,6 +39,7 @@ export default function MarketplaceSafetyPage() {
   const router = useRouter();
   const [tab, setTab] = useState<QueueTab>('gigs');
   const [gigs, setGigs] = useState<AdminGig[]>([]);
+  const [ratings, setRatings] = useState<RatingReviewItem[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,9 +51,10 @@ export default function MarketplaceSafetyPage() {
   const counts = useMemo(
     () => ({
       gigs: gigs.length,
+      ratings: ratings.length,
       reports: reports.length,
     }),
-    [gigs.length, reports.length],
+    [gigs.length, ratings.length, reports.length],
   );
 
   const load = useCallback(async () => {
@@ -58,12 +63,14 @@ export default function MarketplaceSafetyPage() {
     setNotice(null);
     setContextPanel(null);
     try {
-      const [gigItems, reportItems, reasonCatalog] = await Promise.all([
+      const [gigItems, ratingItems, reportItems, reasonCatalog] = await Promise.all([
         listReviewGigs(),
+        listLowRatingReviews(),
         listActiveSafetyReports(),
         getDecisionReasons(),
       ]);
       setGigs(gigItems);
+      setRatings(ratingItems);
       setReports(reportItems);
       setReasons(reasonCatalog);
     } catch (e) {
@@ -219,6 +226,39 @@ export default function MarketplaceSafetyPage() {
     }
   }
 
+  async function onRatingSafetyCase(item: RatingReviewItem) {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const note = window.prompt(
+      'Why should this low rating become a formal safety case? Minimum 10 characters.',
+    );
+    if (!note) return;
+    if (note.trim().length < 10) {
+      setError('Safety case note must be at least 10 characters.');
+      return;
+    }
+    const confirmed = window.confirm(
+      'Open a formal safety report linked to this rating? The rating will leave this queue.',
+    );
+    if (!confirmed) return;
+    setActingId(item.rating.id);
+    try {
+      const report = await openSafetyReportFromRating(
+        item.gig.id,
+        item.rating.direction,
+        note.trim(),
+      );
+      await load();
+      setTab('reports');
+      setNotice(`Safety report ${report.id} opened from rating ${item.rating.id}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Safety case creation failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function showGigMoneyTrail(gigId: string) {
     setError(null);
     setNotice(null);
@@ -341,6 +381,9 @@ export default function MarketplaceSafetyPage() {
         <button className={tab === 'reports' ? 'active' : ''} onClick={() => setTab('reports')}>
           Safety reports <span>{counts.reports}</span>
         </button>
+        <button className={tab === 'ratings' ? 'active' : ''} onClick={() => setTab('ratings')}>
+          Low ratings <span>{counts.ratings}</span>
+        </button>
       </div>
 
       {reasons && (
@@ -459,6 +502,69 @@ export default function MarketplaceSafetyPage() {
               </div>
             </div>
           ))}
+        />
+      )}
+
+      {!loading && tab === 'ratings' && (
+        <Queue
+          empty="No low ratings are waiting for safety triage."
+          items={ratings.map((item) => {
+            const reputation =
+              item.rating.direction === 'worker_to_giver'
+                ? item.rateeReputation.asGiver
+                : item.rateeReputation.asWorker;
+            return (
+              <div className="card" key={item.rating.id}>
+                <div className="row align-start">
+                  <div>
+                    <div className="label">
+                      {item.rating.direction === 'worker_to_giver'
+                        ? 'Worker rated giver'
+                        : 'Giver rated worker'}
+                    </div>
+                    <div className="display compact">
+                      {item.rating.stars} star{item.rating.stars === 1 ? '' : 's'} - {item.gig.title}
+                    </div>
+                    <div className="muted">
+                      {item.rating.id} - gig {item.gig.id} - rated user {item.rating.rateeId}
+                    </div>
+                    <div className="signals">
+                      <span className={`pill ${item.rating.stars === 1 ? 'bad' : 'warn'}`}>
+                        {item.rating.stars}/5
+                      </span>
+                      {item.rating.tags.map((tag) => (
+                        <span className="pill warn" key={tag}>{tag}</span>
+                      ))}
+                      <span className="signal">Comment length <b>{item.rating.commentLength}</b></span>
+                      <span className="signal">Ratings <b>{reputation.ratingCount}</b></span>
+                      <span className="signal">
+                        Heydo Score <b>{reputation.heydoScore ?? 'new'}</b>
+                      </span>
+                    </div>
+                    <p className="body-copy">
+                      {item.gig.location} - INR {item.gig.budgetAmount} - rated {item.rating.createdAt}
+                    </p>
+                  </div>
+                  <div className="actions">
+                    <button
+                      className="btn btn-danger"
+                      disabled={actingId === item.rating.id}
+                      onClick={() => void onRatingSafetyCase(item)}
+                    >
+                      Open safety case
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      disabled={actingId === item.rating.id}
+                      onClick={() => void showGigAuditTrail(item.gig.id)}
+                    >
+                      Gig audit
+                    </button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         />
       )}
     </div>
