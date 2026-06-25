@@ -24,6 +24,10 @@ export interface IdentityVerificationSink {
   ): Promise<void>;
 }
 
+export interface AccountStatusReader {
+  isActive(userId: string): Promise<boolean>;
+}
+
 export class VerificationError extends Error {
   constructor(
     message: string,
@@ -47,6 +51,7 @@ export class VerificationService {
     private readonly vault: PiiVault,
     private readonly audit: AuditService,
     private readonly sink: IdentityVerificationSink,
+    private readonly accounts: AccountStatusReader,
     private readonly now: () => number = () => Date.now(),
     private readonly id: () => string = () => `ver_${randomBytes(10).toString('hex')}`,
   ) {}
@@ -248,6 +253,7 @@ export class VerificationService {
    * Only an approved, unexpired verification qualifies. Used by Phase 2.
    */
   async canApply(userId: string): Promise<boolean> {
+    if (!(await this.accounts.isActive(userId))) return false;
     const v = await this.verifications.findLatestForUser(userId, 'worker');
     if (!v || v.status !== 'approved') return false;
     if (v.expiresAt && this.now() > Date.parse(v.expiresAt)) return false;

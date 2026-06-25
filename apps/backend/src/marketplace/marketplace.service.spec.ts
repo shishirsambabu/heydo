@@ -1,5 +1,5 @@
 import { AuditService } from '../common/audit/audit.service';
-import { GiverProfileRepository } from '../identity/identity.repository';
+import { GiverProfileRepository, UserRepository } from '../identity/identity.repository';
 import { InMemoryMoneyRepository } from '../money/money.repository';
 import { MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
@@ -20,6 +20,7 @@ function service(
   withMoney = false,
 ) {
   const givers = new GiverProfileRepository();
+  const users = new UserRepository();
   const audit = new AuditService();
   const moneyRepo = new InMemoryMoneyRepository();
   const safetyReports = new InMemorySafetyReportRepository();
@@ -34,6 +35,7 @@ function service(
     safetyReports,
     evidenceVaultRefs,
     new InMemoryEscalationPackageRepository(),
+    users,
     givers,
     { canApply } as Pick<VerificationService, 'canApply'> as VerificationService,
     audit,
@@ -48,7 +50,7 @@ function service(
         )
       : undefined,
   );
-  return { svc, givers, audit, moneyRepo, safetyReports, evidenceVaultRefs };
+  return { svc, users, givers, audit, moneyRepo, safetyReports, evidenceVaultRefs };
 }
 
 describe('MarketplaceService', () => {
@@ -854,6 +856,114 @@ describe('MarketplaceService', () => {
               reasonCode: 'worker_safety_risk',
               noteLength: 50,
             },
+          }),
+        }),
+      ]),
+    );
+  });
+
+  it('suspends abusive workers, withdraws open applications, and locks active gigs', async () => {
+    const { svc, users, givers, audit, moneyRepo } = service(async () => true, true);
+    await users.save({
+      id: 'worker_1',
+      phone: '+910000000001',
+      roles: ['worker'],
+      locale: 'ml',
+      status: 'active',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const assignedGig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Booked house cleaning',
+      description: 'Need cleaning help for a family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-21T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const selectedApplication = await svc.apply(assignedGig.id, 'worker_1', {
+      messageMl: 'I can help',
+      proposedPrice: 1200,
+    });
+    await svc.selectApplicant(assignedGig.id, selectedApplication.id, 'giver_1');
+    const openGig = await svc.postGig('giver_1', {
+      categoryId: 'cat_cleaning',
+      title: 'Second house cleaning',
+      description: 'Need cleaning help for another family home',
+      location: 'Kochi',
+      scheduledAt: '2026-06-22T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+    const openApplication = await svc.apply(openGig.id, 'worker_1', {
+      messageMl: 'I can help here too',
+      proposedPrice: 1100,
+    });
+    const report = await svc.raiseSafetyReport(assignedGig.id, 'giver_1', {
+      reportedUserId: 'worker_1',
+      reason: 'violence_or_threat',
+      severity: 'high',
+      description: 'Worker made a credible threat during the visit.',
+      evidenceVaultRefs: ['vault_chat_worker_threat_1'],
+    });
+    await svc.reviewSafetyReport(
+      report.id,
+      'fraud_admin_1',
+      'under_review',
+      'Case triaged by trust operator.',
+      undefined,
+      { reasonCode: 'triage_started', note: 'Case triaged by trust operator.' },
+    );
+
+    await expect(
+      svc.suspendWorkerFromSafetyReport(report.id, 'fraud_admin_2', {
+        reasonCode: 'giver_safety_risk',
+        note: 'Threat evidence is credible; suspend the worker.',
+      }),
+    ).resolves.toMatchObject({ id: 'worker_1', status: 'suspended' });
+    await expect(users.findById('worker_1')).resolves.toMatchObject({ status: 'suspended' });
+    await expect(svc.getGig(assignedGig.id)).resolves.toMatchObject({
+      status: 'assigned',
+      visibilityStatus: 'flagged',
+      riskLevel: 'high',
+      safetyFlags: expect.arrayContaining(['worker_suspended_abusive']),
+      moderatedBy: 'fraud_admin_2',
+    });
+    await expect(svc.transitionGig(assignedGig.id, 'worker_1', 'in_progress')).rejects.toMatchObject({
+      code: 'safety_review_required',
+    });
+    await expect(moneyRepo.findEscrowHoldByGig(assignedGig.id)).resolves.toMatchObject({
+      amount: 1200,
+      status: 'disputed',
+    });
+    await expect(svc.listWorkerApplications('worker_1')).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          application: expect.objectContaining({ id: openApplication.id, status: 'withdrawn' }),
+        }),
+        expect.objectContaining({
+          application: expect.objectContaining({ id: selectedApplication.id, status: 'selected' }),
+        }),
+      ]),
+    );
+    await expect(svc.listSafetyReportsForAdmin({ gigId: assignedGig.id })).resolves.toEqual([
+      expect.objectContaining({ id: report.id, reportedUserRole: 'worker' }),
+    ]);
+    expect(audit.entries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'worker.suspended_abusive',
+          targetType: 'worker',
+          targetId: 'worker_1',
+          metadata: expect.objectContaining({
+            reportId: report.id,
+            flaggedGigIds: [assignedGig.id],
+            withdrawnApplicationIds: [openApplication.id],
           }),
         }),
       ]),

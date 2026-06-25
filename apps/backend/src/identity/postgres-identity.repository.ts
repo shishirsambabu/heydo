@@ -68,6 +68,10 @@ export class PostgresUserRepository {
     return row ? toUser(row) : null;
   }
 
+  async isActive(userId: string): Promise<boolean> {
+    return (await this.findById(userId))?.status === 'active';
+  }
+
   async save(user: User): Promise<void> {
     await this.pg.query(
       `INSERT INTO "User" (id, phone, roles, locale, status, "createdAt")

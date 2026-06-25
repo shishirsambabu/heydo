@@ -31,6 +31,9 @@ export class UserRepository {
     const u = this.byId.get(id);
     return u ? { ...u } : null;
   }
+  async isActive(userId: string): Promise<boolean> {
+    return (await this.findById(userId))?.status === 'active';
+  }
   async save(user: User): Promise<void> {
     this.byId.set(user.id, { ...user });
     this.byPhone.set(user.phone, user.id);

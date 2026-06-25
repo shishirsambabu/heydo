@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'crypto';
 import { Inject, Injectable } from '@nestjs/common';
 import { AuditService } from '../common/audit/audit.service';
-import { GiverProfileRepository } from '../identity/identity.repository';
+import { GiverProfileRepository, UserRepository } from '../identity/identity.repository';
 import { GigMoneyTrail, MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
 import {
@@ -98,7 +98,8 @@ export type AdminDecisionReasonAction =
   | 'dispute.refund_giver'
   | 'dispute.keep_escalated'
   | 'escalation.generate'
-  | 'giver.deactivate_abusive';
+  | 'giver.deactivate_abusive'
+  | 'worker.suspend_abusive';
 
 export interface AdminDecisionReason {
   code: string;
@@ -167,6 +168,12 @@ export const ADMIN_DECISION_REASON_CATALOG: Record<
     { code: 'worker_safety_risk', label: 'Worker safety risk' },
     { code: 'repeated_or_severe_abuse', label: 'Repeated or severe abuse' },
     { code: 'illegal_or_criminal_activity', label: 'Illegal or criminal activity' },
+  ],
+  'worker.suspend_abusive': [
+    { code: 'giver_safety_risk', label: 'Giver safety risk' },
+    { code: 'repeated_or_severe_abuse', label: 'Repeated or severe abuse' },
+    { code: 'illegal_or_criminal_activity', label: 'Illegal or criminal activity' },
+    { code: 'fraud_or_theft_risk', label: 'Fraud or theft risk' },
   ],
 };
 
@@ -246,6 +253,7 @@ export class MarketplaceService {
     private readonly evidenceVaultRefs: EvidenceVaultRefRepository,
     @Inject(ESCALATION_PACKAGE_REPOSITORY)
     private readonly escalationPackages: EscalationPackageRepository,
+    private readonly users: UserRepository,
     private readonly givers: GiverProfileRepository,
     private readonly verification: VerificationService,
     private readonly audit: AuditService,
@@ -690,6 +698,23 @@ export class MarketplaceService {
     return this.safetyReports.list(filters);
   }
 
+  async listSafetyReportsForAdmin(filters?: { status?: string; gigId?: string }) {
+    const reports = await this.safetyReports.list(filters);
+    return Promise.all(
+      reports.map(async (report) => {
+        const gig = await this.getGig(report.gigId);
+        const applications = await this.applications.listForGig(report.gigId);
+        const reportedUserRole =
+          report.reportedUserId === gig.giverId
+            ? 'giver'
+            : applications.some((application) => application.workerId === report.reportedUserId)
+              ? 'worker'
+              : 'unknown';
+        return { ...report, reportedUserRole };
+      }),
+    );
+  }
+
   async reviewSafetyReport(
     reportId: string,
     reviewerId: string,
@@ -771,6 +796,90 @@ export class MarketplaceService {
       },
     });
     return updatedGiver;
+  }
+
+  async suspendWorkerFromSafetyReport(
+    reportId: string,
+    reviewerId: string,
+    decisionNote: AdminDecisionNote,
+  ) {
+    const report = await this.safetyReports.findById(reportId);
+    if (!report) throw new MarketplaceError('Safety report not found', 'not_found');
+    if (!report.reportedUserId) {
+      throw new MarketplaceError('Safety report does not identify a worker', 'invalid_state');
+    }
+    const gigApplications = await this.applications.listForGig(report.gigId);
+    if (!gigApplications.some((application) => application.workerId === report.reportedUserId)) {
+      throw new MarketplaceError('Safety report does not target a worker on this gig', 'invalid_state');
+    }
+    if (!['under_review', 'action_taken', 'escalated'].includes(report.status)) {
+      throw new MarketplaceError('Safety report must be under review before suspension', 'invalid_state');
+    }
+    const worker = await this.users.findById(report.reportedUserId);
+    if (!worker || !worker.roles.includes('worker')) {
+      throw new MarketplaceError('Worker account not found', 'not_found');
+    }
+    const updatedWorker = { ...worker, status: 'suspended' as const };
+    await this.users.save(updatedWorker);
+    const quarantine = await this.quarantineWorkerActivity(
+      worker.id,
+      reviewerId,
+      `safety_report:${report.id}:${decisionNote.reasonCode}`,
+    );
+    this.audit.record({
+      actorId: reviewerId,
+      actorRole: 'fraud_analyst',
+      action: 'worker.suspended_abusive',
+      targetType: 'worker',
+      targetId: worker.id,
+      metadata: {
+        reportId,
+        gigId: report.gigId,
+        reason: report.reason,
+        severity: report.severity,
+        flaggedGigIds: quarantine.flaggedGigIds,
+        withdrawnApplicationIds: quarantine.withdrawnApplicationIds,
+        decision: summarizeDecision(decisionNote, 'Worker suspended from safety report'),
+      },
+    });
+    return updatedWorker;
+  }
+
+  private async quarantineWorkerActivity(
+    workerId: string,
+    reviewerId: string,
+    reason: string,
+  ): Promise<{ flaggedGigIds: string[]; withdrawnApplicationIds: string[] }> {
+    const applications = await this.applications.listForWorker(workerId);
+    const flaggedGigIds: string[] = [];
+    const withdrawnApplicationIds: string[] = [];
+    const moderatedAt = new Date(this.now()).toISOString();
+
+    for (const application of applications) {
+      if (application.status === 'applied') {
+        await this.applications.save({ ...application, status: 'withdrawn' });
+        withdrawnApplicationIds.push(application.id);
+        continue;
+      }
+      if (application.status !== 'selected') continue;
+      const gig = await this.getGig(application.gigId);
+      if (gig.status === 'completed' || gig.status === 'cancelled') continue;
+      await this.gigs.save({
+        ...gig,
+        visibilityStatus: 'flagged',
+        riskLevel: 'high',
+        safetyFlags: [...new Set([...gig.safetyFlags, 'worker_suspended_abusive'])].sort(),
+        moderatedBy: reviewerId,
+        moderatedAt,
+        moderationReason: reason,
+      });
+      flaggedGigIds.push(gig.id);
+    }
+
+    return {
+      flaggedGigIds: flaggedGigIds.sort(),
+      withdrawnApplicationIds: withdrawnApplicationIds.sort(),
+    };
   }
 
   private async quarantineGiverGigs(

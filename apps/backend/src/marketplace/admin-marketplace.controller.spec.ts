@@ -69,6 +69,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     expect(rolesFor('lowRatingReviews')).toEqual(trustOperatorRoles);
     expect(rolesFor('openSafetyReportFromRating')).toEqual(trustOperatorRoles);
     expect(rolesFor('deactivateGiverFromSafetyReport')).toEqual(trustOperatorRoles);
+    expect(rolesFor('suspendWorkerFromSafetyReport')).toEqual(trustOperatorRoles);
   });
 });
 
@@ -198,6 +199,9 @@ describe('AdminMarketplaceController structured decisions', () => {
       ]),
       'giver.deactivate_abusive': expect.arrayContaining([
         expect.objectContaining({ code: 'worker_safety_risk' }),
+      ]),
+      'worker.suspend_abusive': expect.arrayContaining([
+        expect.objectContaining({ code: 'giver_safety_risk' }),
       ]),
     });
   });

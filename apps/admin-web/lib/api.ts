@@ -74,6 +74,7 @@ export interface SafetyReport {
   gigId: string;
   reporterId: string;
   reportedUserId?: string;
+  reportedUserRole?: 'giver' | 'worker' | 'unknown';
   reason: string;
   severity: string;
   description: string;
@@ -125,7 +126,8 @@ export type AdminDecisionReasonAction =
   | 'dispute.refund_giver'
   | 'dispute.keep_escalated'
   | 'escalation.generate'
-  | 'giver.deactivate_abusive';
+  | 'giver.deactivate_abusive'
+  | 'worker.suspend_abusive';
 
 export interface AdminDecisionReason {
   code: string;
@@ -359,6 +361,16 @@ export function reviewSafetyReport(
 
 export function deactivateGiverFromSafetyReport(reportId: string, payload: AdminDecisionPayload) {
   return authed(`/admin/marketplace/safety-reports/${reportId}/deactivate-giver`, {
+    method: 'POST',
+    body: JSON.stringify({
+      reasonCode: payload.reasonCode,
+      note: payload.note,
+    }),
+  });
+}
+
+export function suspendWorkerFromSafetyReport(reportId: string, payload: AdminDecisionPayload) {
+  return authed(`/admin/marketplace/safety-reports/${reportId}/suspend-worker`, {
     method: 'POST',
     body: JSON.stringify({
       reasonCode: payload.reasonCode,

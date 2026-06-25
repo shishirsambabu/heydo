@@ -268,7 +268,7 @@ export class AdminMarketplaceController {
   @Get('safety-reports')
   @Roles('support', 'fraud_analyst', 'dispute_officer', 'super_admin')
   safetyReports(@Query('status') status?: string, @Query('gigId') gigId?: string) {
-    return this.marketplace.listSafetyReports({ status, gigId });
+    return this.marketplace.listSafetyReportsForAdmin({ status, gigId });
   }
 
   @Get('safety-reports/:reportId/audit-trail')
@@ -339,6 +339,24 @@ export class AdminMarketplaceController {
         reportId,
         principal.sub,
         decisionFromDto('giver.deactivate_abusive', dto),
+      );
+    });
+  }
+
+  @Post('safety-reports/:reportId/suspend-worker')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  suspendWorkerFromSafetyReport(
+    @Param('reportId') reportId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: ModerationDto,
+  ) {
+    return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
+      await this.adminSessions.assertFresh(principal);
+      return this.marketplace.suspendWorkerFromSafetyReport(
+        reportId,
+        principal.sub,
+        decisionFromDto('worker.suspend_abusive', dto),
       );
     });
   }

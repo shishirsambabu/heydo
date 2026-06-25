@@ -5,7 +5,7 @@ import { CommonModule } from '../common/common.module';
 import { DatabaseModule } from '../common/database/database.module';
 import { AuditService } from '../common/audit/audit.service';
 import { IdentityModule } from '../identity/identity.module';
-import { GiverProfileRepository } from '../identity/identity.repository';
+import { GiverProfileRepository, UserRepository } from '../identity/identity.repository';
 import { MoneyModule } from '../money/money.module';
 import { MoneyService } from '../money/money.service';
 import { VerificationModule } from '../verification/verification.module';
@@ -134,6 +134,7 @@ import { MarketplaceService } from './marketplace.service';
         SAFETY_REPORT_REPOSITORY,
         EVIDENCE_VAULT_REF_REPOSITORY,
         ESCALATION_PACKAGE_REPOSITORY,
+        UserRepository,
         GiverProfileRepository,
         VerificationService,
         AuditService,
@@ -148,6 +149,7 @@ import { MarketplaceService } from './marketplace.service';
         safetyReports,
         evidenceVaultRefs: EvidenceVaultRefRepository,
         escalationPackages: EscalationPackageRepository,
+        users: UserRepository,
         givers: GiverProfileRepository,
         verification: VerificationService,
         audit: AuditService,
@@ -162,6 +164,7 @@ import { MarketplaceService } from './marketplace.service';
           safetyReports,
           evidenceVaultRefs,
           escalationPackages,
+          users,
           givers,
           verification,
           audit,

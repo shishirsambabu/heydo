@@ -30,8 +30,23 @@ function build(now: () => number = () => Date.now()) {
   const vault = new InMemoryPiiVault('test-key');
   const audit = new AuditService();
   const sink = new FakeSink();
-  const svc = new VerificationService(verifications, consents, vkyc, vault, audit, sink, now);
-  return { svc, vkyc, vault, audit, sink, verifications };
+  const accounts = {
+    suspended: new Set<string>(),
+    async isActive(userId: string) {
+      return !this.suspended.has(userId);
+    },
+  };
+  const svc = new VerificationService(
+    verifications,
+    consents,
+    vkyc,
+    vault,
+    audit,
+    sink,
+    accounts,
+    now,
+  );
+  return { svc, vkyc, vault, audit, sink, verifications, accounts };
 }
 
 describe('VerificationService — VKYC trust gate', () => {
@@ -149,5 +164,19 @@ describe('VerificationService — VKYC trust gate', () => {
     t += 366 * 24 * 3600 * 1000;
     expect(await svc.canApply('u6')).toBe(false);
     expect(sink.status.get('worker:u6')).toBe('approved'); // status persists; eligibility expires
+  });
+
+  it('blocks a VKYC-approved worker when their account is suspended for safety', async () => {
+    const { svc, accounts } = build();
+    await svc.recordConsent('u7', 'vkyc');
+    const session = await svc.start('u7', 'ml');
+    await svc.handleVendorResult(session.sessionId);
+    const queue = await svc.listPendingReview();
+    await svc.approve(queue[0].id, 'officer-3');
+    expect(await svc.canApply('u7')).toBe(true);
+
+    accounts.suspended.add('u7');
+
+    expect(await svc.canApply('u7')).toBe(false);
   });
 });

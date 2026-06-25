@@ -29,6 +29,7 @@ import {
   resolveSafetyDispute,
   reviewSafetyReport,
   SafetyReport,
+  suspendWorkerFromSafetyReport,
 } from '../../lib/api';
 
 type QueueTab = 'gigs' | 'ratings' | 'reports';
@@ -221,6 +222,28 @@ export default function MarketplaceSafetyPage() {
       setNotice('Giver deactivated. Open gigs were quarantined and active gig lifecycle is locked for safety review.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Giver deactivation failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function onSuspendWorker(reportId: string) {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const payload = chooseDecisionPayload('worker.suspend_abusive');
+    if (!payload) return;
+    const confirmed = window.confirm(
+      'Suspend this worker, withdraw pending applications, and lock active gigs for safety review?',
+    );
+    if (!confirmed) return;
+    setActingId(reportId);
+    try {
+      await suspendWorkerFromSafetyReport(reportId, payload);
+      await load();
+      setNotice('Worker suspended. Pending applications were withdrawn and active gigs were locked for safety review.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Worker suspension failed');
     } finally {
       setActingId(null);
     }
@@ -487,9 +510,14 @@ export default function MarketplaceSafetyPage() {
                   <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onEscalationPackage(report.id)}>
                     Package
                   </button>
-                  {report.reportedUserId && (
+                  {report.reportedUserRole === 'giver' && (
                     <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onDeactivateGiver(report.id)}>
                       Deactivate giver
+                    </button>
+                  )}
+                  {report.reportedUserRole === 'worker' && (
+                    <button className="btn btn-danger" disabled={actingId === report.id} onClick={() => void onSuspendWorker(report.id)}>
+                      Suspend worker
                     </button>
                   )}
                   <button className="btn btn-outline" disabled={actingId === report.id} onClick={() => void showEvidenceRefs(report.id)}>

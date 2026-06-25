@@ -24,7 +24,7 @@ import { PII_VAULT, PiiVault } from '../common/pii/pii-vault';
 import { AuditService } from '../common/audit/audit.service';
 import { SecurityModule } from '../auth/security.module';
 import { IdentityModule } from '../identity/identity.module';
-import { IdentityVerificationStatusSink } from '../identity/identity.repository';
+import { IdentityVerificationStatusSink, UserRepository } from '../identity/identity.repository';
 
 /**
  * Verification (VKYC) module. Phase 1 binds in-memory repositories and the mock
@@ -81,6 +81,7 @@ import { IdentityVerificationStatusSink } from '../identity/identity.repository'
         PII_VAULT,
         AuditService,
         IdentityVerificationStatusSink,
+        UserRepository,
       ],
       useFactory: (
         verifications: VerificationRepository,
@@ -89,7 +90,8 @@ import { IdentityVerificationStatusSink } from '../identity/identity.repository'
         vault: PiiVault,
         audit: AuditService,
         sink: IdentityVerificationStatusSink,
-      ) => new VerificationService(verifications, consents, vkyc, vault, audit, sink),
+        users: UserRepository,
+      ) => new VerificationService(verifications, consents, vkyc, vault, audit, sink, users),
     },
   ],
   exports: [VerificationService],
