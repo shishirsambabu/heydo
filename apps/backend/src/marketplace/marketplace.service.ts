@@ -228,6 +228,19 @@ export interface RatingReviewItem {
   rateeReputation: ReputationSummary;
 }
 
+export interface MarketplaceEconomicsSummary {
+  commissionBps: number;
+  proposalTokenUnitPriceAmount: number;
+  assignmentCount: number;
+  completedGigCount: number;
+  grossBookingValueAmount: number;
+  platformFeeAmount: number;
+  workerPayoutAmount: number;
+  proposalTokenCount: number;
+  modeledProposalTokenRevenueAmount: number;
+  pendingReviewGigCount: number;
+}
+
 type ReportedUserRole = 'giver' | 'worker' | 'unknown';
 
 interface AdminSafetyReportContext {
@@ -246,6 +259,7 @@ export interface AdminGigReviewContext {
 
 const PLATFORM_FEE_BPS = 1500;
 const NEGOTIATION_TOKEN_PRICE_STEP = 500;
+const PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT = 10;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
   evidence_refs_accessed: { max: 5, windowMs: 60_000 },
@@ -352,6 +366,43 @@ export class MarketplaceService {
         ...(await this.buildAdminGigReviewContext(gig)),
       })),
     );
+  }
+
+  async marketplaceEconomicsForAdmin(): Promise<MarketplaceEconomicsSummary> {
+    const gigs = await this.gigs.list();
+    const rows = await Promise.all(
+      gigs.map(async (gig) => {
+        const [assignment, applications] = await Promise.all([
+          this.assignments.findByGig(gig.id),
+          this.applications.listForGig(gig.id),
+        ]);
+        return { gig, assignment, applications };
+      }),
+    );
+    const assignments = rows
+      .map((row) => row.assignment)
+      .filter((assignment): assignment is Assignment => Boolean(assignment));
+    const proposalTokenCount = rows.reduce(
+      (sum, row) =>
+        sum +
+        row.applications.reduce(
+          (applicationSum, application) => applicationSum + application.negotiationTokenCost,
+          0,
+        ),
+      0,
+    );
+    return {
+      commissionBps: PLATFORM_FEE_BPS,
+      proposalTokenUnitPriceAmount: PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT,
+      assignmentCount: assignments.length,
+      completedGigCount: rows.filter((row) => row.gig.status === 'completed').length,
+      grossBookingValueAmount: assignments.reduce((sum, assignment) => sum + assignment.agreedAmount, 0),
+      platformFeeAmount: assignments.reduce((sum, assignment) => sum + assignment.platformFeeAmount, 0),
+      workerPayoutAmount: assignments.reduce((sum, assignment) => sum + assignment.workerPayoutAmount, 0),
+      proposalTokenCount,
+      modeledProposalTokenRevenueAmount: proposalTokenCount * PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT,
+      pendingReviewGigCount: rows.filter((row) => row.gig.visibilityStatus === 'pending_review').length,
+    };
   }
 
   private async buildAdminGigReviewContext(gig: Gig): Promise<AdminGigReviewContext> {

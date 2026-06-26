@@ -487,6 +487,16 @@ describe('MarketplaceService', () => {
         assignment: null,
       }),
     ]);
+    await expect(svc.marketplaceEconomicsForAdmin()).resolves.toMatchObject({
+      commissionBps: 1500,
+      proposalTokenUnitPriceAmount: 10,
+      assignmentCount: 1,
+      grossBookingValueAmount: 3200,
+      platformFeeAmount: 480,
+      workerPayoutAmount: 2720,
+      proposalTokenCount: 2,
+      modeledProposalTokenRevenueAmount: 20,
+    });
 
     await expect(svc.transitionGig(gig.id, 'worker_2', 'in_progress')).rejects.toMatchObject({
       code: 'forbidden',

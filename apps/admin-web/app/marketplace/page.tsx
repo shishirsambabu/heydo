@@ -16,6 +16,7 @@ import {
   getGigAuditTrail,
   getGigMoneyTrail,
   getDecisionReasons,
+  getMarketplaceEconomics,
   getOfficerName,
   getToken,
   getSafetyReportAuditTrail,
@@ -23,6 +24,7 @@ import {
   listSafetyReportEvidenceRefs,
   listActiveSafetyReports,
   listReviewGigs,
+  MarketplaceEconomicsSummary,
   moderateGig,
   openSafetyReportFromRating,
   RatingReviewItem,
@@ -42,6 +44,7 @@ export default function MarketplaceSafetyPage() {
   const [gigs, setGigs] = useState<AdminGig[]>([]);
   const [ratings, setRatings] = useState<RatingReviewItem[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
+  const [economics, setEconomics] = useState<MarketplaceEconomicsSummary | null>(null);
   const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,15 +67,17 @@ export default function MarketplaceSafetyPage() {
     setNotice(null);
     setContextPanel(null);
     try {
-      const [gigItems, ratingItems, reportItems, reasonCatalog] = await Promise.all([
+      const [gigItems, ratingItems, reportItems, economicsSummary, reasonCatalog] = await Promise.all([
         listReviewGigs(),
         listLowRatingReviews(),
         listActiveSafetyReports(),
+        getMarketplaceEconomics(),
         getDecisionReasons(),
       ]);
       setGigs(gigItems);
       setRatings(ratingItems);
       setReports(reportItems);
+      setEconomics(economicsSummary);
       setReasons(reasonCatalog);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load marketplace queues');
@@ -412,6 +417,12 @@ export default function MarketplaceSafetyPage() {
       {reasons && (
         <div className="meta-strip">
           Structured admin reasons loaded for {Object.keys(reasons).length} sensitive action sets.
+        </div>
+      )}
+
+      {economics && (
+        <div className="meta-strip">
+          GMV INR {economics.grossBookingValueAmount} · Platform fee INR {economics.platformFeeAmount} ({economics.commissionBps / 100}%) · Worker payout INR {economics.workerPayoutAmount} · Proposal tokens {economics.proposalTokenCount} = modeled INR {economics.modeledProposalTokenRevenueAmount}
         </div>
       )}
 

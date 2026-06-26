@@ -87,6 +87,12 @@ export class AdminMarketplaceController {
     return this.marketplace.listGigsForAdmin({ visibilityStatus: 'pending_review' });
   }
 
+  @Get('economics')
+  @Roles('finance', 'fraud_analyst', 'dispute_officer', 'super_admin')
+  economics() {
+    return this.marketplace.marketplaceEconomicsForAdmin();
+  }
+
   @Get('gigs/:gigId/money-trail')
   @Roles('finance', 'dispute_officer', 'super_admin')
   async moneyTrail(@Param('gigId') gigId: string, @CurrentUser() principal: AuthPrincipal) {

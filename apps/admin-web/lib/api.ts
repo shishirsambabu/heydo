@@ -78,6 +78,19 @@ export interface AdminGig {
   createdAt: string;
 }
 
+export interface MarketplaceEconomicsSummary {
+  commissionBps: number;
+  proposalTokenUnitPriceAmount: number;
+  assignmentCount: number;
+  completedGigCount: number;
+  grossBookingValueAmount: number;
+  platformFeeAmount: number;
+  workerPayoutAmount: number;
+  proposalTokenCount: number;
+  modeledProposalTokenRevenueAmount: number;
+  pendingReviewGigCount: number;
+}
+
 export interface SafetyReport {
   id: string;
   gigId: string;
@@ -312,6 +325,10 @@ export function reject(id: string, reason: string) {
 // --- Marketplace safety queue ---
 export function listReviewGigs(): Promise<AdminGig[]> {
   return authed('/admin/marketplace/gigs/pending-review') as Promise<AdminGig[]>;
+}
+
+export function getMarketplaceEconomics(): Promise<MarketplaceEconomicsSummary> {
+  return authed('/admin/marketplace/economics') as Promise<MarketplaceEconomicsSummary>;
 }
 
 export function getDecisionReasons(): Promise<AdminDecisionReasonCatalog> {
