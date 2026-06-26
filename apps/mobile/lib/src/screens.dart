@@ -1087,16 +1087,28 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
   final _price = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _price.addListener(_refreshTokenEstimate);
+  }
+
+  @override
   void dispose() {
+    _price.removeListener(_refreshTokenEstimate);
     _message.dispose();
     _price.dispose();
     super.dispose();
   }
 
+  void _refreshTokenEstimate() => setState(() {});
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final s = app.s;
+    final budget = (widget.gig['budgetAmount'] as num?)?.toInt() ?? 0;
+    final proposedPrice = int.tryParse(_price.text.trim());
+    final proposalTokens = _proposalTokenEstimate(budget, proposedPrice);
     return HeydoScaffold(
       title: s.apply,
       children: [
@@ -1107,6 +1119,11 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
         _field(_price, s.proposedPrice, keyboardType: TextInputType.number),
         const SizedBox(height: 8),
         Text(s.fairCounteroffer, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+        if (proposalTokens > 0) ...[
+          const SizedBox(height: 6),
+          Text('${s.proposalTokens}: $proposalTokens',
+              style: const TextStyle(fontSize: 13, color: Colors.black54)),
+        ],
         const SizedBox(height: 18),
         BigButton(
           label: s.apply,
@@ -1128,6 +1145,12 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
       ],
     );
   }
+}
+
+int _proposalTokenEstimate(int budgetAmount, int? proposedPrice) {
+  final delta = (proposedPrice ?? budgetAmount) - budgetAmount;
+  if (delta <= 0) return 0;
+  return (delta / 500).ceil();
 }
 
 class SafetyReportScreen extends StatefulWidget {
