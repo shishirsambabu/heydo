@@ -1108,7 +1108,8 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
     final s = app.s;
     final budget = (widget.gig['budgetAmount'] as num?)?.toInt() ?? 0;
     final proposedPrice = int.tryParse(_price.text.trim());
-    final proposalTokens = _proposalTokenEstimate(budget, proposedPrice);
+    final tokenStep = (app.proposalTokenPolicy['priceStepAmount'] as num?)?.toInt() ?? 500;
+    final proposalTokens = _proposalTokenEstimate(budget, proposedPrice, tokenStep);
     return HeydoScaffold(
       title: s.apply,
       children: [
@@ -1147,10 +1148,10 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
   }
 }
 
-int _proposalTokenEstimate(int budgetAmount, int? proposedPrice) {
+int _proposalTokenEstimate(int budgetAmount, int? proposedPrice, int tokenStepAmount) {
   final delta = (proposedPrice ?? budgetAmount) - budgetAmount;
-  if (delta <= 0) return 0;
-  return (delta / 500).ceil();
+  if (delta <= 0 || tokenStepAmount <= 0) return 0;
+  return (delta / tokenStepAmount).ceil();
 }
 
 class SafetyReportScreen extends StatefulWidget {

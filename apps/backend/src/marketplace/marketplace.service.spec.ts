@@ -114,6 +114,16 @@ describe('MarketplaceService', () => {
     await expect(svc.listGigs()).resolves.toEqual([]);
   });
 
+  it('exposes proposal token policy for client-side estimates', () => {
+    const { svc } = service();
+
+    expect(svc.proposalTokenPolicy()).toEqual({
+      priceStepAmount: 500,
+      tokenUnitPriceAmount: 10,
+      currency: 'INR',
+    });
+  });
+
   it('blocks unverified workers from applying to gigs', async () => {
     const { svc, givers } = service(async () => false);
     await givers.save({

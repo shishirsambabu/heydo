@@ -86,6 +86,8 @@ class HeydoApi {
   // --- Marketplace ---
   Future<List<dynamic>> categories() => _getList('/marketplace/categories');
   Future<List<dynamic>> pricingGuides() => _getList('/marketplace/pricing-guides');
+  Future<Map<String, dynamic>> proposalTokenPolicy() =>
+      _get('/marketplace/proposal-token-policy');
   Future<Map<String, dynamic>> postGig({
     required String categoryId,
     required String title,

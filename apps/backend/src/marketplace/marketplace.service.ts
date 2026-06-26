@@ -241,6 +241,12 @@ export interface MarketplaceEconomicsSummary {
   pendingReviewGigCount: number;
 }
 
+export interface ProposalTokenPolicy {
+  priceStepAmount: number;
+  tokenUnitPriceAmount: number;
+  currency: 'INR';
+}
+
 type ReportedUserRole = 'giver' | 'worker' | 'unknown';
 
 interface AdminSafetyReportContext {
@@ -299,6 +305,14 @@ export class MarketplaceService {
 
   listPricingGuides(): PricingGuide[] {
     return DEFAULT_PRICING_GUIDES;
+  }
+
+  proposalTokenPolicy(): ProposalTokenPolicy {
+    return {
+      priceStepAmount: NEGOTIATION_TOKEN_PRICE_STEP,
+      tokenUnitPriceAmount: PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT,
+      currency: 'INR',
+    };
   }
 
   async postGig(giverId: string, input: PostGigInput): Promise<Gig> {

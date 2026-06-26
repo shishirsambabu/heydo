@@ -37,6 +37,11 @@ class AppState extends ChangeNotifier {
   bool canPost = false;
   List<Map<String, dynamic>> categories = [];
   List<Map<String, dynamic>> pricingGuides = [];
+  Map<String, dynamic> proposalTokenPolicy = {
+    'priceStepAmount': 500,
+    'tokenUnitPriceAmount': 10,
+    'currency': 'INR',
+  };
   List<Map<String, dynamic>> visibleGigs = [];
   List<Map<String, dynamic>> myGigs = [];
   List<Map<String, dynamic>> myApplications = [];
@@ -136,12 +141,14 @@ class AppState extends ChangeNotifier {
   Future<bool> loadMarketplaceSetup() => _guard(() async {
         final loadedCategories = await api.categories();
         final loadedGuides = await api.pricingGuides();
+        final loadedProposalTokenPolicy = await api.proposalTokenPolicy();
         categories = loadedCategories
             .whereType<Map<String, dynamic>>()
             .toList(growable: false);
         pricingGuides = loadedGuides
             .whereType<Map<String, dynamic>>()
             .toList(growable: false);
+        proposalTokenPolicy = loadedProposalTokenPolicy;
       });
 
   Map<String, dynamic>? pricingGuideFor(String categoryId) {

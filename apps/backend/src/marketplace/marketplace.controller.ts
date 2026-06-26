@@ -70,6 +70,11 @@ export class MarketplaceController {
     return this.marketplace.listPricingGuides();
   }
 
+  @Get('proposal-token-policy')
+  proposalTokenPolicy() {
+    return this.marketplace.proposalTokenPolicy();
+  }
+
   @Post('gigs')
   async postGig(@CurrentUser() principal: AuthPrincipal, @Body() dto: PostGigDto) {
     return this.wrap(() => this.marketplace.postGig(principal.sub, dto));
