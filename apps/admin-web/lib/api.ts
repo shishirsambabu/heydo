@@ -357,6 +357,10 @@ export function grantProposalTokens(
   }) as Promise<ProposalTokenAccount>;
 }
 
+export function getProposalTokenAuditTrail(workerId: string): Promise<AuditRecord[]> {
+  return authed(`/admin/marketplace/proposal-tokens/${workerId}/audit-trail`) as Promise<AuditRecord[]>;
+}
+
 export function moderateGig(
   gigId: string,
   decision: 'approve' | 'reject' | 'flag',

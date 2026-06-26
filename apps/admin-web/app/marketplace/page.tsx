@@ -18,6 +18,7 @@ import {
   getDecisionReasons,
   getMarketplaceEconomics,
   getOfficerName,
+  getProposalTokenAuditTrail,
   getToken,
   getSafetyReportAuditTrail,
   grantProposalTokens,
@@ -286,6 +287,30 @@ export default function MarketplaceSafetyPage() {
     }
   }
 
+  async function showProposalTokenAuditTrail() {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const workerId = window.prompt('Worker user id?');
+    if (!workerId?.trim()) return;
+    const id = workerId.trim();
+    setActingId(`proposal-token-audit:${id}`);
+    try {
+      const records = await getProposalTokenAuditTrail(id);
+      setContextPanel({
+        title: `Proposal token audit for ${id}`,
+        rows: records.map((record) => ({
+          label: record.action,
+          value: `${record.at} - ${record.actorRole}:${record.actorId} - ${summarizeMetadata(record.metadata)}`,
+        })),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Proposal token audit failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function onRatingSafetyCase(item: RatingReviewItem) {
     setError(null);
     setNotice(null);
@@ -430,6 +455,9 @@ export default function MarketplaceSafetyPage() {
           </button>
           <button className="btn btn-outline" onClick={() => void onGrantProposalTokens()}>
             Grant tokens
+          </button>
+          <button className="btn btn-outline" onClick={() => void showProposalTokenAuditTrail()}>
+            Token audit
           </button>
           <button className="btn btn-outline" onClick={signOut}>
             Sign out

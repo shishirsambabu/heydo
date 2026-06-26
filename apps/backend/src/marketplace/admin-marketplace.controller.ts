@@ -112,6 +112,32 @@ export class AdminMarketplaceController {
     });
   }
 
+  @Get('proposal-tokens/:workerId/audit-trail')
+  @Roles('finance', 'super_admin')
+  async proposalTokenAuditTrail(
+    @Param('workerId') workerId: string,
+    @CurrentUser() principal: AuthPrincipal,
+  ) {
+    const [grants, applicationDebits] = await Promise.all([
+      this.audit.list({ targetType: 'worker', targetId: workerId, actionPrefix: 'proposal_tokens.' }),
+      this.audit.list({ actorId: workerId, actionPrefix: 'gig.application_submitted' }),
+    ]);
+    const tokenDebits = applicationDebits.filter(
+      (entry) => Number(entry.metadata?.negotiationTokenCost ?? 0) > 0,
+    );
+    const byId = new Map([...grants, ...tokenDebits].map((entry) => [entry.id, entry]));
+    const trail = [...byId.values()].sort((a, b) => a.at.localeCompare(b.at));
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: 'admin.proposal_token_audit_trail_viewed',
+      targetType: 'worker',
+      targetId: workerId,
+      metadata: { auditRecordCount: trail.length },
+    });
+    return trail;
+  }
+
   @Get('economics')
   @Roles('finance', 'fraud_analyst', 'dispute_officer', 'super_admin')
   economics() {
