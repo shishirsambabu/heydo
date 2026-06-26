@@ -99,6 +99,18 @@ describe('MarketplaceService', () => {
 
     expect(gig.visibilityStatus).toBe('pending_review');
     expect(gig.safetyFlags).toContain('budget_below_fair_minimum');
+    await expect(svc.listGigsForAdmin({ visibilityStatus: 'pending_review' })).resolves.toEqual([
+      expect.objectContaining({
+        id: gig.id,
+        categoryNameEn: 'Cleaning',
+        pricingAssessment: 'below_fair_minimum',
+        pricingGuide: expect.objectContaining({
+          minBudgetAmount: 600,
+          suggestedBudgetAmount: 1200,
+          highReviewAmount: 8000,
+        }),
+      }),
+    ]);
     await expect(svc.listGigs()).resolves.toEqual([]);
   });
 

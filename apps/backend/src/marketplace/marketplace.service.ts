@@ -238,6 +238,12 @@ interface AdminSafetyReportContext {
   reportedUserHighSeverityReportCount: number;
 }
 
+export interface AdminGigReviewContext {
+  categoryNameEn?: string;
+  pricingGuide?: PricingGuide;
+  pricingAssessment: 'below_fair_minimum' | 'within_guardrail' | 'above_high_review' | 'missing_guide';
+}
+
 const PLATFORM_FEE_BPS = 1500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
@@ -337,8 +343,38 @@ export class MarketplaceService {
     return this.gigs.list({ ...filters, visibilityStatus: filters.visibilityStatus ?? 'visible' });
   }
 
-  listGigsForAdmin(filters?: GigFilters): Promise<Gig[]> {
-    return this.gigs.list(filters);
+  async listGigsForAdmin(filters?: GigFilters): Promise<Array<Gig & AdminGigReviewContext>> {
+    const gigs = await this.gigs.list(filters);
+    return Promise.all(
+      gigs.map(async (gig) => ({
+        ...gig,
+        ...(await this.buildAdminGigReviewContext(gig)),
+      })),
+    );
+  }
+
+  private async buildAdminGigReviewContext(gig: Gig): Promise<AdminGigReviewContext> {
+    const [category, pricingGuide] = await Promise.all([
+      this.categories.findById(gig.categoryId),
+      Promise.resolve(pricingGuideFor(gig.categoryId)),
+    ]);
+    if (!pricingGuide) {
+      return {
+        categoryNameEn: category?.nameEn,
+        pricingAssessment: 'missing_guide',
+      };
+    }
+    const pricingAssessment =
+      gig.budgetAmount < pricingGuide.minBudgetAmount
+        ? 'below_fair_minimum'
+        : gig.budgetAmount > pricingGuide.highReviewAmount
+          ? 'above_high_review'
+          : 'within_guardrail';
+    return {
+      categoryNameEn: category?.nameEn,
+      pricingGuide,
+      pricingAssessment,
+    };
   }
 
   listGiverGigs(giverId: string): Promise<Gig[]> {

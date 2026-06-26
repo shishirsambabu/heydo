@@ -430,15 +430,29 @@ export default function MarketplaceSafetyPage() {
                   <div className="label">Gig</div>
                   <div className="display compact">{gig.title}</div>
                   <div className="muted">
-                    {gig.id} - giver {gig.giverId} - {gig.location} - INR {gig.budgetAmount}
+                    {gig.id} - giver {gig.giverId} - {gig.location} - {gig.categoryNameEn ?? gig.categoryId}
                   </div>
                   <p className="body-copy">{gig.description}</p>
                   <div className="signals">
                     <span className={`pill ${gig.riskLevel === 'high' ? 'bad' : 'warn'}`}>{gig.riskLevel}</span>
+                    <span className={`pill ${gig.pricingAssessment === 'below_fair_minimum' ? 'bad' : gig.pricingAssessment === 'above_high_review' ? 'warn' : 'ok'}`}>
+                      {formatStatusLabel(gig.pricingAssessment ?? 'missing_guide')}
+                    </span>
+                    <span className="signal">Budget <b>INR {gig.budgetAmount}</b></span>
+                    {gig.pricingGuide && (
+                      <span className="signal">
+                        Fair min <b>INR {gig.pricingGuide.minBudgetAmount}</b>
+                        {' / '}
+                        suggested <b>INR {gig.pricingGuide.suggestedBudgetAmount}</b>
+                        {' / '}
+                        high review <b>INR {gig.pricingGuide.highReviewAmount}</b>
+                      </span>
+                    )}
                     {gig.safetyFlags.map((flag) => (
                       <span className="pill warn" key={flag}>{flag}</span>
                     ))}
                   </div>
+                  {gig.pricingGuide && <p className="muted">{gig.pricingGuide.notes}</p>}
                 </div>
                 <div className="actions">
                   <button className="btn btn-primary" disabled={actingId === gig.id} onClick={() => void onGig(gig.id, 'approve')}>

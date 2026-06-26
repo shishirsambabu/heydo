@@ -55,6 +55,7 @@ export interface AdminGig {
   id: string;
   giverId: string;
   categoryId: string;
+  categoryNameEn?: string;
   title: string;
   description: string;
   location: string;
@@ -65,6 +66,14 @@ export interface AdminGig {
   visibilityStatus: string;
   riskLevel: string;
   safetyFlags: string[];
+  pricingAssessment?: 'below_fair_minimum' | 'within_guardrail' | 'above_high_review' | 'missing_guide';
+  pricingGuide?: {
+    categoryId: string;
+    minBudgetAmount: number;
+    suggestedBudgetAmount: number;
+    highReviewAmount: number;
+    notes: string;
+  };
   moderationReason?: string;
   createdAt: string;
 }
