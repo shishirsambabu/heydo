@@ -75,6 +75,10 @@ export interface SafetyReport {
   reporterId: string;
   reportedUserId?: string;
   reportedUserRole?: 'giver' | 'worker' | 'unknown';
+  reportedUserStatus?: string;
+  reportedUserVerificationStatus?: string;
+  reportedUserReportCount?: number;
+  reportedUserHighSeverityReportCount?: number;
   reason: string;
   severity: string;
   description: string;

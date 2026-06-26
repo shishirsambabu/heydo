@@ -228,6 +228,16 @@ export interface RatingReviewItem {
   rateeReputation: ReputationSummary;
 }
 
+type ReportedUserRole = 'giver' | 'worker' | 'unknown';
+
+interface AdminSafetyReportContext {
+  reportedUserRole: ReportedUserRole;
+  reportedUserStatus?: string;
+  reportedUserVerificationStatus?: string;
+  reportedUserReportCount: number;
+  reportedUserHighSeverityReportCount: number;
+}
+
 const PLATFORM_FEE_BPS = 1500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
@@ -700,19 +710,63 @@ export class MarketplaceService {
 
   async listSafetyReportsForAdmin(filters?: { status?: string; gigId?: string }) {
     const reports = await this.safetyReports.list(filters);
+    const allReports = await this.safetyReports.list();
     return Promise.all(
       reports.map(async (report) => {
-        const gig = await this.getGig(report.gigId);
-        const applications = await this.applications.listForGig(report.gigId);
-        const reportedUserRole =
-          report.reportedUserId === gig.giverId
-            ? 'giver'
-            : applications.some((application) => application.workerId === report.reportedUserId)
-              ? 'worker'
-              : 'unknown';
-        return { ...report, reportedUserRole };
+        const context = await this.buildAdminSafetyReportContext(report, allReports);
+        return { ...report, ...context };
       }),
     );
+  }
+
+  private async buildAdminSafetyReportContext(
+    report: SafetyReport,
+    allReports: SafetyReport[],
+  ): Promise<AdminSafetyReportContext> {
+    const reportedUserRole = await this.identifyReportedUserRole(report);
+    const sameUserReports = report.reportedUserId
+      ? allReports.filter((candidate) => candidate.reportedUserId === report.reportedUserId)
+      : [];
+    const highSeverityReports = sameUserReports.filter((candidate) =>
+      ['high', 'critical'].includes(candidate.severity),
+    );
+    const targetStatus = await this.resolveReportedUserStatus(report.reportedUserId, reportedUserRole);
+    return {
+      reportedUserRole,
+      reportedUserStatus: targetStatus.status,
+      reportedUserVerificationStatus: targetStatus.verificationStatus,
+      reportedUserReportCount: sameUserReports.length,
+      reportedUserHighSeverityReportCount: highSeverityReports.length,
+    };
+  }
+
+  private async identifyReportedUserRole(report: SafetyReport): Promise<ReportedUserRole> {
+    if (!report.reportedUserId) return 'unknown';
+    const gig = await this.getGig(report.gigId);
+    if (report.reportedUserId === gig.giverId) return 'giver';
+    const applications = await this.applications.listForGig(report.gigId);
+    return applications.some((application) => application.workerId === report.reportedUserId)
+      ? 'worker'
+      : 'unknown';
+  }
+
+  private async resolveReportedUserStatus(
+    reportedUserId: string | undefined,
+    role: ReportedUserRole,
+  ): Promise<{ status?: string; verificationStatus?: string }> {
+    if (!reportedUserId) return {};
+    if (role === 'giver') {
+      const giver = await this.givers.findByUser(reportedUserId);
+      return {
+        status: giver?.status,
+        verificationStatus: giver?.verificationStatus,
+      };
+    }
+    if (role === 'worker') {
+      const worker = await this.users.findById(reportedUserId);
+      return { status: worker?.status };
+    }
+    return {};
   }
 
   async reviewSafetyReport(

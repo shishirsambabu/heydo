@@ -80,6 +80,7 @@ h1, h2, h3, .display {
 .signals { display: flex; gap: 18px; margin: 10px 0; flex-wrap: wrap; }
 .signal { font-size: 13px; }
 .signal b { font-family: 'Plus Jakarta Sans', sans-serif; }
+.signal.warn-text { color: #8a5a00; font-weight: 500; }
 
 .pill {
   display: inline-block;

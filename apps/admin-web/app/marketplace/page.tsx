@@ -482,6 +482,20 @@ export default function MarketplaceSafetyPage() {
                       {report.severity}
                     </span>
                     <span className="pill warn">{report.status}</span>
+                    <span className="pill">{formatStatusLabel(report.reportedUserRole ?? 'unknown')}</span>
+                    {report.reportedUserStatus && (
+                      <span className={`pill ${report.reportedUserStatus.includes('suspended') || report.reportedUserStatus.includes('deactivated') ? 'bad' : ''}`}>
+                        Account {formatStatusLabel(report.reportedUserStatus)}
+                      </span>
+                    )}
+                    {report.reportedUserVerificationStatus && (
+                      <span className="signal">KYC <b>{formatStatusLabel(report.reportedUserVerificationStatus)}</b></span>
+                    )}
+                    <span className={`signal ${(report.reportedUserHighSeverityReportCount ?? 0) > 0 ? 'warn-text' : ''}`}>
+                      Target reports <b>{report.reportedUserReportCount ?? 0}</b>
+                      {' / '}
+                      high <b>{report.reportedUserHighSeverityReportCount ?? 0}</b>
+                    </span>
                     <span className="signal">Evidence refs <b>{report.evidenceVaultRefs.length}</b></span>
                   </div>
                 </div>
@@ -641,4 +655,8 @@ function formatMetadataValue(value: unknown): string {
   if (Array.isArray(value)) return `[${value.join(',')}]`;
   if (value && typeof value === 'object') return JSON.stringify(value);
   return String(value);
+}
+
+function formatStatusLabel(value: string): string {
+  return value.replace(/_/g, ' ');
 }

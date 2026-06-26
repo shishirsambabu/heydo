@@ -765,10 +765,27 @@ describe('MarketplaceService', () => {
       proposedPrice: 1200,
     });
     await svc.selectApplicant(assignedGig.id, assignedApplication.id, 'giver_1');
+    await svc.raiseSafetyReport(assignedGig.id, 'worker_3', {
+      reportedUserId: 'giver_1',
+      reason: 'unsafe_location',
+      severity: 'medium',
+      description: 'Location details changed after selection.',
+      evidenceVaultRefs: ['vault_chat_location_1'],
+    });
     await expect(moneyRepo.findEscrowHoldByGig(assignedGig.id)).resolves.toMatchObject({
       amount: 1200,
       status: 'held',
     });
+    await expect(svc.listSafetyReportsForAdmin({ gigId: gig.id })).resolves.toEqual([
+      expect.objectContaining({
+        id: report.id,
+        reportedUserRole: 'giver',
+        reportedUserStatus: 'active',
+        reportedUserVerificationStatus: 'approved',
+        reportedUserReportCount: 2,
+        reportedUserHighSeverityReportCount: 1,
+      }),
+    ]);
     await svc.reviewSafetyReport(
       report.id,
       'fraud_admin_1',
@@ -952,7 +969,13 @@ describe('MarketplaceService', () => {
       ]),
     );
     await expect(svc.listSafetyReportsForAdmin({ gigId: assignedGig.id })).resolves.toEqual([
-      expect.objectContaining({ id: report.id, reportedUserRole: 'worker' }),
+      expect.objectContaining({
+        id: report.id,
+        reportedUserRole: 'worker',
+        reportedUserStatus: 'suspended',
+        reportedUserReportCount: 1,
+        reportedUserHighSeverityReportCount: 1,
+      }),
     ]);
     expect(audit.entries()).toEqual(
       expect.arrayContaining([
