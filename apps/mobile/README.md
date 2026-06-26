@@ -1,17 +1,58 @@
-# heydo
+# Heydo Mobile
 
-A new Flutter project.
+Flutter app for Heydo workers and gig givers. This is the primary product surface for VKYC, gig posting, worker applications, safety reporting, and Malayalam-first marketplace flows.
 
-## Getting Started
+## QA Gate
 
-This project is a starting point for a Flutter application.
+From the repo root:
 
-A few resources to get you started if this is your first Flutter project:
+```powershell
+npm run mobile:qa
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+This runs:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- `flutter --version`
+- `flutter pub get`
+- `flutter analyze`
+- `flutter test`
+
+Optional debug APK build:
+
+```powershell
+$env:HEYDO_MOBILE_BUILD="1"
+npm run mobile:qa
+```
+
+The command intentionally fails when Flutter is not installed or not on `PATH`. Install Flutter 3.22+ and Android tooling before closing the mobile QA gate.
+
+## Manual Real-Device Check
+
+Run on a mid-range Android device before marking a phase done:
+
+```powershell
+cd apps/mobile
+flutter run
+```
+
+Verify:
+
+- Malayalam strings render correctly.
+- Worker VKYC can start and return to status.
+- Giver VKYC can start and return to status.
+- Unverified giver cannot post.
+- Approved giver can post a safe gig.
+- Underpriced/risky gig goes to admin review.
+- Verified worker can browse and apply.
+- Worker can submit a safety report from a gig.
+- No text overflows on small screens.
+- App still behaves predictably after network interruption and restart.
+
+## Backend
+
+The mobile app expects the backend API to be running locally unless configured otherwise:
+
+```powershell
+cd D:\heydo
+npm run start:backend
+```

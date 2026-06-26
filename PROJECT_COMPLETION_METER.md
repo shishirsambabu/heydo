@@ -6,7 +6,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 48%**
+**Overall MVP launch readiness: 49%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
@@ -16,14 +16,14 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Safety and abuse prevention | 82% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, and the operator policy matrix are built. |
 | Admin / ops panel | 76% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 46% | Main flows exist, but Flutter tooling was unavailable in this shell for analyze/build verification and real-device Malayalam QA. |
+| Mobile app readiness | 48% | Main flows exist and `npm run mobile:qa` now defines the QA gate, but Flutter tooling is unavailable in this shell for analyze/build verification and real-device Malayalam QA. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
 | Production deployment and monitoring | 28% | Domain and Cloudflare are configured; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
 
 ## Current Gate
 
-**Pre-Phase-2 safety hardening gate: 95%**
+**Pre-Phase-2 safety hardening gate: 96%**
 
 We are finishing the safety foundation before treating Phase 2 as truly open.
 
@@ -44,12 +44,13 @@ Done:
 - Kerala launch categories now have Malayalam labels and matching pricing guardrails, with backend tests preventing missing guides.
 - Admin now has a secret-safe Didit readiness panel for provider mode, worker/giver workflows, webhook secret, persistence, and database configuration.
 - `npm run vkyc:readiness` now provides the same secret-safe live Didit readiness check from the CLI.
+- `npm run mobile:qa` now defines the Flutter analyze/test gate and fails clearly when Flutter is not installed.
 
 Still required before we call this gate complete:
 
 - Verify both Didit workflows end to end: worker VKYC and separate giver VKYC.
 - Confirm real Didit approval/rejection callbacks update Heydo state correctly in the live vendor workflow.
-- Run Flutter analyze/build on a machine with Flutter installed.
+- Install Flutter 3.22+ / Android tooling, then run `npm run mobile:qa` and real-device Malayalam QA.
 - Replace temporary Cloudflare tunnel with a durable deployed backend URL before production use.
 
 ## Phase Position
@@ -75,7 +76,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 48%; active gate, pre-Phase-2 safety hardening 95%.
+Project meter: Overall MVP launch readiness 49%; active gate, pre-Phase-2 safety hardening 96%.
 Next gate: verify real worker/giver Didit workflows, confirm live callbacks persist state, then run Flutter QA.
 ```
 
