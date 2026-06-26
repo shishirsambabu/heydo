@@ -153,7 +153,8 @@ export type AdminDecisionReasonAction =
   | 'dispute.keep_escalated'
   | 'escalation.generate'
   | 'giver.deactivate_abusive'
-  | 'worker.suspend_abusive';
+  | 'worker.suspend_abusive'
+  | 'proposal_tokens.grant';
 
 export interface AdminDecisionReason {
   code: string;
@@ -167,6 +168,12 @@ export interface AdminDecisionPayload {
   reasonCode: string;
   note: string;
   lawEnforcementRef?: string;
+}
+
+export interface ProposalTokenAccount {
+  workerId: string;
+  balance: number;
+  updatedAt: string;
 }
 
 export type DisputeResolutionOutcome = 'release_to_worker' | 'refund_giver' | 'keep_escalated';
@@ -333,6 +340,21 @@ export function getMarketplaceEconomics(): Promise<MarketplaceEconomicsSummary> 
 
 export function getDecisionReasons(): Promise<AdminDecisionReasonCatalog> {
   return authed('/admin/marketplace/decision-reasons') as Promise<AdminDecisionReasonCatalog>;
+}
+
+export function grantProposalTokens(
+  workerId: string,
+  amount: number,
+  payload: AdminDecisionPayload,
+): Promise<ProposalTokenAccount> {
+  return authed(`/admin/marketplace/proposal-tokens/${workerId}/grant`, {
+    method: 'POST',
+    body: JSON.stringify({
+      amount,
+      reasonCode: payload.reasonCode,
+      note: payload.note,
+    }),
+  }) as Promise<ProposalTokenAccount>;
 }
 
 export function moderateGig(

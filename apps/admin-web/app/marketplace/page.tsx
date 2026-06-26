@@ -20,6 +20,7 @@ import {
   getOfficerName,
   getToken,
   getSafetyReportAuditTrail,
+  grantProposalTokens,
   listLowRatingReviews,
   listSafetyReportEvidenceRefs,
   listActiveSafetyReports,
@@ -254,6 +255,37 @@ export default function MarketplaceSafetyPage() {
     }
   }
 
+  async function onGrantProposalTokens() {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const workerId = window.prompt('Worker user id?');
+    if (!workerId?.trim()) return;
+    const amountText = window.prompt('Proposal tokens to grant? Maximum 100.');
+    if (!amountText) return;
+    const amount = Number(amountText.trim());
+    if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+      setError('Grant amount must be a whole number from 1 to 100.');
+      return;
+    }
+    const payload = chooseDecisionPayload('proposal_tokens.grant');
+    if (!payload) return;
+    const confirmed = window.confirm(
+      `Grant ${amount} proposal tokens to ${workerId.trim()}? This is an audited finance action.`,
+    );
+    if (!confirmed) return;
+    setActingId(`proposal-token-grant:${workerId.trim()}`);
+    try {
+      const account = await grantProposalTokens(workerId.trim(), amount, payload);
+      await load();
+      setNotice(`Granted ${amount} proposal tokens to ${account.workerId}. New balance: ${account.balance}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Proposal token grant failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function onRatingSafetyCase(item: RatingReviewItem) {
     setError(null);
     setNotice(null);
@@ -395,6 +427,9 @@ export default function MarketplaceSafetyPage() {
           </Link>
           <button className="btn btn-outline" onClick={() => void load()}>
             Refresh
+          </button>
+          <button className="btn btn-outline" onClick={() => void onGrantProposalTokens()}>
+            Grant tokens
           </button>
           <button className="btn btn-outline" onClick={signOut}>
             Sign out
