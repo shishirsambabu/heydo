@@ -135,6 +135,39 @@ describe('MarketplaceService', () => {
     });
   });
 
+  it('lets finance admins grant proposal tokens to workers with an audit trail', async () => {
+    const { svc, users, audit } = service();
+    await users.save({
+      id: 'worker_1',
+      phone: '+919000000001',
+      roles: ['worker'],
+      locale: 'ml',
+      status: 'active',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+
+    await expect(
+      svc.grantProposalTokens('worker_1', 10, 'finance_admin', {
+        reasonCode: 'launch_promo',
+        note: 'Launch promo top-up for worker onboarding.',
+      }),
+    ).resolves.toMatchObject({ workerId: 'worker_1', balance: 15 });
+    expect(audit.entries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'proposal_tokens.granted',
+          targetType: 'worker',
+          targetId: 'worker_1',
+          metadata: expect.objectContaining({
+            amount: 10,
+            balanceAfter: 15,
+            modeledValueAmount: 100,
+          }),
+        }),
+      ]),
+    );
+  });
+
   it('blocks unverified workers from applying to gigs', async () => {
     const { svc, givers } = service(async () => false);
     await givers.save({

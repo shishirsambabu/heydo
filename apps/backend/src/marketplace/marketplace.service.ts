@@ -101,7 +101,8 @@ export type AdminDecisionReasonAction =
   | 'dispute.keep_escalated'
   | 'escalation.generate'
   | 'giver.deactivate_abusive'
-  | 'worker.suspend_abusive';
+  | 'worker.suspend_abusive'
+  | 'proposal_tokens.grant';
 
 export interface AdminDecisionReason {
   code: string;
@@ -176,6 +177,11 @@ export const ADMIN_DECISION_REASON_CATALOG: Record<
     { code: 'repeated_or_severe_abuse', label: 'Repeated or severe abuse' },
     { code: 'illegal_or_criminal_activity', label: 'Illegal or criminal activity' },
     { code: 'fraud_or_theft_risk', label: 'Fraud or theft risk' },
+  ],
+  'proposal_tokens.grant': [
+    { code: 'support_adjustment', label: 'Support adjustment' },
+    { code: 'launch_promo', label: 'Launch promo' },
+    { code: 'payment_reconciliation', label: 'Payment reconciliation' },
   ],
 };
 
@@ -269,6 +275,7 @@ const PLATFORM_FEE_BPS = 1500;
 const NEGOTIATION_TOKEN_PRICE_STEP = 500;
 const PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT = 10;
 const STARTER_PROPOSAL_TOKEN_BALANCE = 5;
+const MAX_ADMIN_PROPOSAL_TOKEN_GRANT = 100;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
   evidence_refs_accessed: { max: 5, windowMs: 60_000 },
@@ -325,6 +332,41 @@ export class MarketplaceService {
       STARTER_PROPOSAL_TOKEN_BALANCE,
       new Date(this.now()).toISOString(),
     );
+  }
+
+  async grantProposalTokens(
+    workerId: string,
+    amount: number,
+    adminId: string,
+    decisionNote: AdminDecisionNote,
+  ) {
+    if (!Number.isInteger(amount) || amount < 1 || amount > MAX_ADMIN_PROPOSAL_TOKEN_GRANT) {
+      throw new MarketplaceError('Proposal token grant amount is invalid', 'invalid_token_grant');
+    }
+    const worker = await this.users.findById(workerId);
+    if (!worker || !worker.roles.includes('worker')) {
+      throw new MarketplaceError('Worker account not found', 'not_found');
+    }
+    await this.proposalTokens.ensureAccount(
+      workerId,
+      STARTER_PROPOSAL_TOKEN_BALANCE,
+      new Date(this.now()).toISOString(),
+    );
+    const account = await this.proposalTokens.credit(workerId, amount, new Date(this.now()).toISOString());
+    this.audit.record({
+      actorId: adminId,
+      actorRole: 'finance',
+      action: 'proposal_tokens.granted',
+      targetType: 'worker',
+      targetId: workerId,
+      metadata: {
+        amount,
+        balanceAfter: account.balance,
+        modeledValueAmount: amount * PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT,
+        decision: summarizeDecision(decisionNote, 'Proposal tokens granted by admin'),
+      },
+    });
+    return account;
   }
 
   async postGig(giverId: string, input: PostGigInput): Promise<Gig> {

@@ -12,7 +12,7 @@ import {
   ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
-import { IsOptional, IsString, MinLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 import { RatingDirection, SafetyReportStatus } from './marketplace.entities';
 import { AdminSessionError, AdminSessionService } from '../auth/admin-session.service';
 import { AuthPrincipal } from '../auth/auth.types';
@@ -64,6 +64,12 @@ class AuditRecoveryDto {
   @IsString() @MinLength(3) investigatedByAdminId!: string;
 }
 
+class ProposalTokenGrantDto {
+  @IsInt() @Min(1) @Max(100) amount!: number;
+  @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
+}
+
 @Controller('admin/marketplace')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin')
@@ -85,6 +91,25 @@ export class AdminMarketplaceController {
   @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   pendingReview() {
     return this.marketplace.listGigsForAdmin({ visibilityStatus: 'pending_review' });
+  }
+
+  @Post('proposal-tokens/:workerId/grant')
+  @Roles('finance', 'super_admin')
+  grantProposalTokens(
+    @Param('workerId') workerId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: ProposalTokenGrantDto,
+  ) {
+    return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
+      await this.adminSessions.assertFresh(principal);
+      return this.marketplace.grantProposalTokens(
+        workerId,
+        dto.amount,
+        principal.sub,
+        decisionFromDto('proposal_tokens.grant', dto),
+      );
+    });
   }
 
   @Get('economics')

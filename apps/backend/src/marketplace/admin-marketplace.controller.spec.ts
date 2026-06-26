@@ -34,6 +34,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
       'dispute_officer',
       'super_admin',
     ]);
+    expect(rolesFor('grantProposalTokens')).toEqual(['finance', 'super_admin']);
     expect(rolesFor('moneyTrail')).toEqual(['finance', 'dispute_officer', 'super_admin']);
     expect(rolesFor('auditHealth')).toEqual(['super_admin']);
     expect(rolesFor('restoreAuditHealth')).toEqual(['super_admin']);

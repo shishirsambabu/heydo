@@ -405,6 +405,19 @@ export class PostgresProposalTokenRepository implements ProposalTokenRepository 
     );
     return row ? toProposalTokenAccount(row) : null;
   }
+
+  async credit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount> {
+    const [row] = await this.pg.query<ProposalTokenAccountRow>(
+      `INSERT INTO "ProposalTokenAccount" ("workerId", balance, "updatedAt")
+       VALUES ($1, $2, $3)
+       ON CONFLICT ("workerId") DO UPDATE SET
+         balance = "ProposalTokenAccount".balance + EXCLUDED.balance,
+         "updatedAt" = EXCLUDED."updatedAt"
+       RETURNING "workerId", balance, "updatedAt"`,
+      [workerId, amount, now],
+    );
+    return toProposalTokenAccount(row);
+  }
 }
 
 @Injectable()

@@ -52,6 +52,7 @@ export interface ProposalTokenAccount {
 export interface ProposalTokenRepository {
   ensureAccount(workerId: string, initialBalance: number, now: string): Promise<ProposalTokenAccount>;
   debit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount | null>;
+  credit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount>;
 }
 
 export interface RatingRepository {
@@ -195,6 +196,13 @@ export class InMemoryProposalTokenRepository implements ProposalTokenRepository 
     const existing = this.items.get(workerId);
     if (!existing || existing.balance < amount) return null;
     const updated = { ...existing, balance: existing.balance - amount, updatedAt: now };
+    this.items.set(workerId, updated);
+    return { ...updated };
+  }
+
+  async credit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount> {
+    const existing = this.items.get(workerId) ?? { workerId, balance: 0, updatedAt: now };
+    const updated = { ...existing, balance: existing.balance + amount, updatedAt: now };
     this.items.set(workerId, updated);
     return { ...updated };
   }
