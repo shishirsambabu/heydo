@@ -40,6 +40,19 @@ type QueueTab = 'gigs' | 'ratings' | 'reports';
 type ContextRow = { label: string; value: string };
 type ContextPanel = { title: string; rows: ContextRow[] };
 
+const PROJECT_METER = {
+  overall: 42,
+  activeGate: 82,
+  gateName: 'Pre-Phase-2 safety hardening',
+  nextGate: 'Apply AWS RDS schema, verify real worker/giver Didit workflows, then run Flutter QA.',
+  blockers: [
+    'Apply latest schema to AWS RDS',
+    'Verify real worker and giver Didit callbacks',
+    'Run Flutter analyze/build on a machine with Flutter installed',
+    'Confirm gig approval and police escalation operator policy',
+  ],
+};
+
 export default function MarketplaceSafetyPage() {
   const router = useRouter();
   const [tab, setTab] = useState<QueueTab>('gigs');
@@ -465,6 +478,15 @@ export default function MarketplaceSafetyPage() {
         </div>
       </div>
 
+      <ProjectCompletionMeter
+        overall={PROJECT_METER.overall}
+        activeGate={PROJECT_METER.activeGate}
+        gateName={PROJECT_METER.gateName}
+        nextGate={PROJECT_METER.nextGate}
+        blockers={PROJECT_METER.blockers}
+        counts={counts}
+      />
+
       <div className="tabs">
         <button className={tab === 'gigs' ? 'active' : ''} onClick={() => setTab('gigs')}>
           Gig review <span>{counts.gigs}</span>
@@ -704,6 +726,74 @@ export default function MarketplaceSafetyPage() {
 function Queue({ empty, items }: { empty: string; items: ReactNode[] }) {
   if (items.length === 0) return <div className="card empty">{empty}</div>;
   return <>{items}</>;
+}
+
+function ProjectCompletionMeter({
+  overall,
+  activeGate,
+  gateName,
+  nextGate,
+  blockers,
+  counts,
+}: {
+  overall: number;
+  activeGate: number;
+  gateName: string;
+  nextGate: string;
+  blockers: string[];
+  counts: Record<QueueTab, number>;
+}) {
+  const openQueueCount = counts.gigs + counts.reports + counts.ratings;
+  return (
+    <section className="meter-panel" aria-labelledby="project-meter-title">
+      <div className="meter-heading">
+        <div>
+          <div className="label">Project completion meter</div>
+          <h2 id="project-meter-title">MVP launch readiness</h2>
+        </div>
+        <span className="pill warn">{gateName}</span>
+      </div>
+
+      <div className="meter-grid">
+        <MeterStat label="Overall" value={overall} helper="Full MVP launch readiness" />
+        <MeterStat label="Active gate" value={activeGate} helper="Safety hardening before Phase 2" />
+        <div className="meter-live">
+          <div className="label">Live ops load</div>
+          <div className={`stat-value ${openQueueCount > 0 ? 'warn' : 'ok'}`}>{openQueueCount}</div>
+          <p className="muted">
+            {counts.gigs} gigs, {counts.reports} reports, {counts.ratings} low ratings waiting.
+          </p>
+        </div>
+      </div>
+
+      <div className="meter-next">
+        <div>
+          <div className="label">Next gate</div>
+          <p>{nextGate}</p>
+        </div>
+        <ul>
+          {blockers.map((blocker) => (
+            <li key={blocker}>{blocker}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
+function MeterStat({ label, value, helper }: { label: string; value: number; helper: string }) {
+  return (
+    <div className="meter-stat">
+      <div className="meter-stat-top">
+        <span className="label">{label}</span>
+        <strong>{value}%</strong>
+      </div>
+      <div className="meter-track" aria-hidden="true">
+        <div style={{ width: `${value}%` }} />
+      </div>
+      <p className="muted">{helper}</p>
+    </div>
+  );
 }
 
 function ContextPanelView({ panel }: { panel: ContextPanel }) {

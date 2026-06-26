@@ -6,7 +6,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 41%**
+**Overall MVP launch readiness: 42%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
@@ -14,7 +14,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Identity and VKYC trust loop | 72% | Didit webhook is integrated and tested; worker and giver KYC gates exist; real end-to-end workflow verification still needs production-grade validation. |
 | Marketplace core | 66% | Posting, applying, choosing, lifecycle, categories, pricing guides, and proposal tokens are built; notifications and mobile QA remain. |
 | Safety and abuse prevention | 78% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, and admin visibility are built. |
-| Admin / ops panel | 70% | Gig review, safety queues, economics, token grants, audit trails, and decision context are present; RBAC/operator hardening still needs final pass. |
+| Admin / ops panel | 72% | Gig review, safety queues, economics, token grants, audit trails, decision context, and the project meter are present; RBAC/operator hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
 | Mobile app readiness | 46% | Main flows exist, but Flutter tooling was unavailable in this shell for analyze/build verification and real-device Malayalam QA. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
@@ -37,6 +37,7 @@ Done:
 - Abusive givers/workers can be deactivated or suspended from the admin safety console.
 - Low ratings can feed safety review.
 - Proposal tokens support counter-rate requests, balance checks, grants, and audit trails.
+- The admin marketplace console now shows the launch-readiness meter and active gate blockers.
 
 Still required before we call this gate complete:
 
@@ -71,10 +72,10 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 41%; active gate, pre-Phase-2 safety hardening 82%.
+Project meter: Overall MVP launch readiness 42%; active gate, pre-Phase-2 safety hardening 82%.
 Next gate: apply DB schema to AWS RDS, verify real worker/giver Didit workflows, then run Flutter QA.
 ```
 
 ## Next Best Build Step
 
-The next highest-leverage build step is to turn this tracker into a visible admin dashboard widget so the project status is available inside the ops panel, not only in this file.
+The next highest-leverage build step is to finish the active gate: apply the latest schema to AWS RDS, then verify real worker and giver Didit workflow callbacks against the persisted database.
