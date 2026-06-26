@@ -120,6 +120,14 @@ DIDIT_GIVER_WORKFLOW_ID=your-giver-workflow-id
 
 Heydo does not run a separate admin review queue for giver identity. Didit is the review surface; Heydo ingests the final webhook/result and only allows posting when the giver verification is approved.
 
+Before a live Didit test, run the secret-safe readiness check:
+
+```powershell
+npm run vkyc:readiness
+```
+
+It prints configured/missing checks only. It never prints `DIDIT_API_KEY`, workflow ids, webhook secrets, or `DATABASE_URL`.
+
 Local giver smoke flow:
 
 ```powershell

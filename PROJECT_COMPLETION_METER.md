@@ -6,12 +6,12 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 47%**
+**Overall MVP launch readiness: 48%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
 | Foundation, repo, architecture, AWS/RDS setup | 78% | Core decisions, RDS configuration, and latest schema application are in place; production deployment still pending. |
-| Identity and VKYC trust loop | 78% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness is visible in admin, and worker/giver KYC gates exist; real end-to-end workflow verification still needs production-grade validation. |
+| Identity and VKYC trust loop | 80% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness is visible in admin and CLI, and worker/giver KYC gates exist; real end-to-end workflow verification still needs production-grade validation. |
 | Marketplace core | 70% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, and proposal tokens are built; notifications and mobile QA remain. |
 | Safety and abuse prevention | 82% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, and the operator policy matrix are built. |
 | Admin / ops panel | 76% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
@@ -23,7 +23,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Gate
 
-**Pre-Phase-2 safety hardening gate: 94%**
+**Pre-Phase-2 safety hardening gate: 95%**
 
 We are finishing the safety foundation before treating Phase 2 as truly open.
 
@@ -43,6 +43,7 @@ Done:
 - Admin now has an operator policy matrix for gig approval, safety review, account action, money disputes, and lawful escalation decisions.
 - Kerala launch categories now have Malayalam labels and matching pricing guardrails, with backend tests preventing missing guides.
 - Admin now has a secret-safe Didit readiness panel for provider mode, worker/giver workflows, webhook secret, persistence, and database configuration.
+- `npm run vkyc:readiness` now provides the same secret-safe live Didit readiness check from the CLI.
 
 Still required before we call this gate complete:
 
@@ -74,7 +75,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 47%; active gate, pre-Phase-2 safety hardening 94%.
+Project meter: Overall MVP launch readiness 48%; active gate, pre-Phase-2 safety hardening 95%.
 Next gate: verify real worker/giver Didit workflows, confirm live callbacks persist state, then run Flutter QA.
 ```
 
