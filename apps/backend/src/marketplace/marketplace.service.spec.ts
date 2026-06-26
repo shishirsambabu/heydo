@@ -3,6 +3,7 @@ import { GiverProfileRepository, UserRepository } from '../identity/identity.rep
 import { InMemoryMoneyRepository } from '../money/money.repository';
 import { MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
+import { DEFAULT_CATEGORIES, DEFAULT_PRICING_GUIDES } from './marketplace.entities';
 import {
   InMemoryApplicationRepository,
   InMemoryAssignmentRepository,
@@ -56,6 +57,24 @@ function service(
 }
 
 describe('MarketplaceService', () => {
+  it('keeps Kerala launch categories Malayalam-first with pricing guardrails', () => {
+    const activeCategories = DEFAULT_CATEGORIES.filter((category) => category.active);
+    const guideCategoryIds = new Set(DEFAULT_PRICING_GUIDES.map((guide) => guide.categoryId));
+
+    expect(activeCategories.length).toBeGreaterThanOrEqual(20);
+    for (const category of activeCategories) {
+      expect(category.nameMl).toBeTruthy();
+      expect(category.nameMl).not.toBe(category.nameEn);
+      expect(guideCategoryIds.has(category.id)).toBe(true);
+    }
+
+    for (const guide of DEFAULT_PRICING_GUIDES) {
+      expect(guide.minBudgetAmount).toBeGreaterThan(0);
+      expect(guide.suggestedBudgetAmount).toBeGreaterThanOrEqual(guide.minBudgetAmount);
+      expect(guide.highReviewAmount).toBeGreaterThan(guide.suggestedBudgetAmount);
+    }
+  });
+
   it('blocks unverified givers from posting gigs', async () => {
     const { svc, givers } = service();
     await givers.save({

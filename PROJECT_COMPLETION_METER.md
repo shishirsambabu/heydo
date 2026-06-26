@@ -6,13 +6,13 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 45%**
+**Overall MVP launch readiness: 46%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
 | Foundation, repo, architecture, AWS/RDS setup | 78% | Core decisions, RDS configuration, and latest schema application are in place; production deployment still pending. |
 | Identity and VKYC trust loop | 76% | Didit webhook is integrated, signed callback persistence is covered by tests, and worker/giver KYC gates exist; real end-to-end workflow verification still needs production-grade validation. |
-| Marketplace core | 66% | Posting, applying, choosing, lifecycle, categories, pricing guides, and proposal tokens are built; notifications and mobile QA remain. |
+| Marketplace core | 70% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, and proposal tokens are built; notifications and mobile QA remain. |
 | Safety and abuse prevention | 82% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, and the operator policy matrix are built. |
 | Admin / ops panel | 74% | Gig review, safety queues, economics, token grants, audit trails, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
@@ -23,7 +23,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Gate
 
-**Pre-Phase-2 safety hardening gate: 91%**
+**Pre-Phase-2 safety hardening gate: 93%**
 
 We are finishing the safety foundation before treating Phase 2 as truly open.
 
@@ -41,13 +41,13 @@ Done:
 - The latest backend schema has been applied successfully to the configured Postgres database.
 - Signed Didit callback persistence is covered by backend tests for worker pending-review flow, giver Didit approval flow, duplicate callbacks, unknown sessions, and tampered signatures.
 - Admin now has an operator policy matrix for gig approval, safety review, account action, money disputes, and lawful escalation decisions.
+- Kerala launch categories now have Malayalam labels and matching pricing guardrails, with backend tests preventing missing guides.
 
 Still required before we call this gate complete:
 
 - Verify both Didit workflows end to end: worker VKYC and separate giver VKYC.
 - Confirm real Didit approval/rejection callbacks update Heydo state correctly in the live vendor workflow.
 - Run Flutter analyze/build on a machine with Flutter installed.
-- Confirm pricing guardrails and categories are seeded for Kerala launch categories.
 - Replace temporary Cloudflare tunnel with a durable deployed backend URL before production use.
 
 ## Phase Position
@@ -73,7 +73,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 45%; active gate, pre-Phase-2 safety hardening 91%.
+Project meter: Overall MVP launch readiness 46%; active gate, pre-Phase-2 safety hardening 93%.
 Next gate: verify real worker/giver Didit workflows, confirm live callbacks persist state, then run Flutter QA.
 ```
 

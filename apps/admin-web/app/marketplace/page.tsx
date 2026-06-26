@@ -43,15 +43,15 @@ type ContextRow = { label: string; value: string };
 type ContextPanel = { title: string; rows: ContextRow[] };
 
 const PROJECT_METER = {
-  overall: 45,
-  activeGate: 91,
+  overall: 46,
+  activeGate: 93,
   gateName: 'Pre-Phase-2 safety hardening',
   nextGate: 'Verify real worker/giver Didit workflows in Didit, then run Flutter QA.',
   blockers: [
     'Verify real worker and giver Didit workflows',
     'Confirm live approval/rejection callbacks persist state',
     'Run Flutter analyze/build on a machine with Flutter installed',
-    'Seed and verify Kerala launch categories and pricing guardrails',
+    'Replace temporary Cloudflare tunnel with durable backend URL before production',
   ],
 };
 
