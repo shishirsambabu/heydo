@@ -214,6 +214,34 @@ describe('AdminMarketplaceController structured decisions', () => {
     });
   });
 
+  it('exposes the operator safety policy matrix for admin decisions', () => {
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      auditMock() as never,
+      adminSessionsMock() as never,
+    );
+
+    expect(controller.operatorPolicyMatrix()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          area: 'gig_review',
+          adminAction: 'gig.reject',
+          severity: 'critical',
+        }),
+        expect.objectContaining({
+          area: 'lawful_escalation',
+          adminAction: 'escalation.generate',
+          severity: 'critical',
+        }),
+        expect.objectContaining({
+          area: 'account_action',
+          adminAction: 'giver.deactivate_abusive',
+        }),
+      ]),
+    );
+  });
+
   it('passes structured moderation decisions to the service', async () => {
     const marketplace = { moderateGig: jest.fn().mockResolvedValue({ id: 'gig_1' }) };
     const controller = new AdminMarketplaceController(

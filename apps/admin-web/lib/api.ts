@@ -164,6 +164,17 @@ export interface AdminDecisionReason {
 
 export type AdminDecisionReasonCatalog = Record<AdminDecisionReasonAction, AdminDecisionReason[]>;
 
+export interface OperatorPolicyMatrixEntry {
+  area: 'gig_review' | 'safety_case' | 'lawful_escalation' | 'account_action' | 'money_dispute';
+  trigger: string;
+  adminAction: AdminDecisionReasonAction;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  requiredEvidence: string[];
+  decisionRule: string;
+  userProtection: string;
+  escalationPath: string;
+}
+
 export interface AdminDecisionPayload {
   reasonCode: string;
   note: string;
@@ -340,6 +351,10 @@ export function getMarketplaceEconomics(): Promise<MarketplaceEconomicsSummary> 
 
 export function getDecisionReasons(): Promise<AdminDecisionReasonCatalog> {
   return authed('/admin/marketplace/decision-reasons') as Promise<AdminDecisionReasonCatalog>;
+}
+
+export function getOperatorPolicyMatrix(): Promise<OperatorPolicyMatrixEntry[]> {
+  return authed('/admin/marketplace/operator-policy-matrix') as Promise<OperatorPolicyMatrixEntry[]>;
 }
 
 export function grantProposalTokens(

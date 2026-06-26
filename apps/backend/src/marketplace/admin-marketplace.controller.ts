@@ -27,6 +27,7 @@ import {
   AdminDecisionReasonAction,
   MarketplaceError,
   MarketplaceService,
+  OPERATOR_POLICY_MATRIX,
 } from './marketplace.service';
 
 class ModerationDto {
@@ -226,6 +227,12 @@ export class AdminMarketplaceController {
   @Roles('fraud_analyst', 'dispute_officer', 'finance', 'support', 'super_admin')
   decisionReasons() {
     return ADMIN_DECISION_REASON_CATALOG;
+  }
+
+  @Get('operator-policy-matrix')
+  @Roles('fraud_analyst', 'dispute_officer', 'finance', 'support', 'super_admin')
+  operatorPolicyMatrix() {
+    return OPERATOR_POLICY_MATRIX;
   }
 
   @Get('reputation/low-ratings')

@@ -110,6 +110,17 @@ export interface AdminDecisionReason {
   requiresLawEnforcementRef?: boolean;
 }
 
+export interface OperatorPolicyMatrixEntry {
+  area: 'gig_review' | 'safety_case' | 'lawful_escalation' | 'account_action' | 'money_dispute';
+  trigger: string;
+  adminAction: AdminDecisionReasonAction;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  requiredEvidence: string[];
+  decisionRule: string;
+  userProtection: string;
+  escalationPath: string;
+}
+
 export const ADMIN_DECISION_REASON_CATALOG: Record<
   AdminDecisionReasonAction,
   AdminDecisionReason[]
@@ -184,6 +195,89 @@ export const ADMIN_DECISION_REASON_CATALOG: Record<
     { code: 'payment_reconciliation', label: 'Payment reconciliation' },
   ],
 };
+
+export const OPERATOR_POLICY_MATRIX: OperatorPolicyMatrixEntry[] = [
+  {
+    area: 'gig_review',
+    trigger: 'Normal gig with clear legal scope, verified giver, sane budget, location, and timing.',
+    adminAction: 'gig.approve',
+    severity: 'low',
+    requiredEvidence: ['Giver KYC approved', 'Category allowed', 'Budget within pricing guide', 'Location and time are reasonable'],
+    decisionRule: 'Approve only when the work is lawful, specific, priced fairly, and safe for a worker to accept.',
+    userProtection: 'Worker sees a vetted gig; giver can receive applicants without unnecessary delay.',
+    escalationPath: 'No escalation; keep audit note concise.',
+  },
+  {
+    area: 'gig_review',
+    trigger: 'Sexual favors, drugs, violence, weapon handling, illegal transport, explicit criminal help, or exploitative work.',
+    adminAction: 'gig.reject',
+    severity: 'critical',
+    requiredEvidence: ['Original gig text', 'Safety flags', 'Giver identity status', 'Any attached evidence refs'],
+    decisionRule: 'Reject immediately. Do not edit the request into a safer version on behalf of the giver.',
+    userProtection: 'Prevents unsafe or criminal work from reaching workers.',
+    escalationPath: 'If credible imminent harm or criminal intent exists, open/escalate a safety case and prepare lawful escalation package.',
+  },
+  {
+    area: 'gig_review',
+    trigger: 'Ambiguous work scope, suspicious timing/location, possible off-platform payment, or unusually low/high budget.',
+    adminAction: 'gig.flag',
+    severity: 'medium',
+    requiredEvidence: ['Gig text', 'Pricing guardrail', 'Giver history', 'Location and schedule context'],
+    decisionRule: 'Flag instead of approving when a reasonable operator cannot explain why the gig is safe.',
+    userProtection: 'Keeps workers away until ops clarifies the risk.',
+    escalationPath: 'Request clarification or require giver re-verification for repeated suspicious patterns.',
+  },
+  {
+    area: 'safety_case',
+    trigger: 'Worker or giver reports harassment, unsafe location, fraud, no-show, coercion, threats, or suspicious behavior.',
+    adminAction: 'safety.under_review',
+    severity: 'high',
+    requiredEvidence: ['Report reason and severity', 'Reporter identity', 'Gig audit trail', 'Evidence vault refs if provided'],
+    decisionRule: 'Move to under review quickly, preserve refs, and avoid exposing reporter details to the other party.',
+    userProtection: 'Signals that Heydo is actively protecting the reporting user while preserving due process.',
+    escalationPath: 'High or critical cases need second-reviewer discipline before irreversible action.',
+  },
+  {
+    area: 'account_action',
+    trigger: 'Credible severe or repeated abuse by a gig giver, including sexual misconduct, illegal requests, threats, or retaliation.',
+    adminAction: 'giver.deactivate_abusive',
+    severity: 'critical',
+    requiredEvidence: ['Safety report', 'Gig history', 'Open gig list', 'Decision note', 'Reporter safety context'],
+    decisionRule: 'Deactivate when continued access creates risk to workers or evidence indicates severe abuse.',
+    userProtection: 'Quarantines open gigs and prevents further worker exposure.',
+    escalationPath: 'If criminal or imminent-harm indicators exist, mark safety case escalated and generate lawful escalation package.',
+  },
+  {
+    area: 'account_action',
+    trigger: 'Credible severe or repeated abuse by a worker, including violence, theft/fraud, harassment, or unsafe conduct.',
+    adminAction: 'worker.suspend_abusive',
+    severity: 'critical',
+    requiredEvidence: ['Safety report', 'Application/assignment history', 'Giver safety context', 'Evidence refs if available'],
+    decisionRule: 'Suspend when continued access creates risk to givers, households, or the platform.',
+    userProtection: 'Withdraws pending applications and prevents risky assignments while review continues.',
+    escalationPath: 'If criminal or imminent-harm indicators exist, mark safety case escalated and generate lawful escalation package.',
+  },
+  {
+    area: 'lawful_escalation',
+    trigger: 'Credible criminal activity, imminent harm, violence/threat, sexual misconduct, drugs/illegal activity, or police/legal request.',
+    adminAction: 'escalation.generate',
+    severity: 'critical',
+    requiredEvidence: ['Serious safety report', 'Evidence vault refs only', 'Gig audit trail', 'Money trail when relevant', 'Second reviewer'],
+    decisionRule: 'Generate packages only for serious cases with lawful purpose. Never include raw Aadhaar/selfie data in the package.',
+    userProtection: 'Allows cooperation with authorities while minimizing PII exposure.',
+    escalationPath: 'Record law enforcement reference where required and keep legal hold active.',
+  },
+  {
+    area: 'money_dispute',
+    trigger: 'Completion, no-show, unsafe cancellation, fraud allegation, or dispute affecting escrow release/refund.',
+    adminAction: 'dispute.keep_escalated',
+    severity: 'high',
+    requiredEvidence: ['Assignment state', 'Completion evidence', 'Safety report if any', 'Money trail', 'Both-party notes'],
+    decisionRule: 'Keep escalated when evidence is incomplete or safety risk intersects with money release.',
+    userProtection: 'Avoids paying the wrong party or pressuring a harmed user to close a case.',
+    escalationPath: 'Resolve to worker/refund only after evidence supports the action and audit is healthy.',
+  },
+];
 
 export interface SafetyEscalationPackage {
   id: string;

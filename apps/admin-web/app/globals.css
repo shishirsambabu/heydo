@@ -244,6 +244,52 @@ input.field {
   line-height: 1.5;
   padding-left: 18px;
 }
+.policy-panel {
+  background: var(--clean-white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 0 0 18px;
+  padding: 16px;
+}
+.policy-panel h2 {
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 2px 0 5px;
+}
+.policy-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 14px;
+}
+.policy-item {
+  background: #f8fbfa;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-height: 205px;
+  padding: 12px;
+}
+.policy-item-top {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.policy-item h3 {
+  font-size: 14px;
+  line-height: 1.25;
+  margin-bottom: 8px;
+}
+.policy-item p {
+  color: #26352f;
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+.policy-item .muted {
+  margin-top: 8px;
+}
 .login-wrap { max-width: 380px; margin: 80px auto; }
 
 .stat-grid {
@@ -317,6 +363,9 @@ input.field {
   }
   .meter-grid,
   .meter-next {
+    grid-template-columns: 1fr;
+  }
+  .policy-grid {
     grid-template-columns: 1fr;
   }
   .mini-row,

@@ -18,6 +18,7 @@ import {
   getDecisionReasons,
   getMarketplaceEconomics,
   getOfficerName,
+  getOperatorPolicyMatrix,
   getProposalTokenAuditTrail,
   getToken,
   getSafetyReportAuditTrail,
@@ -29,6 +30,7 @@ import {
   MarketplaceEconomicsSummary,
   moderateGig,
   openSafetyReportFromRating,
+  OperatorPolicyMatrixEntry,
   RatingReviewItem,
   resolveSafetyDispute,
   reviewSafetyReport,
@@ -41,15 +43,15 @@ type ContextRow = { label: string; value: string };
 type ContextPanel = { title: string; rows: ContextRow[] };
 
 const PROJECT_METER = {
-  overall: 44,
-  activeGate: 88,
+  overall: 45,
+  activeGate: 91,
   gateName: 'Pre-Phase-2 safety hardening',
   nextGate: 'Verify real worker/giver Didit workflows in Didit, then run Flutter QA.',
   blockers: [
     'Verify real worker and giver Didit workflows',
     'Confirm live approval/rejection callbacks persist state',
     'Run Flutter analyze/build on a machine with Flutter installed',
-    'Confirm gig approval and police escalation operator policy',
+    'Seed and verify Kerala launch categories and pricing guardrails',
   ],
 };
 
@@ -61,6 +63,7 @@ export default function MarketplaceSafetyPage() {
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [economics, setEconomics] = useState<MarketplaceEconomicsSummary | null>(null);
   const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
+  const [policyMatrix, setPolicyMatrix] = useState<OperatorPolicyMatrixEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -82,18 +85,20 @@ export default function MarketplaceSafetyPage() {
     setNotice(null);
     setContextPanel(null);
     try {
-      const [gigItems, ratingItems, reportItems, economicsSummary, reasonCatalog] = await Promise.all([
+      const [gigItems, ratingItems, reportItems, economicsSummary, reasonCatalog, policyItems] = await Promise.all([
         listReviewGigs(),
         listLowRatingReviews(),
         listActiveSafetyReports(),
         getMarketplaceEconomics(),
         getDecisionReasons(),
+        getOperatorPolicyMatrix(),
       ]);
       setGigs(gigItems);
       setRatings(ratingItems);
       setReports(reportItems);
       setEconomics(economicsSummary);
       setReasons(reasonCatalog);
+      setPolicyMatrix(policyItems);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load marketplace queues');
     } finally {
@@ -511,6 +516,8 @@ export default function MarketplaceSafetyPage() {
         </div>
       )}
 
+      {policyMatrix.length > 0 && <OperatorPolicyPanel items={policyMatrix} />}
+
       {loading && <div className="empty">Loading...</div>}
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice">{notice}</div>}
@@ -793,6 +800,46 @@ function MeterStat({ label, value, helper }: { label: string; value: number; hel
       </div>
       <p className="muted">{helper}</p>
     </div>
+  );
+}
+
+function OperatorPolicyPanel({ items }: { items: OperatorPolicyMatrixEntry[] }) {
+  const criticalItems = items.filter((item) => item.severity === 'critical');
+  const visibleItems = [
+    ...criticalItems,
+    ...items.filter((item) => item.severity !== 'critical'),
+  ].slice(0, 5);
+
+  return (
+    <section className="policy-panel" aria-labelledby="operator-policy-title">
+      <div className="row align-start">
+        <div>
+          <div className="label">Operator policy matrix</div>
+          <h2 id="operator-policy-title">Approve, flag, reject, or escalate</h2>
+          <p className="muted">
+            Use this before high-impact decisions. Evidence refs stay in the vault; lawful escalation packages use refs only.
+          </p>
+        </div>
+        <span className="pill bad">{criticalItems.length} critical rules</span>
+      </div>
+
+      <div className="policy-grid">
+        {visibleItems.map((item) => (
+          <article className="policy-item" key={`${item.area}-${item.adminAction}`}>
+            <div className="policy-item-top">
+              <span className={`pill ${item.severity === 'critical' ? 'bad' : item.severity === 'high' ? 'warn' : 'ok'}`}>
+                {item.severity}
+              </span>
+              <span className="label">{formatStatusLabel(item.adminAction)}</span>
+            </div>
+            <h3>{formatStatusLabel(item.area)}</h3>
+            <p>{item.decisionRule}</p>
+            <div className="muted">Trigger: {item.trigger}</div>
+            <div className="muted">Escalation: {item.escalationPath}</div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
