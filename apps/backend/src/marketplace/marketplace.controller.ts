@@ -75,6 +75,11 @@ export class MarketplaceController {
     return this.marketplace.proposalTokenPolicy();
   }
 
+  @Get('proposal-token-balance')
+  proposalTokenBalance(@CurrentUser() principal: AuthPrincipal) {
+    return this.marketplace.proposalTokenBalance(principal.sub);
+  }
+
   @Post('gigs')
   async postGig(@CurrentUser() principal: AuthPrincipal, @Body() dto: PostGigDto) {
     return this.wrap(() => this.marketplace.postGig(principal.sub, dto));

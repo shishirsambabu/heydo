@@ -42,6 +42,7 @@ class AppState extends ChangeNotifier {
     'tokenUnitPriceAmount': 10,
     'currency': 'INR',
   };
+  Map<String, dynamic>? proposalTokenBalance;
   List<Map<String, dynamic>> visibleGigs = [];
   List<Map<String, dynamic>> myGigs = [];
   List<Map<String, dynamic>> myApplications = [];
@@ -142,6 +143,7 @@ class AppState extends ChangeNotifier {
         final loadedCategories = await api.categories();
         final loadedGuides = await api.pricingGuides();
         final loadedProposalTokenPolicy = await api.proposalTokenPolicy();
+        final loadedProposalTokenBalance = await api.proposalTokenBalance();
         categories = loadedCategories
             .whereType<Map<String, dynamic>>()
             .toList(growable: false);
@@ -149,6 +151,7 @@ class AppState extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .toList(growable: false);
         proposalTokenPolicy = loadedProposalTokenPolicy;
+        proposalTokenBalance = loadedProposalTokenBalance;
       });
 
   Map<String, dynamic>? pricingGuideFor(String categoryId) {
@@ -243,6 +246,7 @@ class AppState extends ChangeNotifier {
           messageMl: messageMl,
           proposedPrice: proposedPrice,
         );
+        proposalTokenBalance = await api.proposalTokenBalance();
       });
 
   Future<bool> selectApplication({

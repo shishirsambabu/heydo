@@ -37,6 +37,8 @@ import {
   GIG_REPOSITORY,
   GigFilters,
   GigRepository,
+  PROPOSAL_TOKEN_REPOSITORY,
+  ProposalTokenRepository,
   RatingRepository,
   SafetyReportRepository,
 } from './marketplace.repository';
@@ -266,6 +268,7 @@ export interface AdminGigReviewContext {
 const PLATFORM_FEE_BPS = 1500;
 const NEGOTIATION_TOKEN_PRICE_STEP = 500;
 const PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT = 10;
+const STARTER_PROPOSAL_TOKEN_BALANCE = 5;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
   evidence_refs_accessed: { max: 5, windowMs: 60_000 },
@@ -284,6 +287,7 @@ export class MarketplaceService {
     @Inject(GIG_REPOSITORY) private readonly gigs: GigRepository,
     @Inject(APPLICATION_REPOSITORY) private readonly applications: ApplicationRepository,
     @Inject(ASSIGNMENT_REPOSITORY) private readonly assignments: AssignmentRepository,
+    @Inject(PROPOSAL_TOKEN_REPOSITORY) private readonly proposalTokens: ProposalTokenRepository,
     @Inject(RATING_REPOSITORY) private readonly ratings: RatingRepository,
     @Inject(SAFETY_REPORT_REPOSITORY) private readonly safetyReports: SafetyReportRepository,
     @Inject(EVIDENCE_VAULT_REF_REPOSITORY)
@@ -313,6 +317,14 @@ export class MarketplaceService {
       tokenUnitPriceAmount: PROPOSAL_TOKEN_UNIT_PRICE_AMOUNT,
       currency: 'INR',
     };
+  }
+
+  async proposalTokenBalance(workerId: string) {
+    return this.proposalTokens.ensureAccount(
+      workerId,
+      STARTER_PROPOSAL_TOKEN_BALANCE,
+      new Date(this.now()).toISOString(),
+    );
   }
 
   async postGig(giverId: string, input: PostGigInput): Promise<Gig> {
@@ -566,6 +578,25 @@ export class MarketplaceService {
 
     const proposedPrice = input.proposedPrice;
     const tokenQuote = quoteNegotiationTokens(gig.budgetAmount, proposedPrice);
+    const tokenAccount = await this.proposalTokens.ensureAccount(
+      workerId,
+      STARTER_PROPOSAL_TOKEN_BALANCE,
+      new Date(this.now()).toISOString(),
+    );
+    if (tokenAccount.balance < tokenQuote.negotiationTokenCost) {
+      throw new MarketplaceError('Not enough proposal tokens for this counter-rate', 'proposal_tokens_required');
+    }
+    const debitedAccount =
+      tokenQuote.negotiationTokenCost > 0
+        ? await this.proposalTokens.debit(
+            workerId,
+            tokenQuote.negotiationTokenCost,
+            new Date(this.now()).toISOString(),
+          )
+        : tokenAccount;
+    if (!debitedAccount) {
+      throw new MarketplaceError('Not enough proposal tokens for this counter-rate', 'proposal_tokens_required');
+    }
     const application: GigApplication = {
       id: existing?.id ?? `app_${this.id()}`,
       gigId,
@@ -592,6 +623,7 @@ export class MarketplaceService {
         proposedPrice: application.proposedPrice,
         priceDeltaAmount: application.priceDeltaAmount,
         negotiationTokenCost: application.negotiationTokenCost,
+        proposalTokenBalanceAfter: debitedAccount.balance,
       },
     });
     return application;

@@ -10,6 +10,7 @@ import {
   InMemoryEvidenceVaultRefRepository,
   InMemoryEscalationPackageRepository,
   InMemoryGigRepository,
+  InMemoryProposalTokenRepository,
   InMemoryRatingRepository,
   InMemorySafetyReportRepository,
 } from './marketplace.repository';
@@ -31,6 +32,7 @@ function service(
     new InMemoryGigRepository(),
     new InMemoryApplicationRepository(),
     new InMemoryAssignmentRepository(),
+    new InMemoryProposalTokenRepository(),
     new InMemoryRatingRepository(),
     safetyReports,
     evidenceVaultRefs,
@@ -124,6 +126,15 @@ describe('MarketplaceService', () => {
     });
   });
 
+  it('seeds proposal token balance for workers', async () => {
+    const { svc } = service();
+
+    await expect(svc.proposalTokenBalance('worker_1')).resolves.toMatchObject({
+      workerId: 'worker_1',
+      balance: 5,
+    });
+  });
+
   it('blocks unverified workers from applying to gigs', async () => {
     const { svc, givers } = service(async () => false);
     await givers.save({
@@ -147,6 +158,33 @@ describe('MarketplaceService', () => {
     ).rejects.toMatchObject<Partial<MarketplaceError>>({
       code: 'worker_not_verified',
     });
+  });
+
+  it('blocks counter-rate applications when proposal token balance is insufficient', async () => {
+    const { svc, givers } = service();
+    await givers.save({
+      userId: 'giver_1',
+      displayName: 'Giver',
+      status: 'active',
+      verificationStatus: 'approved',
+      createdAt: '2026-06-17T10:00:00.000Z',
+    });
+    const gig = await svc.postGig('giver_1', {
+      categoryId: 'cat_plumbing',
+      title: 'Pipe leak repair',
+      description: 'Kitchen pipe is leaking and needs repair',
+      location: 'Kochi',
+      scheduledAt: '2026-06-18T10:00:00.000Z',
+      budgetAmount: 1000,
+    });
+
+    await expect(
+      svc.apply(gig.id, 'worker_1', {
+        messageMl: 'I can do this for a higher fair rate',
+        proposedPrice: 4100,
+      }),
+    ).rejects.toMatchObject({ code: 'proposal_tokens_required' });
+    await expect(svc.proposalTokenBalance('worker_1')).resolves.toMatchObject({ balance: 5 });
   });
 
   it('holds suspicious gigs for review and blocks worker applications until approval', async () => {
@@ -449,6 +487,7 @@ describe('MarketplaceService', () => {
       priceDeltaAmount: 700,
       negotiationTokenCost: 2,
     });
+    await expect(svc.proposalTokenBalance('worker_1')).resolves.toMatchObject({ balance: 3 });
     expect(second).toMatchObject({
       priceDeltaAmount: 0,
       negotiationTokenCost: 0,

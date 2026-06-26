@@ -127,6 +127,7 @@ class S {
   String get other => _t('മറ്റുള്ളവ', 'Other');
 
   String get proposalTokens => _t('Proposal tokens', 'Proposal tokens');
+  String get proposalTokenBalance => _t('Proposal token balance', 'Proposal token balance');
 
   // Generic
   String get next => _t('അടുത്തത്', 'Next');

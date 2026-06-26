@@ -43,6 +43,17 @@ export interface AssignmentRepository {
   findByGig(gigId: string): Promise<Assignment | null>;
 }
 
+export interface ProposalTokenAccount {
+  workerId: string;
+  balance: number;
+  updatedAt: string;
+}
+
+export interface ProposalTokenRepository {
+  ensureAccount(workerId: string, initialBalance: number, now: string): Promise<ProposalTokenAccount>;
+  debit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount | null>;
+}
+
 export interface RatingRepository {
   save(rating: Rating): Promise<void>;
   findByGigAndDirection(gigId: string, direction: RatingDirection): Promise<Rating | null>;
@@ -74,6 +85,7 @@ export const CATEGORY_REPOSITORY = Symbol('CATEGORY_REPOSITORY');
 export const GIG_REPOSITORY = Symbol('GIG_REPOSITORY');
 export const APPLICATION_REPOSITORY = Symbol('APPLICATION_REPOSITORY');
 export const ASSIGNMENT_REPOSITORY = Symbol('ASSIGNMENT_REPOSITORY');
+export const PROPOSAL_TOKEN_REPOSITORY = Symbol('PROPOSAL_TOKEN_REPOSITORY');
 export const RATING_REPOSITORY = Symbol('RATING_REPOSITORY');
 export const SAFETY_REPORT_REPOSITORY = Symbol('SAFETY_REPORT_REPOSITORY');
 export const EVIDENCE_VAULT_REF_REPOSITORY = Symbol('EVIDENCE_VAULT_REF_REPOSITORY');
@@ -165,6 +177,26 @@ export class InMemoryAssignmentRepository implements AssignmentRepository {
   async findByGig(gigId: string): Promise<Assignment | null> {
     const assignment = this.byGig.get(gigId);
     return assignment ? { ...assignment } : null;
+  }
+}
+
+export class InMemoryProposalTokenRepository implements ProposalTokenRepository {
+  private readonly items = new Map<string, ProposalTokenAccount>();
+
+  async ensureAccount(workerId: string, initialBalance: number, now: string): Promise<ProposalTokenAccount> {
+    const existing = this.items.get(workerId);
+    if (existing) return { ...existing };
+    const account = { workerId, balance: initialBalance, updatedAt: now };
+    this.items.set(workerId, account);
+    return { ...account };
+  }
+
+  async debit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount | null> {
+    const existing = this.items.get(workerId);
+    if (!existing || existing.balance < amount) return null;
+    const updated = { ...existing, balance: existing.balance - amount, updatedAt: now };
+    this.items.set(workerId, updated);
+    return { ...updated };
   }
 }
 

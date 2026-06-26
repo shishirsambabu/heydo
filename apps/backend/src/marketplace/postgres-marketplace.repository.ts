@@ -20,6 +20,8 @@ import {
   EscalationPackageRepository,
   GigFilters,
   GigRepository,
+  ProposalTokenAccount,
+  ProposalTokenRepository,
   RatingRepository,
   SafetyReportRepository,
 } from './marketplace.repository';
@@ -73,6 +75,12 @@ interface AssignmentRow {
   platformFeeAmount: number;
   workerPayoutAmount: number;
   selectedAt: Date;
+}
+
+interface ProposalTokenAccountRow {
+  workerId: string;
+  balance: number;
+  updatedAt: Date;
 }
 
 interface RatingRow {
@@ -361,6 +369,41 @@ export class PostgresAssignmentRepository implements AssignmentRepository {
       [gigId],
     );
     return row ? toAssignment(row) : null;
+  }
+}
+
+@Injectable()
+export class PostgresProposalTokenRepository implements ProposalTokenRepository {
+  constructor(private readonly pg: PgService) {}
+
+  async ensureAccount(
+    workerId: string,
+    initialBalance: number,
+    now: string,
+  ): Promise<ProposalTokenAccount> {
+    await this.pg.query(
+      `INSERT INTO "ProposalTokenAccount" ("workerId", balance, "updatedAt")
+       VALUES ($1, $2, $3)
+       ON CONFLICT ("workerId") DO NOTHING`,
+      [workerId, initialBalance, now],
+    );
+    const [row] = await this.pg.query<ProposalTokenAccountRow>(
+      `SELECT "workerId", balance, "updatedAt" FROM "ProposalTokenAccount" WHERE "workerId" = $1`,
+      [workerId],
+    );
+    if (!row) throw new Error(`Proposal token account not found for ${workerId}`);
+    return toProposalTokenAccount(row);
+  }
+
+  async debit(workerId: string, amount: number, now: string): Promise<ProposalTokenAccount | null> {
+    const [row] = await this.pg.query<ProposalTokenAccountRow>(
+      `UPDATE "ProposalTokenAccount"
+          SET balance = balance - $2, "updatedAt" = $3
+        WHERE "workerId" = $1 AND balance >= $2
+        RETURNING "workerId", balance, "updatedAt"`,
+      [workerId, amount, now],
+    );
+    return row ? toProposalTokenAccount(row) : null;
   }
 }
 
@@ -689,6 +732,14 @@ function toAssignment(row: AssignmentRow): Assignment {
     platformFeeAmount: row.platformFeeAmount,
     workerPayoutAmount: row.workerPayoutAmount,
     selectedAt: row.selectedAt.toISOString(),
+  };
+}
+
+function toProposalTokenAccount(row: ProposalTokenAccountRow): ProposalTokenAccount {
+  return {
+    workerId: row.workerId,
+    balance: row.balance,
+    updatedAt: row.updatedAt.toISOString(),
   };
 }
 

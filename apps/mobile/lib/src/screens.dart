@@ -1110,6 +1110,7 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
     final proposedPrice = int.tryParse(_price.text.trim());
     final tokenStep = (app.proposalTokenPolicy['priceStepAmount'] as num?)?.toInt() ?? 500;
     final proposalTokens = _proposalTokenEstimate(budget, proposedPrice, tokenStep);
+    final proposalTokenBalance = (app.proposalTokenBalance?['balance'] as num?)?.toInt();
     return HeydoScaffold(
       title: s.apply,
       children: [
@@ -1123,6 +1124,11 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
         if (proposalTokens > 0) ...[
           const SizedBox(height: 6),
           Text('${s.proposalTokens}: $proposalTokens',
+              style: const TextStyle(fontSize: 13, color: Colors.black54)),
+        ],
+        if (proposalTokenBalance != null) ...[
+          const SizedBox(height: 4),
+          Text('${s.proposalTokenBalance}: $proposalTokenBalance',
               style: const TextStyle(fontSize: 13, color: Colors.black54)),
         ],
         const SizedBox(height: 18),

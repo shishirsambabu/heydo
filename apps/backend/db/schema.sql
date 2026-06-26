@@ -184,6 +184,12 @@ CREATE TABLE IF NOT EXISTS "Application" (
 ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "priceDeltaAmount" integer NOT NULL DEFAULT 0;
 ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "negotiationTokenCost" integer NOT NULL DEFAULT 0;
 
+CREATE TABLE IF NOT EXISTS "ProposalTokenAccount" (
+  "workerId" text PRIMARY KEY,
+  balance integer NOT NULL DEFAULT 0,
+  "updatedAt" timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS "Assignment" (
   id text PRIMARY KEY,
   "gigId" text NOT NULL UNIQUE,
