@@ -174,10 +174,15 @@ CREATE TABLE IF NOT EXISTS "Application" (
   "workerId" text NOT NULL,
   "messageMl" text,
   "proposedPrice" integer,
+  "priceDeltaAmount" integer NOT NULL DEFAULT 0,
+  "negotiationTokenCost" integer NOT NULL DEFAULT 0,
   status text NOT NULL DEFAULT 'applied',
   "createdAt" timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT "Application_gigId_workerId_key" UNIQUE ("gigId", "workerId")
 );
+
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "priceDeltaAmount" integer NOT NULL DEFAULT 0;
+ALTER TABLE "Application" ADD COLUMN IF NOT EXISTS "negotiationTokenCost" integer NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS "Assignment" (
   id text PRIMARY KEY,

@@ -126,6 +126,8 @@ class S {
   String get fraud => _t('വഞ്ചന', 'Fraud');
   String get other => _t('മറ്റുള്ളവ', 'Other');
 
+  String get proposalTokens => _t('Proposal tokens', 'Proposal tokens');
+
   // Generic
   String get next => _t('അടുത്തത്', 'Next');
   String get loading => _t('കാത്തിരിക്കൂ…', 'Please wait…');

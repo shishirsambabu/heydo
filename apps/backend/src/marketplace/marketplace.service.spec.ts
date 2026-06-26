@@ -434,6 +434,16 @@ describe('MarketplaceService', () => {
     });
     const second = await svc.apply(gig.id, 'worker_2', { messageMl: 'സമയം ശരിയാണ്' });
 
+    expect(first).toMatchObject({
+      proposedPrice: 3200,
+      priceDeltaAmount: 700,
+      negotiationTokenCost: 2,
+    });
+    expect(second).toMatchObject({
+      priceDeltaAmount: 0,
+      negotiationTokenCost: 0,
+    });
+
     const selected = await svc.selectApplicant(gig.id, first.id, 'giver_1');
     expect(selected.gig.status).toBe('assigned');
     expect(selected.assignment.workerId).toBe('worker_1');
@@ -448,7 +458,14 @@ describe('MarketplaceService', () => {
       status: 'held',
     });
     expect(selected.applications).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: first.id, proposedPrice: 3200 })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: first.id,
+          proposedPrice: 3200,
+          priceDeltaAmount: 700,
+          negotiationTokenCost: 2,
+        }),
+      ]),
     );
     expect(selected.applications).toEqual(
       expect.arrayContaining([

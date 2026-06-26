@@ -583,6 +583,7 @@ class _WorkerApplicationCard extends StatelessWidget {
     final gigStatus = (gig['status'] ?? '') as String;
     final applicationStatus = (application['status'] ?? '') as String;
     final agreedAmount = assignment?['agreedAmount'] ?? application['proposedPrice'] ?? gig['budgetAmount'];
+    final negotiationTokenCost = (application['negotiationTokenCost'] ?? 0) as int;
     final canStart = applicationStatus == 'selected' && gigStatus == 'assigned';
     final canCancel = applicationStatus == 'selected' &&
         (gigStatus == 'assigned' || gigStatus == 'in_progress');
@@ -601,6 +602,11 @@ class _WorkerApplicationCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text('$location · ${s.agreedAmount}: ₹$agreedAmount',
               style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          if (negotiationTokenCost > 0) ...[
+            const SizedBox(height: 4),
+            Text('${s.proposalTokens}: $negotiationTokenCost',
+                style: const TextStyle(fontSize: 13, color: Colors.black54)),
+          ],
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -927,6 +933,7 @@ class _ApplicantCard extends StatelessWidget {
     final workerId = (application['workerId'] ?? '') as String;
     final message = (application['messageMl'] ?? '') as String;
     final proposedPrice = application['proposedPrice'] ?? gig['budgetAmount'];
+    final negotiationTokenCost = (application['negotiationTokenCost'] ?? 0) as int;
     final status = (application['status'] ?? '') as String;
     final reputation = app.applicantReputations[workerId];
     final asWorker = (reputation?['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
@@ -944,6 +951,11 @@ class _ApplicantCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(workerId, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          if (negotiationTokenCost > 0) ...[
+            const SizedBox(height: 4),
+            Text('${s.proposalTokens}: $negotiationTokenCost',
+                style: const TextStyle(fontSize: 13, color: Colors.black54)),
+          ],
           const SizedBox(height: 6),
           Text('${s.agreedAmount}: ₹$proposedPrice',
               style: const TextStyle(fontSize: 14, color: Colors.black54)),

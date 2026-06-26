@@ -67,6 +67,8 @@ export interface GigApplication {
   workerId: string;
   messageMl?: string;
   proposedPrice?: number;
+  priceDeltaAmount: number;
+  negotiationTokenCost: number;
   status: ApplicationStatus;
   createdAt: string;
 }

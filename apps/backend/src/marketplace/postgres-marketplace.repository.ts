@@ -58,6 +58,8 @@ interface ApplicationRow {
   workerId: string;
   messageMl: string | null;
   proposedPrice: number | null;
+  priceDeltaAmount: number;
+  negotiationTokenCost: number;
   status: GigApplication['status'];
   createdAt: Date;
 }
@@ -266,11 +268,13 @@ export class PostgresApplicationRepository implements ApplicationRepository {
   async save(application: GigApplication): Promise<void> {
     await this.pg.query(
       `INSERT INTO "Application"
-        (id, "gigId", "workerId", "messageMl", "proposedPrice", status, "createdAt")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+        (id, "gigId", "workerId", "messageMl", "proposedPrice", "priceDeltaAmount", "negotiationTokenCost", status, "createdAt")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT ("gigId", "workerId") DO UPDATE SET
          "messageMl" = EXCLUDED."messageMl",
          "proposedPrice" = EXCLUDED."proposedPrice",
+         "priceDeltaAmount" = EXCLUDED."priceDeltaAmount",
+         "negotiationTokenCost" = EXCLUDED."negotiationTokenCost",
          status = EXCLUDED.status`,
       [
         application.id,
@@ -278,6 +282,8 @@ export class PostgresApplicationRepository implements ApplicationRepository {
         application.workerId,
         application.messageMl ?? null,
         application.proposedPrice ?? null,
+        application.priceDeltaAmount,
+        application.negotiationTokenCost,
         application.status,
         application.createdAt,
       ],
@@ -618,7 +624,7 @@ function selectGig(): string {
 }
 
 function selectApplication(): string {
-  return `SELECT id, "gigId", "workerId", "messageMl", "proposedPrice", status, "createdAt"
+  return `SELECT id, "gigId", "workerId", "messageMl", "proposedPrice", "priceDeltaAmount", "negotiationTokenCost", status, "createdAt"
           FROM "Application"`;
 }
 
@@ -666,6 +672,8 @@ function toApplication(row: ApplicationRow): GigApplication {
     workerId: row.workerId,
     messageMl: row.messageMl ?? undefined,
     proposedPrice: row.proposedPrice ?? undefined,
+    priceDeltaAmount: row.priceDeltaAmount ?? 0,
+    negotiationTokenCost: row.negotiationTokenCost ?? 0,
     status: row.status,
     createdAt: row.createdAt.toISOString(),
   };

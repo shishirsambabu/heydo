@@ -245,6 +245,7 @@ export interface AdminGigReviewContext {
 }
 
 const PLATFORM_FEE_BPS = 1500;
+const NEGOTIATION_TOKEN_PRICE_STEP = 500;
 const ESCALATION_SNAPSHOT_SCHEMA_VERSION = 1;
 const ADMIN_ACTION_LIMITS = {
   evidence_refs_accessed: { max: 5, windowMs: 60_000 },
@@ -498,12 +499,16 @@ export class MarketplaceService {
       return existing;
     }
 
+    const proposedPrice = input.proposedPrice;
+    const tokenQuote = quoteNegotiationTokens(gig.budgetAmount, proposedPrice);
     const application: GigApplication = {
       id: existing?.id ?? `app_${this.id()}`,
       gigId,
       workerId,
       messageMl: input.messageMl?.trim(),
-      proposedPrice: input.proposedPrice,
+      proposedPrice,
+      priceDeltaAmount: tokenQuote.priceDeltaAmount,
+      negotiationTokenCost: tokenQuote.negotiationTokenCost,
       status: 'applied',
       createdAt: existing?.createdAt ?? new Date(this.now()).toISOString(),
     };
@@ -517,7 +522,12 @@ export class MarketplaceService {
       action: 'gig.application_submitted',
       targetType: 'gig',
       targetId: gigId,
-      metadata: { applicationId: application.id },
+      metadata: {
+        applicationId: application.id,
+        proposedPrice: application.proposedPrice,
+        priceDeltaAmount: application.priceDeltaAmount,
+        negotiationTokenCost: application.negotiationTokenCost,
+      },
     });
     return application;
   }
@@ -1496,6 +1506,18 @@ function randomId(): string {
 
 function pricingGuideFor(categoryId: string): PricingGuide | undefined {
   return DEFAULT_PRICING_GUIDES.find((guide) => guide.categoryId === categoryId);
+}
+
+function quoteNegotiationTokens(
+  budgetAmount: number,
+  proposedPrice?: number,
+): { priceDeltaAmount: number; negotiationTokenCost: number } {
+  const priceDeltaAmount = Math.max(0, (proposedPrice ?? budgetAmount) - budgetAmount);
+  return {
+    priceDeltaAmount,
+    negotiationTokenCost:
+      priceDeltaAmount === 0 ? 0 : Math.ceil(priceDeltaAmount / NEGOTIATION_TOKEN_PRICE_STEP),
+  };
 }
 
 function assignmentEconomics(agreedAmount: number): Pick<
