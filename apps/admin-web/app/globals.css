@@ -290,6 +290,51 @@ input.field {
 .policy-item .muted {
   margin-top: 8px;
 }
+.readiness-panel {
+  background: var(--clean-white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 0 0 18px;
+  padding: 16px;
+}
+.readiness-panel h2 {
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 2px 0 5px;
+}
+.readiness-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+}
+.readiness-check {
+  align-items: center;
+  background: #f8fbfa;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px;
+}
+.readiness-check span:last-child {
+  color: #26352f;
+  font-size: 13px;
+  font-weight: 600;
+}
+.readiness-next {
+  border-top: 1px solid var(--border);
+  margin-top: 14px;
+  padding-top: 14px;
+}
+.readiness-next ul {
+  color: #40524b;
+  font-size: 13px;
+  line-height: 1.5;
+  margin-top: 8px;
+  padding-left: 18px;
+}
 .login-wrap { max-width: 380px; margin: 80px auto; }
 
 .stat-grid {
@@ -366,6 +411,9 @@ input.field {
     grid-template-columns: 1fr;
   }
   .policy-grid {
+    grid-template-columns: 1fr;
+  }
+  .readiness-grid {
     grid-template-columns: 1fr;
   }
   .mini-row,

@@ -51,6 +51,24 @@ export interface PendingVerification {
   // NOTE: aadhaarToken / media are NEVER in this payload — PII stays in the vault.
 }
 
+export interface VerificationReadiness {
+  provider: string;
+  persistence: string;
+  webhookDestinationPath: string;
+  checks: {
+    diditProviderEnabled: boolean;
+    diditApiKeyConfigured: boolean;
+    workerWorkflowConfigured: boolean;
+    giverWorkflowConfigured: boolean;
+    webhookSecretConfigured: boolean;
+    callbackUrlConfigured: boolean;
+    postgresPersistenceEnabled: boolean;
+    databaseUrlConfigured: boolean;
+  };
+  readyForLiveDidit: boolean;
+  nextManualChecks: string[];
+}
+
 export interface AdminGig {
   id: string;
   giverId: string;
@@ -329,6 +347,9 @@ export async function devLogin(adminId: string, secret: string): Promise<string>
 // --- Verification queue ---
 export function listPending(): Promise<PendingVerification[]> {
   return authed('/admin/verifications/pending') as Promise<PendingVerification[]>;
+}
+export function getVerificationReadiness(): Promise<VerificationReadiness> {
+  return authed('/admin/verifications/readiness') as Promise<VerificationReadiness>;
 }
 export function approve(id: string) {
   return authed(`/admin/verifications/${id}/approve`, { method: 'POST' });

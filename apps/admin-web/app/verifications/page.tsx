@@ -8,14 +8,17 @@ import {
   clearSession,
   getOfficerName,
   getToken,
+  getVerificationReadiness,
   listPending,
   PendingVerification,
   reject,
+  VerificationReadiness,
 } from '../../lib/api';
 
 export default function VerificationsPage() {
   const router = useRouter();
   const [items, setItems] = useState<PendingVerification[]>([]);
+  const [readiness, setReadiness] = useState<VerificationReadiness | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -24,7 +27,12 @@ export default function VerificationsPage() {
     setLoading(true);
     setError(null);
     try {
-      setItems(await listPending());
+      const [pendingItems, readinessStatus] = await Promise.all([
+        listPending(),
+        getVerificationReadiness(),
+      ]);
+      setItems(pendingItems);
+      setReadiness(readinessStatus);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load');
     } finally {
@@ -97,6 +105,8 @@ export default function VerificationsPage() {
       </div>
 
       {loading && <div className="empty">Loading…</div>}
+      {readiness && <ReadinessPanel readiness={readiness} />}
+
       {error && <div className="error">{error}</div>}
       {!loading && items.length === 0 && (
         <div className="card empty">🎉 Queue is clear — no verifications awaiting review.</div>
@@ -155,5 +165,52 @@ export default function VerificationsPage() {
         </div>
       ))}
     </div>
+  );
+}
+
+function ReadinessPanel({ readiness }: { readiness: VerificationReadiness }) {
+  const checks: Array<[string, boolean]> = [
+    ['Didit provider', readiness.checks.diditProviderEnabled],
+    ['API key', readiness.checks.diditApiKeyConfigured],
+    ['Worker workflow', readiness.checks.workerWorkflowConfigured],
+    ['Giver workflow', readiness.checks.giverWorkflowConfigured],
+    ['Webhook secret', readiness.checks.webhookSecretConfigured],
+    ['Postgres persistence', readiness.checks.postgresPersistenceEnabled],
+    ['Database URL', readiness.checks.databaseUrlConfigured],
+  ];
+
+  return (
+    <section className="readiness-panel" aria-labelledby="readiness-title">
+      <div className="row align-start">
+        <div>
+          <div className="label">Live VKYC readiness</div>
+          <h2 id="readiness-title">Didit integration gate</h2>
+          <p className="muted">
+            Provider {readiness.provider} - persistence {readiness.persistence} - webhook {readiness.webhookDestinationPath}
+          </p>
+        </div>
+        <span className={`pill ${readiness.readyForLiveDidit ? 'ok' : 'warn'}`}>
+          {readiness.readyForLiveDidit ? 'configured' : 'needs setup'}
+        </span>
+      </div>
+
+      <div className="readiness-grid">
+        {checks.map(([label, ok]) => (
+          <div className="readiness-check" key={label}>
+            <span className={`pill ${ok ? 'ok' : 'bad'}`}>{ok ? 'ok' : 'missing'}</span>
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="readiness-next">
+        <div className="label">Manual checks still required</div>
+        <ul>
+          {readiness.nextManualChecks.map((check) => (
+            <li key={check}>{check}</li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
