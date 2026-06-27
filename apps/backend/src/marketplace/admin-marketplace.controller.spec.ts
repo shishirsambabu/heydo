@@ -236,7 +236,52 @@ describe('AdminMarketplaceController sensitive read audit', () => {
       requiredMissing: ['didit_giver_live', 'didit_callback_declined'],
       optionalMissing: ['flutter_mobile_qa', 'durable_backend'],
       canClosePrePhase2Gate: false,
+      closed: false,
       evidenceCount: 2,
+    });
+  });
+
+  it('reports phase-gate closure in status after a close audit record exists', async () => {
+    const evidence = [
+      'didit_worker_live',
+      'didit_giver_live',
+      'didit_callback_approved',
+      'didit_callback_declined',
+    ].map((gateCode, index) => ({
+      ...auditEntry(
+        `audit_gate_${index + 1}`,
+        'phase_gate',
+        'pre_phase_2_safety_hardening',
+        `2026-06-27T10:0${index}:00.000Z`,
+      ),
+      metadata: { gateCode },
+    }));
+    const closure = {
+      ...auditEntry(
+        'audit_gate_close_1',
+        'phase_gate',
+        'pre_phase_2_safety_hardening',
+        '2026-06-27T10:05:00.000Z',
+      ),
+      actorId: 'admin_1',
+      actorRole: 'fraud_analyst',
+      action: 'phase_gate.closed.pre_phase_2_safety_hardening',
+    };
+    const audit = auditMock(evidence, [closure]);
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(controller.phaseGateStatus()).resolves.toMatchObject({
+      requiredMissing: [],
+      canClosePrePhase2Gate: false,
+      closed: true,
+      closedAt: '2026-06-27T10:05:00.000Z',
+      closedBy: 'fraud_analyst:admin_1',
+      evidenceCount: 4,
     });
   });
 

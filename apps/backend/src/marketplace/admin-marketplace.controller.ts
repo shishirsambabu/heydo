@@ -276,7 +276,14 @@ export class AdminMarketplaceController {
   @Get('phase-gate-status')
   @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
   async phaseGateStatus() {
-    const evidence = await this.phaseGateEvidence();
+    const [evidence, closures] = await Promise.all([
+      this.phaseGateEvidence(),
+      this.audit.list({
+        targetType: 'phase_gate',
+        targetId: PHASE_GATE_ID,
+        actionPrefix: 'phase_gate.closed',
+      }),
+    ]);
     const recorded = new Set(
       evidence
         .map((entry) => String(entry.metadata?.gateCode ?? ''))
@@ -288,13 +295,17 @@ export class AdminMarketplaceController {
     const optionalMissing = PHASE_GATE_EVIDENCE_CODES.filter(
       (gateCode) => !REQUIRED_PRE_PHASE_2_GATE_CODES.includes(gateCode) && !recorded.has(gateCode),
     );
+    const latestClosure = [...closures].sort((a, b) => b.at.localeCompare(a.at))[0] ?? null;
     return {
       gateId: PHASE_GATE_ID,
       requiredCodes: REQUIRED_PRE_PHASE_2_GATE_CODES,
       recordedCodes: [...recorded],
       requiredMissing,
       optionalMissing,
-      canClosePrePhase2Gate: requiredMissing.length === 0,
+      canClosePrePhase2Gate: requiredMissing.length === 0 && !latestClosure,
+      closed: Boolean(latestClosure),
+      closedAt: latestClosure?.at,
+      closedBy: latestClosure ? `${latestClosure.actorRole}:${latestClosure.actorId}` : undefined,
       evidenceCount: evidence.length,
     };
   }

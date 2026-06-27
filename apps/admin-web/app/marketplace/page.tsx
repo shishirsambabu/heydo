@@ -389,6 +389,10 @@ export default function MarketplaceSafetyPage() {
     setError(null);
     setNotice(null);
     setContextPanel(null);
+    if (phaseGateStatus?.closed) {
+      setError(`Gate already closed${phaseGateStatus.closedAt ? ` at ${phaseGateStatus.closedAt}` : ''}.`);
+      return;
+    }
     if (!phaseGateStatus?.canClosePrePhase2Gate) {
       setError(
         `Cannot close gate yet. Missing: ${phaseGateStatus?.requiredMissing.join(', ') || 'required evidence'}.`,
@@ -906,13 +910,18 @@ function ProjectCompletionMeter({
             <div className="label">Evidence status</div>
             <p>
               {recordedRequiredCount}/{requiredCount} required evidence items recorded.{' '}
-              {gateStatus.canClosePrePhase2Gate ? 'Pre-Phase-2 gate can be closed.' : 'External evidence still pending.'}
+              {gateStatus.closed
+                ? `Pre-Phase-2 gate closed${gateStatus.closedAt ? ` at ${gateStatus.closedAt}` : ''}.`
+                : gateStatus.canClosePrePhase2Gate
+                  ? 'Pre-Phase-2 gate can be closed.'
+                  : 'External evidence still pending.'}
             </p>
           </div>
           <div className="signals">
             {gateStatus.requiredMissing.map((code) => (
               <span className="pill warn" key={code}>{code}</span>
             ))}
+            {gateStatus.closed && <span className="pill ok">gate closed</span>}
             {gateStatus.requiredMissing.length === 0 && <span className="pill ok">required evidence complete</span>}
           </div>
         </div>

@@ -232,6 +232,9 @@ export interface PhaseGateStatus {
   requiredMissing: PhaseGateEvidenceCode[];
   optionalMissing: PhaseGateEvidenceCode[];
   canClosePrePhase2Gate: boolean;
+  closed: boolean;
+  closedAt?: string;
+  closedBy?: string;
   evidenceCount: number;
 }
 
