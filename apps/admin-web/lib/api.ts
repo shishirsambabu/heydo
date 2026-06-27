@@ -217,6 +217,14 @@ export interface AdminDecisionPayload {
   lawEnforcementRef?: string;
 }
 
+export type PhaseGateEvidenceCode =
+  | 'didit_worker_live'
+  | 'didit_giver_live'
+  | 'didit_callback_approved'
+  | 'didit_callback_declined'
+  | 'flutter_mobile_qa'
+  | 'durable_backend';
+
 export interface ProposalTokenAccount {
   workerId: string;
   balance: number;
@@ -403,6 +411,21 @@ export function getDecisionReasons(): Promise<AdminDecisionReasonCatalog> {
 
 export function getOperatorPolicyMatrix(): Promise<OperatorPolicyMatrixEntry[]> {
   return authed('/admin/marketplace/operator-policy-matrix') as Promise<OperatorPolicyMatrixEntry[]>;
+}
+
+export function listPhaseGateEvidence(): Promise<AuditRecord[]> {
+  return authed('/admin/marketplace/phase-gate-evidence') as Promise<AuditRecord[]>;
+}
+
+export function recordPhaseGateEvidence(
+  gateCode: PhaseGateEvidenceCode,
+  evidenceRef: string,
+  note: string,
+) {
+  return authed('/admin/marketplace/phase-gate-evidence', {
+    method: 'POST',
+    body: JSON.stringify({ gateCode, evidenceRef, note }),
+  });
 }
 
 export function grantProposalTokens(

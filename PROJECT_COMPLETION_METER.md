@@ -6,7 +6,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 51%**
+**Overall MVP launch readiness: 52%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
@@ -14,7 +14,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Identity and VKYC trust loop | 82% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness and redacted callback lookup are visible in admin, CLI readiness exists, and worker/giver KYC gates exist; real end-to-end workflow verification still needs production-grade validation. |
 | Marketplace core | 70% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, and proposal tokens are built; notifications and mobile QA remain. |
 | Safety and abuse prevention | 82% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, and the operator policy matrix are built. |
-| Admin / ops panel | 76% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
+| Admin / ops panel | 78% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
 | Mobile app readiness | 48% | Main flows exist and `npm run mobile:qa` now defines the QA gate, but Flutter tooling is unavailable in this shell for analyze/build verification and real-device Malayalam QA. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
@@ -23,7 +23,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Gate
 
-**Pre-Phase-2 safety hardening gate: 98%**
+**Pre-Phase-2 safety hardening gate: 99%**
 
 We are finishing the safety foundation before treating Phase 2 as truly open.
 
@@ -47,6 +47,7 @@ Done:
 - `npm run mobile:qa` now defines the Flutter analyze/test gate and fails clearly when Flutter is not installed.
 - `npm run deploy:readiness` now defines the durable `api.heydo.in` backend gate and fails locally until production URL, CORS, production secrets, and Didit callback URL are configured.
 - Admin can now look up redacted verification state by Didit session id or latest user role after live callbacks.
+- Admin can now record and list auditable pre-Phase-2 gate evidence for live Didit workflows, callbacks, Flutter QA, and durable backend readiness.
 
 Still required before we call this gate complete:
 
@@ -78,7 +79,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 51%; active gate, pre-Phase-2 safety hardening 98%.
+Project meter: Overall MVP launch readiness 52%; active gate, pre-Phase-2 safety hardening 99%.
 Next gate: verify real worker/giver Didit workflows, confirm live callbacks persist state, then run Flutter QA.
 ```
 

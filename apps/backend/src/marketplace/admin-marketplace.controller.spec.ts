@@ -34,6 +34,16 @@ describe('AdminMarketplaceController RBAC metadata', () => {
       'dispute_officer',
       'super_admin',
     ]);
+    expect(rolesFor('phaseGateEvidence')).toEqual([
+      'fraud_analyst',
+      'dispute_officer',
+      'super_admin',
+    ]);
+    expect(rolesFor('recordPhaseGateEvidence')).toEqual([
+      'fraud_analyst',
+      'dispute_officer',
+      'super_admin',
+    ]);
     expect(rolesFor('grantProposalTokens')).toEqual(['finance', 'super_admin']);
     expect(rolesFor('proposalTokenAuditTrail')).toEqual(['finance', 'super_admin']);
     expect(rolesFor('moneyTrail')).toEqual(['finance', 'dispute_officer', 'super_admin']);
@@ -130,6 +140,64 @@ describe('AdminMarketplaceController sensitive read audit', () => {
       targetType: 'gig',
       targetId: 'gig_1',
       metadata: { auditRecordCount: 2 },
+    });
+  });
+
+  it('records phase-gate evidence as append-only audit metadata', () => {
+    const audit = auditMock();
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    expect(
+      controller.recordPhaseGateEvidence(principal, {
+        gateCode: 'didit_worker_live',
+        evidenceRef: 'didit-session:abc123',
+        note: 'Worker live Didit workflow completed and persisted as pending review.',
+      }),
+    ).toEqual({
+      ok: true,
+      gateId: 'pre_phase_2_safety_hardening',
+      gateCode: 'didit_worker_live',
+    });
+    expect(audit.assertHealthyForSensitiveAction).toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith({
+      actorId: 'admin_1',
+      actorRole: 'fraud_analyst',
+      action: 'phase_gate.evidence_recorded.didit_worker_live',
+      targetType: 'phase_gate',
+      targetId: 'pre_phase_2_safety_hardening',
+      metadata: {
+        gateCode: 'didit_worker_live',
+        evidenceRef: 'didit-session:abc123',
+        note: 'Worker live Didit workflow completed and persisted as pending review.',
+      },
+    });
+  });
+
+  it('lists phase-gate evidence records', async () => {
+    const evidence = auditEntry(
+      'audit_gate_1',
+      'phase_gate',
+      'pre_phase_2_safety_hardening',
+      '2026-06-27T10:00:00.000Z',
+    );
+    const audit = auditMock([evidence]);
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(controller.phaseGateEvidence()).resolves.toEqual([evidence]);
+    expect(audit.list).toHaveBeenCalledWith({
+      targetType: 'phase_gate',
+      targetId: 'pre_phase_2_safety_hardening',
+      actionPrefix: 'phase_gate.evidence_recorded',
     });
   });
 

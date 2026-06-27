@@ -24,6 +24,7 @@ import {
   getSafetyReportAuditTrail,
   grantProposalTokens,
   listLowRatingReviews,
+  listPhaseGateEvidence,
   listSafetyReportEvidenceRefs,
   listActiveSafetyReports,
   listReviewGigs,
@@ -31,7 +32,9 @@ import {
   moderateGig,
   openSafetyReportFromRating,
   OperatorPolicyMatrixEntry,
+  PhaseGateEvidenceCode,
   RatingReviewItem,
+  recordPhaseGateEvidence,
   resolveSafetyDispute,
   reviewSafetyReport,
   SafetyReport,
@@ -42,9 +45,18 @@ type QueueTab = 'gigs' | 'ratings' | 'reports';
 type ContextRow = { label: string; value: string };
 type ContextPanel = { title: string; rows: ContextRow[] };
 
+const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
+  'didit_worker_live',
+  'didit_giver_live',
+  'didit_callback_approved',
+  'didit_callback_declined',
+  'flutter_mobile_qa',
+  'durable_backend',
+];
+
 const PROJECT_METER = {
-  overall: 51,
-  activeGate: 98,
+  overall: 52,
+  activeGate: 99,
   gateName: 'Pre-Phase-2 safety hardening',
   nextGate: 'Verify real worker/giver Didit workflows in Didit, then run Flutter QA.',
   blockers: [
@@ -305,6 +317,60 @@ export default function MarketplaceSafetyPage() {
     }
   }
 
+  async function onRecordPhaseGateEvidence() {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const menu = PHASE_GATE_EVIDENCE_OPTIONS.map((code, index) => `${index + 1}. ${code}`).join('\n');
+    const selected = window.prompt(`Evidence type:\n${menu}`);
+    if (!selected) return;
+    const gateCode =
+      PHASE_GATE_EVIDENCE_OPTIONS[Number(selected.trim()) - 1] ??
+      PHASE_GATE_EVIDENCE_OPTIONS.find((code) => code === selected.trim());
+    if (!gateCode) {
+      setError('Choose a valid evidence type number or code.');
+      return;
+    }
+    const evidenceRef = window.prompt('Evidence reference? Example: didit-session:abc123 or qa-run:2026-06-27');
+    if (!evidenceRef?.trim()) return;
+    const note = window.prompt('Evidence note? Minimum 10 characters.');
+    if (!note?.trim() || note.trim().length < 10) {
+      setError('Evidence note must be at least 10 characters.');
+      return;
+    }
+    setActingId(`phase-gate-evidence:${gateCode}`);
+    try {
+      await recordPhaseGateEvidence(gateCode, evidenceRef.trim(), note.trim());
+      setNotice(`Recorded phase-gate evidence: ${gateCode}.`);
+      await showPhaseGateEvidence();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Phase-gate evidence recording failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function showPhaseGateEvidence() {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    setActingId('phase-gate-evidence:list');
+    try {
+      const trail = await listPhaseGateEvidence();
+      setContextPanel({
+        title: 'Pre-Phase-2 gate evidence',
+        rows: trail.map((entry) => ({
+          label: `${entry.action.replace('phase_gate.evidence_recorded.', '')} - ${entry.at}`,
+          value: summarizeMetadata(entry.metadata),
+        })),
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Phase-gate evidence lookup failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function showProposalTokenAuditTrail() {
     setError(null);
     setNotice(null);
@@ -476,6 +542,12 @@ export default function MarketplaceSafetyPage() {
           </button>
           <button className="btn btn-outline" onClick={() => void showProposalTokenAuditTrail()}>
             Token audit
+          </button>
+          <button className="btn btn-outline" onClick={() => void onRecordPhaseGateEvidence()}>
+            Record gate
+          </button>
+          <button className="btn btn-outline" onClick={() => void showPhaseGateEvidence()}>
+            Gate evidence
           </button>
           <button className="btn btn-outline" onClick={signOut}>
             Sign out

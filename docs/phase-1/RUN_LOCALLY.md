@@ -138,6 +138,11 @@ GET /admin/verifications/users/:userId/giver/latest
 
 The admin VKYC page also has **Lookup session** and **Lookup user** buttons. These return status and verification signals only; Aadhaar tokens, media refs, and vault refs are not returned.
 
+When a manual gate check passes, record evidence from the admin marketplace page:
+
+- **Record gate** — add evidence for `didit_worker_live`, `didit_giver_live`, `didit_callback_approved`, `didit_callback_declined`, `flutter_mobile_qa`, or `durable_backend`.
+- **Gate evidence** — view the append-only audit evidence trail for the pre-Phase-2 gate.
+
 Local giver smoke flow:
 
 ```powershell

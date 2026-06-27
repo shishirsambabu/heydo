@@ -12,7 +12,7 @@ import {
   ServiceUnavailableException,
   UseGuards,
 } from '@nestjs/common';
-import { IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 import { RatingDirection, SafetyReportStatus } from './marketplace.entities';
 import { AdminSessionError, AdminSessionService } from '../auth/admin-session.service';
 import { AuthPrincipal } from '../auth/auth.types';
@@ -68,6 +68,24 @@ class AuditRecoveryDto {
 class ProposalTokenGrantDto {
   @IsInt() @Min(1) @Max(100) amount!: number;
   @IsString() @MinLength(3) reasonCode!: string;
+  @IsString() @MinLength(10) note!: string;
+}
+
+const PHASE_GATE_ID = 'pre_phase_2_safety_hardening';
+const PHASE_GATE_EVIDENCE_CODES = [
+  'didit_worker_live',
+  'didit_giver_live',
+  'didit_callback_approved',
+  'didit_callback_declined',
+  'flutter_mobile_qa',
+  'durable_backend',
+] as const;
+
+type PhaseGateEvidenceCode = (typeof PHASE_GATE_EVIDENCE_CODES)[number];
+
+class PhaseGateEvidenceDto {
+  @IsIn(PHASE_GATE_EVIDENCE_CODES) gateCode!: PhaseGateEvidenceCode;
+  @IsString() @MinLength(3) evidenceRef!: string;
   @IsString() @MinLength(10) note!: string;
 }
 
@@ -233,6 +251,42 @@ export class AdminMarketplaceController {
   @Roles('fraud_analyst', 'dispute_officer', 'finance', 'support', 'super_admin')
   operatorPolicyMatrix() {
     return OPERATOR_POLICY_MATRIX;
+  }
+
+  @Get('phase-gate-evidence')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  phaseGateEvidence() {
+    return this.audit.list({
+      targetType: 'phase_gate',
+      targetId: PHASE_GATE_ID,
+      actionPrefix: 'phase_gate.evidence_recorded',
+    });
+  }
+
+  @Post('phase-gate-evidence')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  recordPhaseGateEvidence(
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: PhaseGateEvidenceDto,
+  ) {
+    this.audit.assertHealthyForSensitiveAction();
+    this.audit.record({
+      actorId: principal.sub,
+      actorRole: primaryRole(principal),
+      action: `phase_gate.evidence_recorded.${dto.gateCode}`,
+      targetType: 'phase_gate',
+      targetId: PHASE_GATE_ID,
+      metadata: {
+        gateCode: dto.gateCode,
+        evidenceRef: dto.evidenceRef.trim(),
+        note: dto.note.trim(),
+      },
+    });
+    return {
+      ok: true,
+      gateId: PHASE_GATE_ID,
+      gateCode: dto.gateCode,
+    };
   }
 
   @Get('reputation/low-ratings')
