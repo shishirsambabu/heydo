@@ -26,6 +26,7 @@ export default function SafetyOpsPage() {
   const [actingId, setActingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [officerName, setOfficerName] = useState('officer');
 
   const riskyCount = useMemo(
     () => (summary.step_up_required ?? 0) + (summary.revoked ?? 0) + (summary.expired ?? 0),
@@ -55,6 +56,7 @@ export default function SafetyOpsPage() {
       router.replace('/login');
       return;
     }
+    setOfficerName(getOfficerName());
     void load();
   }, [load, router]);
 
@@ -124,7 +126,7 @@ export default function SafetyOpsPage() {
         <div>
           <h1 className="page-title">Admin Safety Ops</h1>
           <p className="page-sub">
-            Signed in as {getOfficerName()} - monitor sessions, step-up, revocation, and audit health.
+            Signed in as {officerName} - monitor sessions, step-up, revocation, and audit health.
           </p>
         </div>
         <div className="actions">

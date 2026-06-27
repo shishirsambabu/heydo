@@ -26,6 +26,7 @@ export default function VerificationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [officerName, setOfficerName] = useState('officer');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +50,7 @@ export default function VerificationsPage() {
       router.replace('/login');
       return;
     }
+    setOfficerName(getOfficerName());
     void load();
   }, [load, router]);
 
@@ -116,7 +118,7 @@ export default function VerificationsPage() {
         <div>
           <h1 className="page-title">VKYC Verification Queue</h1>
           <p className="page-sub">
-            Signed in as {getOfficerName()} · review live VKYC results and approve or reject.
+            Signed in as {officerName} · review live VKYC results and approve or reject.
           </p>
         </div>
         <div className="actions">

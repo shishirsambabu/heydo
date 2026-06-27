@@ -85,6 +85,7 @@ export default function MarketplaceSafetyPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [contextPanel, setContextPanel] = useState<ContextPanel | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [officerName, setOfficerName] = useState('officer');
 
   const counts = useMemo(
     () => ({
@@ -137,6 +138,7 @@ export default function MarketplaceSafetyPage() {
       router.replace('/login');
       return;
     }
+    setOfficerName(getOfficerName());
     void load();
   }, [load, router]);
 
@@ -573,7 +575,7 @@ export default function MarketplaceSafetyPage() {
         <div>
           <h1 className="page-title">Marketplace Safety</h1>
           <p className="page-sub">
-            Signed in as {getOfficerName()} - review gigs and safety reports. Giver identity review happens in Didit.
+            Signed in as {officerName} - review gigs and safety reports. Giver identity review happens in Didit.
           </p>
         </div>
         <div className="actions">
