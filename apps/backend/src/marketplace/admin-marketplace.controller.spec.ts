@@ -39,6 +39,11 @@ describe('AdminMarketplaceController RBAC metadata', () => {
       'dispute_officer',
       'super_admin',
     ]);
+    expect(rolesFor('phaseGateStatus')).toEqual([
+      'fraud_analyst',
+      'dispute_officer',
+      'super_admin',
+    ]);
     expect(rolesFor('recordPhaseGateEvidence')).toEqual([
       'fraud_analyst',
       'dispute_officer',
@@ -198,6 +203,35 @@ describe('AdminMarketplaceController sensitive read audit', () => {
       targetType: 'phase_gate',
       targetId: 'pre_phase_2_safety_hardening',
       actionPrefix: 'phase_gate.evidence_recorded',
+    });
+  });
+
+  it('computes phase-gate status from recorded evidence', async () => {
+    const evidence = [
+      {
+        ...auditEntry('audit_gate_1', 'phase_gate', 'pre_phase_2_safety_hardening', '2026-06-27T10:00:00.000Z'),
+        metadata: { gateCode: 'didit_worker_live' },
+      },
+      {
+        ...auditEntry('audit_gate_2', 'phase_gate', 'pre_phase_2_safety_hardening', '2026-06-27T10:01:00.000Z'),
+        metadata: { gateCode: 'didit_callback_approved' },
+      },
+    ];
+    const audit = auditMock(evidence);
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(controller.phaseGateStatus()).resolves.toMatchObject({
+      gateId: 'pre_phase_2_safety_hardening',
+      recordedCodes: ['didit_worker_live', 'didit_callback_approved'],
+      requiredMissing: ['didit_giver_live', 'didit_callback_declined'],
+      optionalMissing: ['flutter_mobile_qa', 'durable_backend'],
+      canClosePrePhase2Gate: false,
+      evidenceCount: 2,
     });
   });
 

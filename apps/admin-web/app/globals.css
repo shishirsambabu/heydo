@@ -224,6 +224,22 @@ input.field {
   border-radius: inherit;
   height: 100%;
 }
+.gate-status {
+  background: #f8fbfa;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.9fr);
+  margin-top: 14px;
+  padding: 12px;
+}
+.gate-status p {
+  color: #26352f;
+  font-size: 14px;
+  line-height: 1.45;
+  margin-top: 4px;
+}
 .meter-next {
   border-top: 1px solid var(--border);
   display: grid;
@@ -407,6 +423,7 @@ input.field {
     grid-template-columns: 1fr 1fr;
   }
   .meter-grid,
+  .gate-status,
   .meter-next {
     grid-template-columns: 1fr;
   }

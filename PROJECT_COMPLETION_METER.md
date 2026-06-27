@@ -47,7 +47,7 @@ Done:
 - `npm run mobile:qa` now defines the Flutter analyze/test gate and fails clearly when Flutter is not installed.
 - `npm run deploy:readiness` now defines the durable `api.heydo.in` backend gate and fails locally until production URL, CORS, production secrets, and Didit callback URL are configured.
 - Admin can now look up redacted verification state by Didit session id or latest user role after live callbacks.
-- Admin can now record and list auditable pre-Phase-2 gate evidence for live Didit workflows, callbacks, Flutter QA, and durable backend readiness.
+- Admin can now record, list, and compute status from auditable pre-Phase-2 gate evidence for live Didit workflows, callbacks, Flutter QA, and durable backend readiness.
 
 Still required before we call this gate complete:
 

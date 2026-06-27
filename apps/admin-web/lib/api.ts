@@ -225,6 +225,16 @@ export type PhaseGateEvidenceCode =
   | 'flutter_mobile_qa'
   | 'durable_backend';
 
+export interface PhaseGateStatus {
+  gateId: string;
+  requiredCodes: PhaseGateEvidenceCode[];
+  recordedCodes: PhaseGateEvidenceCode[];
+  requiredMissing: PhaseGateEvidenceCode[];
+  optionalMissing: PhaseGateEvidenceCode[];
+  canClosePrePhase2Gate: boolean;
+  evidenceCount: number;
+}
+
 export interface ProposalTokenAccount {
   workerId: string;
   balance: number;
@@ -415,6 +425,10 @@ export function getOperatorPolicyMatrix(): Promise<OperatorPolicyMatrixEntry[]> 
 
 export function listPhaseGateEvidence(): Promise<AuditRecord[]> {
   return authed('/admin/marketplace/phase-gate-evidence') as Promise<AuditRecord[]>;
+}
+
+export function getPhaseGateStatus(): Promise<PhaseGateStatus> {
+  return authed('/admin/marketplace/phase-gate-status') as Promise<PhaseGateStatus>;
 }
 
 export function recordPhaseGateEvidence(

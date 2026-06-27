@@ -82,6 +82,12 @@ const PHASE_GATE_EVIDENCE_CODES = [
 ] as const;
 
 type PhaseGateEvidenceCode = (typeof PHASE_GATE_EVIDENCE_CODES)[number];
+const REQUIRED_PRE_PHASE_2_GATE_CODES: PhaseGateEvidenceCode[] = [
+  'didit_worker_live',
+  'didit_giver_live',
+  'didit_callback_approved',
+  'didit_callback_declined',
+];
 
 class PhaseGateEvidenceDto {
   @IsIn(PHASE_GATE_EVIDENCE_CODES) gateCode!: PhaseGateEvidenceCode;
@@ -261,6 +267,32 @@ export class AdminMarketplaceController {
       targetId: PHASE_GATE_ID,
       actionPrefix: 'phase_gate.evidence_recorded',
     });
+  }
+
+  @Get('phase-gate-status')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  async phaseGateStatus() {
+    const evidence = await this.phaseGateEvidence();
+    const recorded = new Set(
+      evidence
+        .map((entry) => String(entry.metadata?.gateCode ?? ''))
+        .filter((gateCode): gateCode is PhaseGateEvidenceCode =>
+          PHASE_GATE_EVIDENCE_CODES.includes(gateCode as PhaseGateEvidenceCode),
+        ),
+    );
+    const requiredMissing = REQUIRED_PRE_PHASE_2_GATE_CODES.filter((gateCode) => !recorded.has(gateCode));
+    const optionalMissing = PHASE_GATE_EVIDENCE_CODES.filter(
+      (gateCode) => !REQUIRED_PRE_PHASE_2_GATE_CODES.includes(gateCode) && !recorded.has(gateCode),
+    );
+    return {
+      gateId: PHASE_GATE_ID,
+      requiredCodes: REQUIRED_PRE_PHASE_2_GATE_CODES,
+      recordedCodes: [...recorded],
+      requiredMissing,
+      optionalMissing,
+      canClosePrePhase2Gate: requiredMissing.length === 0,
+      evidenceCount: evidence.length,
+    };
   }
 
   @Post('phase-gate-evidence')

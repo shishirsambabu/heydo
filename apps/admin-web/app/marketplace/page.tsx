@@ -19,6 +19,7 @@ import {
   getMarketplaceEconomics,
   getOfficerName,
   getOperatorPolicyMatrix,
+  getPhaseGateStatus,
   getProposalTokenAuditTrail,
   getToken,
   getSafetyReportAuditTrail,
@@ -33,6 +34,7 @@ import {
   openSafetyReportFromRating,
   OperatorPolicyMatrixEntry,
   PhaseGateEvidenceCode,
+  PhaseGateStatus,
   RatingReviewItem,
   recordPhaseGateEvidence,
   resolveSafetyDispute,
@@ -76,6 +78,7 @@ export default function MarketplaceSafetyPage() {
   const [economics, setEconomics] = useState<MarketplaceEconomicsSummary | null>(null);
   const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
   const [policyMatrix, setPolicyMatrix] = useState<OperatorPolicyMatrixEntry[]>([]);
+  const [phaseGateStatus, setPhaseGateStatus] = useState<PhaseGateStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -97,20 +100,30 @@ export default function MarketplaceSafetyPage() {
     setNotice(null);
     setContextPanel(null);
     try {
-      const [gigItems, ratingItems, reportItems, economicsSummary, reasonCatalog, policyItems] = await Promise.all([
-        listReviewGigs(),
-        listLowRatingReviews(),
-        listActiveSafetyReports(),
-        getMarketplaceEconomics(),
-        getDecisionReasons(),
-        getOperatorPolicyMatrix(),
-      ]);
+      const [
+        gigItems,
+        ratingItems,
+        reportItems,
+        economicsSummary,
+        reasonCatalog,
+        policyItems,
+        gateStatus,
+      ] = await Promise.all([
+          listReviewGigs(),
+          listLowRatingReviews(),
+          listActiveSafetyReports(),
+          getMarketplaceEconomics(),
+          getDecisionReasons(),
+          getOperatorPolicyMatrix(),
+          getPhaseGateStatus(),
+        ]);
       setGigs(gigItems);
       setRatings(ratingItems);
       setReports(reportItems);
       setEconomics(economicsSummary);
       setReasons(reasonCatalog);
       setPolicyMatrix(policyItems);
+      setPhaseGateStatus(gateStatus);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load marketplace queues');
     } finally {
@@ -562,6 +575,7 @@ export default function MarketplaceSafetyPage() {
         nextGate={PROJECT_METER.nextGate}
         blockers={PROJECT_METER.blockers}
         counts={counts}
+        gateStatus={phaseGateStatus}
       />
 
       <div className="tabs">
@@ -814,6 +828,7 @@ function ProjectCompletionMeter({
   nextGate,
   blockers,
   counts,
+  gateStatus,
 }: {
   overall: number;
   activeGate: number;
@@ -821,8 +836,13 @@ function ProjectCompletionMeter({
   nextGate: string;
   blockers: string[];
   counts: Record<QueueTab, number>;
+  gateStatus: PhaseGateStatus | null;
 }) {
   const openQueueCount = counts.gigs + counts.reports + counts.ratings;
+  const requiredCount = gateStatus?.requiredCodes.length ?? 0;
+  const recordedRequiredCount = gateStatus
+    ? gateStatus.requiredCodes.filter((code) => gateStatus.recordedCodes.includes(code)).length
+    : 0;
   return (
     <section className="meter-panel" aria-labelledby="project-meter-title">
       <div className="meter-heading">
@@ -844,6 +864,24 @@ function ProjectCompletionMeter({
           </p>
         </div>
       </div>
+
+      {gateStatus && (
+        <div className="gate-status">
+          <div>
+            <div className="label">Evidence status</div>
+            <p>
+              {recordedRequiredCount}/{requiredCount} required evidence items recorded.{' '}
+              {gateStatus.canClosePrePhase2Gate ? 'Pre-Phase-2 gate can be closed.' : 'External evidence still pending.'}
+            </p>
+          </div>
+          <div className="signals">
+            {gateStatus.requiredMissing.map((code) => (
+              <span className="pill warn" key={code}>{code}</span>
+            ))}
+            {gateStatus.requiredMissing.length === 0 && <span className="pill ok">required evidence complete</span>}
+          </div>
+        </div>
+      )}
 
       <div className="meter-next">
         <div>
