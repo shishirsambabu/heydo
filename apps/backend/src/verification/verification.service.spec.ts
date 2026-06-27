@@ -121,6 +121,35 @@ describe('VerificationService — VKYC trust gate', () => {
     expect(JSON.stringify(stored)).not.toContain('SECRET-AADHAAR-9999');
   });
 
+  it('returns redacted admin lookup views for live callback verification', async () => {
+    const { svc, vkyc } = build();
+    await svc.recordConsent('giver_lookup', 'vkyc');
+    const session = await svc.start('giver_lookup', 'ml', 'giver');
+    vkyc.queueOutcome(session.sessionId, {
+      aadhaarToken: 'SECRET-AADHAAR-LOOKUP',
+      mediaRef: 'SECRET-MEDIA-LOOKUP',
+    });
+
+    await svc.handleVendorResult(session.sessionId);
+
+    const bySession = await svc.adminLookupBySession(session.sessionId);
+    const byUser = await svc.adminLatestForUser('giver_lookup', 'giver');
+
+    expect(bySession).toMatchObject({
+      userId: 'giver_lookup',
+      subjectRole: 'giver',
+      sessionId: session.sessionId,
+      status: 'approved',
+      reviewedBy: 'didit',
+    });
+    expect(byUser).toMatchObject(bySession);
+    const dump = JSON.stringify({ bySession, byUser });
+    expect(dump).not.toContain('SECRET-AADHAAR-LOOKUP');
+    expect(dump).not.toContain('SECRET-MEDIA-LOOKUP');
+    expect(dump).not.toContain('aadhaarVaultRef');
+    expect(dump).not.toContain('mediaVaultRef');
+  });
+
   it('auto-rejects on liveness failure and blocks approval', async () => {
     const { svc, vkyc } = build();
     await svc.recordConsent('u3', 'vkyc');

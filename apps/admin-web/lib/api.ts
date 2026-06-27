@@ -69,6 +69,24 @@ export interface VerificationReadiness {
   nextManualChecks: string[];
 }
 
+export interface VerificationAdminView {
+  id: string;
+  userId: string;
+  subjectRole: 'worker' | 'giver';
+  vendor: string;
+  sessionId: string;
+  status: string;
+  livenessPassed?: boolean;
+  aadhaarMatch?: boolean;
+  faceMatchScore?: number;
+  vendorResultAt?: string;
+  reviewedBy?: string;
+  decisionReason?: string;
+  decisionAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
 export interface AdminGig {
   id: string;
   giverId: string;
@@ -350,6 +368,15 @@ export function listPending(): Promise<PendingVerification[]> {
 }
 export function getVerificationReadiness(): Promise<VerificationReadiness> {
   return authed('/admin/verifications/readiness') as Promise<VerificationReadiness>;
+}
+export function lookupVerificationBySession(sessionId: string): Promise<VerificationAdminView> {
+  return authed(`/admin/verifications/sessions/${encodeURIComponent(sessionId)}`) as Promise<VerificationAdminView>;
+}
+export function lookupLatestVerificationForUser(
+  userId: string,
+  role: 'worker' | 'giver',
+): Promise<VerificationAdminView> {
+  return authed(`/admin/verifications/users/${encodeURIComponent(userId)}/${role}/latest`) as Promise<VerificationAdminView>;
 }
 export function approve(id: string) {
   return authed(`/admin/verifications/${id}/approve`, { method: 'POST' });

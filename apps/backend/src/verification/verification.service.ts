@@ -28,6 +28,24 @@ export interface AccountStatusReader {
   isActive(userId: string): Promise<boolean>;
 }
 
+export interface VerificationAdminView {
+  id: string;
+  userId: string;
+  subjectRole: VerificationSubjectRole;
+  vendor: string;
+  sessionId: string;
+  status: VerificationStatus;
+  livenessPassed?: boolean;
+  aadhaarMatch?: boolean;
+  faceMatchScore?: number;
+  vendorResultAt?: string;
+  reviewedBy?: string;
+  decisionReason?: string;
+  decisionAt?: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
 export class VerificationError extends Error {
   constructor(
     message: string,
@@ -235,6 +253,21 @@ export class VerificationService {
     return this.verifications.listPendingReview();
   }
 
+  async adminLookupBySession(sessionId: string): Promise<VerificationAdminView> {
+    const v = await this.verifications.findBySession(sessionId);
+    if (!v) throw new VerificationError('Verification not found', 'not_found');
+    return toAdminView(v);
+  }
+
+  async adminLatestForUser(
+    userId: string,
+    subjectRole: VerificationSubjectRole,
+  ): Promise<VerificationAdminView> {
+    const v = await this.verifications.findLatestForUser(userId, subjectRole);
+    if (!v) throw new VerificationError('Verification not found', 'not_found');
+    return toAdminView(v);
+  }
+
   /** Worker-facing: their current verification status + apply eligibility. */
   async statusFor(
     userId: string,
@@ -295,4 +328,24 @@ export class VerificationService {
       throw error;
     }
   }
+}
+
+function toAdminView(v: Verification): VerificationAdminView {
+  return {
+    id: v.id,
+    userId: v.userId,
+    subjectRole: v.subjectRole,
+    vendor: v.vendor,
+    sessionId: v.sessionId,
+    status: v.status,
+    livenessPassed: v.livenessPassed,
+    aadhaarMatch: v.aadhaarMatch,
+    faceMatchScore: v.faceMatchScore,
+    vendorResultAt: v.vendorResultAt,
+    reviewedBy: v.reviewedBy,
+    decisionReason: v.decisionReason,
+    decisionAt: v.decisionAt,
+    expiresAt: v.expiresAt,
+    createdAt: v.createdAt,
+  };
 }

@@ -128,6 +128,16 @@ npm run vkyc:readiness
 
 It prints configured/missing checks only. It never prints `DIDIT_API_KEY`, workflow ids, webhook secrets, or `DATABASE_URL`.
 
+After a live Didit callback, verify persisted state without database access:
+
+```text
+GET /admin/verifications/sessions/:diditSessionId
+GET /admin/verifications/users/:userId/worker/latest
+GET /admin/verifications/users/:userId/giver/latest
+```
+
+The admin VKYC page also has **Lookup session** and **Lookup user** buttons. These return status and verification signals only; Aadhaar tokens, media refs, and vault refs are not returned.
+
 Local giver smoke flow:
 
 ```powershell

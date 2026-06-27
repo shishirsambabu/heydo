@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
-import { IsString, MinLength } from 'class-validator';
+import { Body, Controller, Get, NotFoundException, Param, Post, UseGuards } from '@nestjs/common';
+import { IsIn, IsString, MinLength } from 'class-validator';
 import { ConfigService } from '@nestjs/config';
-import { VerificationService } from './verification.service';
+import { VerificationError, VerificationService, VerificationSubjectRole } from './verification.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser, Roles } from '../auth/decorators';
@@ -9,6 +9,10 @@ import { AuthPrincipal } from '../auth/auth.types';
 
 class RejectDto {
   @IsString() @MinLength(3) reason!: string;
+}
+
+class RoleParamDto {
+  @IsIn(['worker', 'giver']) role!: VerificationSubjectRole;
 }
 
 /**
@@ -67,6 +71,30 @@ export class AdminVerificationController {
         'Send Approved and Declined live callbacks and confirm persisted status changes.',
       ],
     };
+  }
+
+  @Get('sessions/:sessionId')
+  async lookupBySession(@Param('sessionId') sessionId: string) {
+    try {
+      return await this.verification.adminLookupBySession(sessionId);
+    } catch (error) {
+      if (error instanceof VerificationError && error.code === 'not_found') {
+        throw new NotFoundException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
+  }
+
+  @Get('users/:userId/:role/latest')
+  async latestForUser(@Param('userId') userId: string, @Param() params: RoleParamDto) {
+    try {
+      return await this.verification.adminLatestForUser(userId, params.role);
+    } catch (error) {
+      if (error instanceof VerificationError && error.code === 'not_found') {
+        throw new NotFoundException({ code: error.code, message: error.message });
+      }
+      throw error;
+    }
   }
 
   @Post(':id/approve')

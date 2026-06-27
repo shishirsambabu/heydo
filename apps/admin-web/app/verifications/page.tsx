@@ -10,8 +10,11 @@ import {
   getToken,
   getVerificationReadiness,
   listPending,
+  lookupLatestVerificationForUser,
+  lookupVerificationBySession,
   PendingVerification,
   reject,
+  VerificationAdminView,
   VerificationReadiness,
 } from '../../lib/api';
 
@@ -19,6 +22,7 @@ export default function VerificationsPage() {
   const router = useRouter();
   const [items, setItems] = useState<PendingVerification[]>([]);
   const [readiness, setReadiness] = useState<VerificationReadiness | null>(null);
+  const [lookupResult, setLookupResult] = useState<VerificationAdminView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<string | null>(null);
@@ -79,6 +83,33 @@ export default function VerificationsPage() {
     router.replace('/login');
   }
 
+  async function onLookupSession() {
+    const sessionId = window.prompt('Didit session id?');
+    if (!sessionId?.trim()) return;
+    setError(null);
+    try {
+      setLookupResult(await lookupVerificationBySession(sessionId.trim()));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Session lookup failed');
+    }
+  }
+
+  async function onLookupUser() {
+    const userId = window.prompt('Heydo user id?');
+    if (!userId?.trim()) return;
+    const role = window.prompt('Role? Type worker or giver.', 'giver');
+    if (role !== 'worker' && role !== 'giver') {
+      setError('Role must be worker or giver.');
+      return;
+    }
+    setError(null);
+    try {
+      setLookupResult(await lookupLatestVerificationForUser(userId.trim(), role));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'User lookup failed');
+    }
+  }
+
   return (
     <div className="container">
       <div className="row">
@@ -98,6 +129,12 @@ export default function VerificationsPage() {
           <button className="btn btn-outline" onClick={() => void load()}>
             Refresh
           </button>
+          <button className="btn btn-outline" onClick={() => void onLookupSession()}>
+            Lookup session
+          </button>
+          <button className="btn btn-outline" onClick={() => void onLookupUser()}>
+            Lookup user
+          </button>
           <button className="btn btn-outline" onClick={signOut}>
             Sign out
           </button>
@@ -106,6 +143,7 @@ export default function VerificationsPage() {
 
       {loading && <div className="empty">Loading…</div>}
       {readiness && <ReadinessPanel readiness={readiness} />}
+      {lookupResult && <VerificationLookupCard verification={lookupResult} />}
 
       {error && <div className="error">{error}</div>}
       {!loading && items.length === 0 && (
@@ -211,6 +249,42 @@ function ReadinessPanel({ readiness }: { readiness: VerificationReadiness }) {
           ))}
         </ul>
       </div>
+    </section>
+  );
+}
+
+function VerificationLookupCard({ verification }: { verification: VerificationAdminView }) {
+  return (
+    <section className="card">
+      <div className="row align-start">
+        <div>
+          <div className="label">Verification lookup</div>
+          <div className="display compact">
+            {verification.subjectRole} {verification.status}
+          </div>
+          <div className="muted">
+            {verification.id} - user {verification.userId} - vendor {verification.vendor} - session {verification.sessionId}
+          </div>
+        </div>
+        <span className={`pill ${verification.status === 'approved' ? 'ok' : verification.status === 'rejected' ? 'bad' : 'warn'}`}>
+          {verification.status}
+        </span>
+      </div>
+      <div className="signals">
+        <span className="signal">
+          Liveness <b>{verification.livenessPassed == null ? 'pending' : verification.livenessPassed ? 'passed' : 'failed'}</b>
+        </span>
+        <span className="signal">
+          Aadhaar match <b>{verification.aadhaarMatch == null ? 'pending' : verification.aadhaarMatch ? 'yes' : 'no'}</b>
+        </span>
+        <span className="signal">
+          Face match <b>{verification.faceMatchScore != null ? Math.round(verification.faceMatchScore * 100) : 'pending'}%</b>
+        </span>
+        {verification.reviewedBy && <span className="signal">Reviewed by <b>{verification.reviewedBy}</b></span>}
+      </div>
+      <p className="muted">
+        Vendor result {verification.vendorResultAt ?? 'not received'} - no Aadhaar token, media ref, or vault ref is returned here.
+      </p>
     </section>
   );
 }
