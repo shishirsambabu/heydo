@@ -9,6 +9,7 @@ import {
   AdminDecisionReasonAction,
   AdminDecisionReasonCatalog,
   AdminGig,
+  closePhaseGate,
   clearSession,
   deactivateGiverFromSafetyReport,
   DisputeResolutionOutcome,
@@ -384,6 +385,37 @@ export default function MarketplaceSafetyPage() {
     }
   }
 
+  async function onClosePhaseGate() {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    if (!phaseGateStatus?.canClosePrePhase2Gate) {
+      setError(
+        `Cannot close gate yet. Missing: ${phaseGateStatus?.requiredMissing.join(', ') || 'required evidence'}.`,
+      );
+      return;
+    }
+    const note = window.prompt('Close pre-Phase-2 safety gate note? Minimum 10 characters.');
+    if (!note?.trim() || note.trim().length < 10) {
+      setError('Close-gate note must be at least 10 characters.');
+      return;
+    }
+    const confirmed = window.confirm(
+      'Close the pre-Phase-2 safety hardening gate? This records an auditable launch-readiness decision.',
+    );
+    if (!confirmed) return;
+    setActingId('phase-gate:close');
+    try {
+      await closePhaseGate(note.trim());
+      await load();
+      setNotice('Pre-Phase-2 safety hardening gate closed.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Phase-gate close failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
   async function showProposalTokenAuditTrail() {
     setError(null);
     setNotice(null);
@@ -561,6 +593,9 @@ export default function MarketplaceSafetyPage() {
           </button>
           <button className="btn btn-outline" onClick={() => void showPhaseGateEvidence()}>
             Gate evidence
+          </button>
+          <button className="btn btn-outline" onClick={() => void onClosePhaseGate()}>
+            Close gate
           </button>
           <button className="btn btn-outline" onClick={signOut}>
             Sign out

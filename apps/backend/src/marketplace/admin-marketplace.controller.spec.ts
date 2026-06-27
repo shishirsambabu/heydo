@@ -49,6 +49,11 @@ describe('AdminMarketplaceController RBAC metadata', () => {
       'dispute_officer',
       'super_admin',
     ]);
+    expect(rolesFor('closePhaseGate')).toEqual([
+      'fraud_analyst',
+      'dispute_officer',
+      'super_admin',
+    ]);
     expect(rolesFor('grantProposalTokens')).toEqual(['finance', 'super_admin']);
     expect(rolesFor('proposalTokenAuditTrail')).toEqual(['finance', 'super_admin']);
     expect(rolesFor('moneyTrail')).toEqual(['finance', 'dispute_officer', 'super_admin']);
@@ -232,6 +237,86 @@ describe('AdminMarketplaceController sensitive read audit', () => {
       optionalMissing: ['flutter_mobile_qa', 'durable_backend'],
       canClosePrePhase2Gate: false,
       evidenceCount: 2,
+    });
+  });
+
+  it('blocks phase-gate closure until required evidence exists', async () => {
+    const evidence = [
+      {
+        ...auditEntry('audit_gate_1', 'phase_gate', 'pre_phase_2_safety_hardening', '2026-06-27T10:00:00.000Z'),
+        metadata: { gateCode: 'didit_worker_live' },
+      },
+    ];
+    const audit = auditMock(evidence);
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(
+      controller.closePhaseGate(principal, {
+        note: 'Required live Didit evidence is not complete yet.',
+      }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'phase_gate_evidence_missing' }),
+    });
+    expect(audit.assertHealthyForSensitiveAction).toHaveBeenCalled();
+    expect(audit.record).not.toHaveBeenCalled();
+  });
+
+  it('records phase-gate closure when all required evidence exists', async () => {
+    const evidence = [
+      'didit_worker_live',
+      'didit_giver_live',
+      'didit_callback_approved',
+      'didit_callback_declined',
+    ].map((gateCode, index) => ({
+      ...auditEntry(
+        `audit_gate_${index + 1}`,
+        'phase_gate',
+        'pre_phase_2_safety_hardening',
+        `2026-06-27T10:0${index}:00.000Z`,
+      ),
+      metadata: { gateCode },
+    }));
+    const audit = auditMock(evidence);
+    const controller = new AdminMarketplaceController(
+      {} as never,
+      {} as never,
+      audit as never,
+      adminSessionsMock() as never,
+    );
+
+    await expect(
+      controller.closePhaseGate(principal, {
+        note: 'Required live Didit worker and giver callbacks have been verified.',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      gateId: 'pre_phase_2_safety_hardening',
+      closed: true,
+      evidenceCount: 4,
+    });
+    expect(audit.assertHealthyForSensitiveAction).toHaveBeenCalled();
+    expect(audit.record).toHaveBeenCalledWith({
+      actorId: 'admin_1',
+      actorRole: 'fraud_analyst',
+      action: 'phase_gate.closed.pre_phase_2_safety_hardening',
+      targetType: 'phase_gate',
+      targetId: 'pre_phase_2_safety_hardening',
+      metadata: {
+        note: 'Required live Didit worker and giver callbacks have been verified.',
+        evidenceCount: 4,
+        recordedCodes: [
+          'didit_worker_live',
+          'didit_giver_live',
+          'didit_callback_approved',
+          'didit_callback_declined',
+        ],
+        optionalMissing: ['flutter_mobile_qa', 'durable_backend'],
+      },
     });
   });
 

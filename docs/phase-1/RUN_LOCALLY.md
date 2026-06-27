@@ -143,6 +143,8 @@ When a manual gate check passes, record evidence from the admin marketplace page
 - **Record gate** — add evidence for `didit_worker_live`, `didit_giver_live`, `didit_callback_approved`, `didit_callback_declined`, `flutter_mobile_qa`, or `durable_backend`.
 - **Gate evidence** — view the append-only audit evidence trail for the pre-Phase-2 gate.
 
+- **Close gate** - record the formal close decision after the required worker/giver Didit workflow and callback evidence exists.
+
 Local giver smoke flow:
 
 ```powershell

@@ -95,6 +95,10 @@ class PhaseGateEvidenceDto {
   @IsString() @MinLength(10) note!: string;
 }
 
+class PhaseGateCloseDto {
+  @IsString() @MinLength(10) note!: string;
+}
+
 @Controller('admin/marketplace')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('super_admin')
@@ -319,6 +323,43 @@ export class AdminMarketplaceController {
       gateId: PHASE_GATE_ID,
       gateCode: dto.gateCode,
     };
+  }
+
+  @Post('phase-gate-close')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  async closePhaseGate(
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: PhaseGateCloseDto,
+  ) {
+    return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
+      const status = await this.phaseGateStatus();
+      if (!status.canClosePrePhase2Gate) {
+        throw new MarketplaceError(
+          `Missing required phase-gate evidence: ${status.requiredMissing.join(', ')}`,
+          'phase_gate_evidence_missing',
+        );
+      }
+      this.audit.record({
+        actorId: principal.sub,
+        actorRole: primaryRole(principal),
+        action: 'phase_gate.closed.pre_phase_2_safety_hardening',
+        targetType: 'phase_gate',
+        targetId: PHASE_GATE_ID,
+        metadata: {
+          note: dto.note.trim(),
+          evidenceCount: status.evidenceCount,
+          recordedCodes: status.recordedCodes,
+          optionalMissing: status.optionalMissing,
+        },
+      });
+      return {
+        ok: true,
+        gateId: PHASE_GATE_ID,
+        closed: true,
+        evidenceCount: status.evidenceCount,
+      };
+    });
   }
 
   @Get('reputation/low-ratings')

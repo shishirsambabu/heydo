@@ -442,6 +442,13 @@ export function recordPhaseGateEvidence(
   });
 }
 
+export function closePhaseGate(note: string) {
+  return authed('/admin/marketplace/phase-gate-close', {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  });
+}
+
 export function grantProposalTokens(
   workerId: string,
   amount: number,
