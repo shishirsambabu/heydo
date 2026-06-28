@@ -139,12 +139,12 @@ async function ingest() {
   }
   const nextState = { ...state, giver, workers, ingestedAt: new Date().toISOString() };
   await saveState(nextState);
-  const readiness = await readiness(nextState);
+  const phase2Readiness = await getPhase2Readiness(nextState);
   console.log(JSON.stringify({
-    status: readiness.ready ? 'ready_for_phase2_run' : 'waiting_for_kyc',
-    giver: readiness.giver,
-    workers: readiness.workers,
-    next: readiness.ready
+    status: phase2Readiness.ready ? 'ready_for_phase2_run' : 'waiting_for_kyc',
+    giver: phase2Readiness.giver,
+    workers: phase2Readiness.workers,
+    next: phase2Readiness.ready
       ? 'Run: node scripts/phase2-smoke.mjs run'
       : 'Finish pending Didit/admin reviews, then rerun: node scripts/phase2-smoke.mjs ingest',
   }, null, 2));
@@ -188,7 +188,7 @@ async function ingestSubject(subject, officerToken) {
   };
 }
 
-async function readiness(state) {
+async function getPhase2Readiness(state) {
   const giverStatus = (await request('/verification/giver/status', { token: state.giver.token })).payload;
   const workers = [];
   for (const worker of state.workers) {
@@ -213,7 +213,7 @@ async function readiness(state) {
 async function run() {
   await requireBackend();
   const state = await loadState();
-  const ready = await readiness(state);
+  const ready = await getPhase2Readiness(state);
   if (!ready.ready) {
     throw new Error(`Phase 2 smoke not ready: ${JSON.stringify(ready, null, 2)}`);
   }
