@@ -6,24 +6,24 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 55%**
+**Overall MVP launch readiness: 58%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
 | Foundation, repo, architecture, AWS/RDS setup | 78% | Core decisions, RDS configuration, and latest schema application are in place; production deployment still pending. |
 | Identity and VKYC trust loop | 86% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness and redacted callback lookup are visible in admin, CLI readiness exists, worker/giver KYC gates exist, and live worker/giver Didit evidence has been recorded. |
-| Marketplace core | 74% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, proposal tokens, and a repeatable Phase 2 smoke command are built; 3-worker live applicant QA, notifications, and mobile QA remain. |
+| Marketplace core | 78% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, proposal tokens, and the repeatable Phase 2 applicant smoke are built and passed locally; real-device mobile QA and notifications remain. |
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 48% | Main flows exist and `npm run mobile:qa` now defines the QA gate, but Flutter tooling is unavailable in this shell for analyze/build verification and real-device Malayalam QA. |
+| Mobile app readiness | 50% | Main flows exist and the backend applicant loop is proven; `npm run mobile:qa` defines the QA gate, but Flutter tooling and real-device Malayalam QA are still pending. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
 | Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
 
 ## Current Gate
 
-**Phase 2 applicant marketplace gate: 60%**
+**Phase 2 applicant marketplace gate: 66%**
 
 The pre-Phase-2 safety hardening evidence is complete. Phase 2 is now the active build phase: prove the applicant-model marketplace end to end on a real device, in Malayalam, with verified users.
 
@@ -51,14 +51,13 @@ Done:
 - Admin can now formally close the pre-Phase-2 safety hardening gate, and the required live Didit workflow/callback evidence has been recorded.
 - Required live evidence reached 4/4: worker Didit live, giver Didit live, approved callback persisted, and declined/non-approved callback persisted.
 - `npm run phase2:smoke -- all` now defines the repeatable applicant-model smoke path for local/mock QA; with Didit it runs in `setup`, `ingest`, and `run` phases so KYC is never bypassed.
+- Phase 2 smoke passed locally with one verified giver, three verified workers, three applications, one selected worker, completed lifecycle, proposal-token counter-rate spend, 15% platform fee math, and dual ratings.
 
 Still required before we call Phase 2 complete:
 
-- Run a full applicant-model loop with one verified giver and at least three verified workers.
-- Confirm workers can apply, request a better rate where needed, and spend proposal tokens only when the request is valid.
-- Confirm the giver can compare applicants and choose one worker.
-- Move the selected gig through posted -> assigned -> in-progress -> completed/cancelled.
-- Confirm admin can moderate categories/listings and see live marketplace health.
+- Repeat the passed applicant-model loop through the Flutter app on a real Android device.
+- Confirm Malayalam copy, input validation, and low-connectivity behavior across post/apply/choose/lifecycle/rating.
+- Confirm admin can moderate categories/listings and see live marketplace health during a mobile-driven run.
 - Install Flutter 3.22+ / Android tooling, then run `npm run mobile:qa` and real-device Malayalam QA.
 - Deploy the backend to a durable HTTPS URL, configure `API_PUBLIC_URL`, `CORS_ORIGINS`, production secrets, and update Didit from the temporary tunnel.
 
@@ -69,7 +68,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 62% | This is now the active gate: applicant-model loop, 3 verified workers, Malayalam real-device QA, and admin marketplace operations. |
+| Phase 2 - Gig Posting, Applying, Choosing | 66% | Local applicant-model smoke passed; active gate is now Flutter/Android real-device QA plus admin marketplace operations. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -85,10 +84,10 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 55%; active gate, Phase 2 applicant marketplace 62%.
-Next gate: prove one verified giver posts a safe gig, at least three verified workers apply, the giver chooses one, and the lifecycle completes on mobile.
+Project meter: Overall MVP launch readiness 58%; active gate, Phase 2 applicant marketplace 66%.
+Next gate: repeat the passed applicant flow through Flutter on a real Android device, then record Flutter QA evidence.
 ```
 
 ## Next Best Build Step
 
-The next highest-leverage build step is to run the Phase 2 applicant-model smoke against the live local backend, then repeat it on a real Android device after Flutter tooling is installed.
+The next highest-leverage build step is to install Flutter/Android tooling, run `npm run mobile:qa`, and repeat the passed applicant flow on a real Android device in Malayalam.
