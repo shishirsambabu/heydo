@@ -196,4 +196,4 @@ A phase is **done** only when:
 
 We execute **phase by phase**. We do **not** start Phase N+1 until Phase N's gate passes. The Supreme Architect owns the gate. When you finish reading this, the next action is always: *"Which phase are we in, and what is the next gate?"*
 
-> Current phase: **Pre-Phase-2 safety hardening gate.** See [PROJECT_COMPLETION_METER.md](PROJECT_COMPLETION_METER.md) for the current launch-readiness meter and next gate.
+> Current phase: **Phase 2 - The Wedge: Gig Posting, Applying, Choosing.** The pre-Phase-2 safety evidence gate is complete; see [PROJECT_COMPLETION_METER.md](PROJECT_COMPLETION_METER.md) for the current launch-readiness meter and next gate.

@@ -1,20 +1,20 @@
 # Heydo Project Completion Meter
 
-Last updated: 2026-06-26
+Last updated: 2026-06-28
 
 This meter is a practical launch-readiness tracker, not a vanity percentage. It moves only when code, configuration, tests, or operational gates are actually completed.
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 52%**
+**Overall MVP launch readiness: 55%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
 | Foundation, repo, architecture, AWS/RDS setup | 78% | Core decisions, RDS configuration, and latest schema application are in place; production deployment still pending. |
-| Identity and VKYC trust loop | 82% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness and redacted callback lookup are visible in admin, CLI readiness exists, and worker/giver KYC gates exist; real end-to-end workflow verification still needs production-grade validation. |
-| Marketplace core | 70% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, and proposal tokens are built; notifications and mobile QA remain. |
-| Safety and abuse prevention | 82% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, and the operator policy matrix are built. |
-| Admin / ops panel | 78% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
+| Identity and VKYC trust loop | 86% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness and redacted callback lookup are visible in admin, CLI readiness exists, worker/giver KYC gates exist, and live worker/giver Didit evidence has been recorded. |
+| Marketplace core | 72% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, and proposal tokens are built; 3-worker live applicant QA, notifications, and mobile QA remain. |
+| Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
+| Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
 | Mobile app readiness | 48% | Main flows exist and `npm run mobile:qa` now defines the QA gate, but Flutter tooling is unavailable in this shell for analyze/build verification and real-device Malayalam QA. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
@@ -23,9 +23,9 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Gate
 
-**Pre-Phase-2 safety hardening gate: 99%**
+**Phase 2 applicant marketplace gate: 60%**
 
-We are finishing the safety foundation before treating Phase 2 as truly open.
+The pre-Phase-2 safety hardening evidence is complete. Phase 2 is now the active build phase: prove the applicant-model marketplace end to end on a real device, in Malayalam, with verified users.
 
 Done:
 
@@ -48,12 +48,16 @@ Done:
 - `npm run deploy:readiness` now defines the durable `api.heydo.in` backend gate and fails locally until production URL, CORS, production secrets, and Didit callback URL are configured.
 - Admin can now look up redacted verification state by Didit session id or latest user role after live callbacks.
 - Admin can now record, list, and compute status from auditable pre-Phase-2 gate evidence for live Didit workflows, callbacks, Flutter QA, and durable backend readiness.
-- Admin can now formally close the pre-Phase-2 safety hardening gate, but only after the required live Didit workflow and callback evidence has been recorded.
+- Admin can now formally close the pre-Phase-2 safety hardening gate, and the required live Didit workflow/callback evidence has been recorded.
+- Required live evidence reached 4/4: worker Didit live, giver Didit live, approved callback persisted, and declined/non-approved callback persisted.
 
-Still required before we call this gate complete:
+Still required before we call Phase 2 complete:
 
-- Verify both Didit workflows end to end: worker VKYC and separate giver VKYC.
-- Confirm real Didit approval/rejection callbacks update Heydo state correctly in the live vendor workflow.
+- Run a full applicant-model loop with one verified giver and at least three verified workers.
+- Confirm workers can apply, request a better rate where needed, and spend proposal tokens only when the request is valid.
+- Confirm the giver can compare applicants and choose one worker.
+- Move the selected gig through posted -> assigned -> in-progress -> completed/cancelled.
+- Confirm admin can moderate categories/listings and see live marketplace health.
 - Install Flutter 3.22+ / Android tooling, then run `npm run mobile:qa` and real-device Malayalam QA.
 - Deploy the backend to a durable HTTPS URL, configure `API_PUBLIC_URL`, `CORS_ORIGINS`, production secrets, and update Didit from the temporary tunnel.
 
@@ -63,8 +67,8 @@ Still required before we call this gate complete:
 | --- | ---: | --- |
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
-| Safety Hardening Before Phase 2 | 82% | This is the active gate requested before moving ahead. |
-| Phase 2 - Gig Posting, Applying, Choosing | 55% | Many core pieces are already built, but we should not call Phase 2 complete until the hardening gate and mobile QA pass. |
+| Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
+| Phase 2 - Gig Posting, Applying, Choosing | 60% | This is now the active gate: applicant-model loop, 3 verified workers, Malayalam real-device QA, and admin marketplace operations. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -80,10 +84,10 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 52%; active gate, pre-Phase-2 safety hardening 99%.
-Next gate: verify real worker/giver Didit workflows, confirm live callbacks persist state, then run Flutter QA.
+Project meter: Overall MVP launch readiness 55%; active gate, Phase 2 applicant marketplace 60%.
+Next gate: prove one verified giver posts a safe gig, at least three verified workers apply, the giver chooses one, and the lifecycle completes on mobile.
 ```
 
 ## Next Best Build Step
 
-The next highest-leverage build step is to finish the active gate: verify real worker and giver Didit workflow callbacks against the persisted database.
+The next highest-leverage build step is the Phase 2 applicant-model smoke: verified giver posts a safe gig, three verified workers apply, the giver selects one worker, and admin verifies the listing/category/moderation trail.
