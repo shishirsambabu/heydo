@@ -16,7 +16,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 50% | Main flows exist and the backend applicant loop is proven; `npm run mobile:qa` defines the QA gate, but Flutter tooling and real-device Malayalam QA are still pending. |
+| Mobile app readiness | 52% | Main flows exist, backend applicant loop is proven, `npm run mobile:qa` defines the QA gate, Windows Flutter setup is scripted, and physical-device API override is supported; Flutter tooling and real-device Malayalam QA are still pending. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
 | Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
@@ -52,6 +52,7 @@ Done:
 - Required live evidence reached 4/4: worker Didit live, giver Didit live, approved callback persisted, and declined/non-approved callback persisted.
 - `npm run phase2:smoke -- all` now defines the repeatable applicant-model smoke path for local/mock QA; with Didit it runs in `setup`, `ingest`, and `run` phases so KYC is never bypassed.
 - Phase 2 smoke passed locally with one verified giver, three verified workers, three applications, one selected worker, completed lifecycle, proposal-token counter-rate spend, 15% platform fee math, and dual ratings.
+- Mobile QA now has a Windows setup helper and `HEYDO_API_BASE` support for physical Android testing against a local PC or tunnel URL.
 
 Still required before we call Phase 2 complete:
 
@@ -68,7 +69,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 66% | Local applicant-model smoke passed; active gate is now Flutter/Android real-device QA plus admin marketplace operations. |
+| Phase 2 - Gig Posting, Applying, Choosing | 68% | Local applicant-model smoke passed; Android QA setup path is scripted; active gate is now Flutter/Android real-device QA plus admin marketplace operations. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -84,7 +85,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 58%; active gate, Phase 2 applicant marketplace 66%.
+Project meter: Overall MVP launch readiness 58%; active gate, Phase 2 applicant marketplace 68%.
 Next gate: repeat the passed applicant flow through Flutter on a real Android device, then record Flutter QA evidence.
 ```
 

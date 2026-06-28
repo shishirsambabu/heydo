@@ -59,12 +59,12 @@ const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
 
 const PROJECT_METER = {
   overall: 58,
-  activeGate: 66,
+  activeGate: 68,
   gateName: 'Phase 2 applicant marketplace',
   proof: 'Local Phase 2 smoke passed: 1 giver, 3 workers, 3 applications, selection, completion, and dual ratings.',
   nextGate: 'Repeat the passed applicant flow through Flutter on a real Android device, then record Flutter QA evidence.',
   blockers: [
-    'Install Flutter tooling and run npm run mobile:qa',
+    'Run npm run mobile:setup:windows, then open a new PowerShell window and run npm run mobile:qa',
     'Run the giver post, 3 worker applications, selection, lifecycle, and dual-rating flow on Android',
     'Confirm Malayalam copy and low-connectivity behavior during the mobile run',
     'Confirm admin category/listing moderation and marketplace health visibility during mobile QA',

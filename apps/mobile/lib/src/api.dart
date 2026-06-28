@@ -8,7 +8,10 @@ import 'package:http/http.dart' as http;
 ///  - Web / Windows / iOS sim / desktop → http://localhost:3000
 ///  - Android emulator                  → http://10.0.2.2:3000 (maps to host localhost)
 ///  - Physical phone                    → pass baseUrl = your PC's LAN IP
+/// Real-device QA override: --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000
 String defaultApiBase() {
+  const configuredBase = String.fromEnvironment('HEYDO_API_BASE');
+  if (configuredBase != '') return configuredBase;
   if (kIsWeb) return 'http://localhost:3000';
   if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:3000';
   return 'http://localhost:3000';

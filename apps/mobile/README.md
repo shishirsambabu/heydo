@@ -26,14 +26,30 @@ npm run mobile:qa
 
 The command intentionally fails when Flutter is not installed or not on `PATH`. Install Flutter 3.22+ and Android tooling before closing the mobile QA gate.
 
+### Windows Tooling Setup
+
+From the repo root:
+
+```powershell
+npm run mobile:setup:windows
+```
+
+Then open a new PowerShell window and run:
+
+```powershell
+npm run mobile:qa
+```
+
 ## Manual Real-Device Check
 
 Run on a mid-range Android device before marking a phase done:
 
 ```powershell
 cd apps/mobile
-flutter run
+flutter run --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000
 ```
+
+Use your PC's LAN IP when testing on a physical Android phone. For the Android emulator, omit the dart define; the app defaults to `http://10.0.2.2:3000`.
 
 Verify:
 
