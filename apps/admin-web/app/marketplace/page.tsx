@@ -59,13 +59,14 @@ const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
 
 const PROJECT_METER = {
   overall: 55,
-  activeGate: 60,
+  activeGate: 62,
   gateName: 'Phase 2 applicant marketplace',
   nextGate: 'Prove the applicant model: verified giver posts, three verified workers apply, giver chooses one, then lifecycle completes.',
   blockers: [
     'Run one real giver post with at least three verified worker applications',
     'Confirm proposal tokens and counter-rate requests behave correctly',
     'Confirm admin category/listing moderation and marketplace health visibility',
+    'Run npm run phase2:smoke -- all locally, then repeat the flow on Android',
     'Install Flutter tooling and run npm run mobile:qa',
     'Deploy durable backend URL and pass npm run deploy:readiness',
   ],

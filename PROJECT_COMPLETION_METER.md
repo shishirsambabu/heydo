@@ -12,7 +12,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | --- | ---: | --- |
 | Foundation, repo, architecture, AWS/RDS setup | 78% | Core decisions, RDS configuration, and latest schema application are in place; production deployment still pending. |
 | Identity and VKYC trust loop | 86% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness and redacted callback lookup are visible in admin, CLI readiness exists, worker/giver KYC gates exist, and live worker/giver Didit evidence has been recorded. |
-| Marketplace core | 72% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, and proposal tokens are built; 3-worker live applicant QA, notifications, and mobile QA remain. |
+| Marketplace core | 74% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, proposal tokens, and a repeatable Phase 2 smoke command are built; 3-worker live applicant QA, notifications, and mobile QA remain. |
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
@@ -50,6 +50,7 @@ Done:
 - Admin can now record, list, and compute status from auditable pre-Phase-2 gate evidence for live Didit workflows, callbacks, Flutter QA, and durable backend readiness.
 - Admin can now formally close the pre-Phase-2 safety hardening gate, and the required live Didit workflow/callback evidence has been recorded.
 - Required live evidence reached 4/4: worker Didit live, giver Didit live, approved callback persisted, and declined/non-approved callback persisted.
+- `npm run phase2:smoke -- all` now defines the repeatable applicant-model smoke path for local/mock QA; with Didit it runs in `setup`, `ingest`, and `run` phases so KYC is never bypassed.
 
 Still required before we call Phase 2 complete:
 
@@ -68,7 +69,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 60% | This is now the active gate: applicant-model loop, 3 verified workers, Malayalam real-device QA, and admin marketplace operations. |
+| Phase 2 - Gig Posting, Applying, Choosing | 62% | This is now the active gate: applicant-model loop, 3 verified workers, Malayalam real-device QA, and admin marketplace operations. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -84,10 +85,10 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 55%; active gate, Phase 2 applicant marketplace 60%.
+Project meter: Overall MVP launch readiness 55%; active gate, Phase 2 applicant marketplace 62%.
 Next gate: prove one verified giver posts a safe gig, at least three verified workers apply, the giver chooses one, and the lifecycle completes on mobile.
 ```
 
 ## Next Best Build Step
 
-The next highest-leverage build step is the Phase 2 applicant-model smoke: verified giver posts a safe gig, three verified workers apply, the giver selects one worker, and admin verifies the listing/category/moderation trail.
+The next highest-leverage build step is to run the Phase 2 applicant-model smoke against the live local backend, then repeat it on a real Android device after Flutter tooling is installed.
