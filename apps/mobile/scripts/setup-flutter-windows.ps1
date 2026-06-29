@@ -24,6 +24,13 @@ $flutterDir = Join-Path $InstallRoot "flutter"
 $flutterBin = Join-Path $flutterDir "bin"
 $flutterExe = Join-Path $flutterBin "flutter.bat"
 
+if ((Test-Path -LiteralPath $flutterDir) -and -not (Test-Path -LiteralPath (Join-Path $flutterDir ".git"))) {
+  $backupDir = Join-Path $InstallRoot ("flutter-invalid-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+  Write-Host "Existing Flutter folder is not a Git clone. Moving it aside:" -ForegroundColor Yellow
+  Write-Host "  $backupDir"
+  Move-Item -LiteralPath $flutterDir -Destination $backupDir
+}
+
 if (-not (Test-Path -LiteralPath $flutterDir)) {
   Write-Host "Cloning Flutter stable..." -ForegroundColor Yellow
   git clone https://github.com/flutter/flutter.git -b stable $flutterDir

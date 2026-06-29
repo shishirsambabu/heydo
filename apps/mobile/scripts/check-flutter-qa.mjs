@@ -1,6 +1,15 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { homedir } from 'node:os';
 
 const mobileRoot = new URL('..', import.meta.url);
+const defaultWindowsFlutterBin = join(homedir(), 'development', 'flutter', 'bin');
+const commandEnv = { ...process.env };
+
+if (process.platform === 'win32' && existsSync(join(defaultWindowsFlutterBin, 'flutter.bat'))) {
+  commandEnv.PATH = `${defaultWindowsFlutterBin};${commandEnv.PATH ?? ''}`;
+}
 
 const commands = [
   ['flutter', ['--version']],
@@ -17,6 +26,7 @@ for (const [command, args] of commands) {
   console.log(`\n> ${command} ${args.join(' ')}`);
   const result = spawnSync(command, args, {
     cwd: mobileRoot,
+    env: commandEnv,
     shell: process.platform === 'win32',
     stdio: 'inherit',
   });
