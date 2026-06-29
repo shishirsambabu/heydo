@@ -5,9 +5,10 @@ import { homedir } from 'node:os';
 
 const mobileRoot = new URL('..', import.meta.url);
 const defaultWindowsFlutterBin = join(homedir(), 'development', 'flutter', 'bin');
+const defaultWindowsFlutter = join(defaultWindowsFlutterBin, 'flutter.bat');
 const commandEnv = { ...process.env };
 
-if (process.platform === 'win32' && existsSync(join(defaultWindowsFlutterBin, 'flutter.bat'))) {
+if (process.platform === 'win32' && existsSync(defaultWindowsFlutter)) {
   commandEnv.PATH = `${defaultWindowsFlutterBin};${commandEnv.PATH ?? ''}`;
 }
 
@@ -23,13 +24,24 @@ if (process.env.HEYDO_MOBILE_BUILD === '1') {
 }
 
 for (const [command, args] of commands) {
-  console.log(`\n> ${command} ${args.join(' ')}`);
-  const result = spawnSync(command, args, {
+  const commandPath = process.platform === 'win32' && command === 'flutter' && existsSync(defaultWindowsFlutter)
+    ? defaultWindowsFlutter
+    : command;
+  console.log(`\n> ${commandPath} ${args.join(' ')}`);
+  const result = spawnSync(commandPath, args, {
     cwd: mobileRoot,
     env: commandEnv,
     shell: process.platform === 'win32',
     stdio: 'inherit',
+    timeout: 120000,
   });
+
+  if (result.error?.code === 'ETIMEDOUT') {
+    console.error('\nFlutter command timed out.');
+    console.error('Run the setup repair once, then reopen PowerShell:');
+    console.error('  npm run mobile:setup:windows');
+    process.exit(1);
+  }
 
   if (result.error?.code === 'ENOENT' || (command === 'flutter' && args[0] === '--version' && result.status !== 0)) {
     console.error('\nFlutter is not installed or not on PATH.');

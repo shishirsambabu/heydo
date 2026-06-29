@@ -36,10 +36,13 @@ if (-not (Test-Path -LiteralPath $flutterDir)) {
   git clone https://github.com/flutter/flutter.git -b stable $flutterDir
 } else {
   Write-Host "Flutter directory exists. Updating stable channel..." -ForegroundColor Yellow
+  git config --global --add safe.directory ($flutterDir -replace "\\", "/")
   git -C $flutterDir fetch origin stable
   git -C $flutterDir checkout stable
   git -C $flutterDir pull --ff-only
 }
+
+git config --global --add safe.directory ($flutterDir -replace "\\", "/")
 
 if ($UpdateUserPath) {
   $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
