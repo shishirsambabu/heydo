@@ -16,7 +16,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 62% | Main flows exist, backend applicant loop is proven, Windows Flutter setup is scripted, physical-device API override is supported, and `npm run mobile:qa` now passes Flutter analyze/tests; real-device Malayalam QA is still pending. |
+| Mobile app readiness | 66% | Main flows exist, backend applicant loop is proven, Windows Flutter setup is scripted, Android SDK/toolchain is doctor-green, physical-device API override is supported, and `npm run mobile:qa` passes Flutter analyze/tests; real-device Malayalam QA is still pending. |
 | Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
 | Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
@@ -54,13 +54,14 @@ Done:
 - Phase 2 smoke passed locally with one verified giver, three verified workers, three applications, one selected worker, completed lifecycle, proposal-token counter-rate spend, 15% platform fee math, and dual ratings.
 - Mobile QA now has a Windows setup helper and `HEYDO_API_BASE` support for physical Android testing against a local PC or tunnel URL.
 - `npm run mobile:qa` now passes with Flutter 3.44.4: dependency resolution, static analysis, and widget tests are clean.
+- Android SDK/toolchain is installed on D: and `flutter doctor -v` reports no issues.
 
 Still required before we call Phase 2 complete:
 
 - Repeat the passed applicant-model loop through the Flutter app on a real Android device.
 - Confirm Malayalam copy, input validation, and low-connectivity behavior across post/apply/choose/lifecycle/rating.
 - Confirm admin can moderate categories/listings and see live marketplace health during a mobile-driven run.
-- Install Android SDK/tooling if needed, then run real-device Malayalam QA against the backend.
+- Run real-device Malayalam QA against the backend.
 - Deploy the backend to a durable HTTPS URL, configure `API_PUBLIC_URL`, `CORS_ORIGINS`, production secrets, and update Didit from the temporary tunnel.
 
 ## Phase Position
@@ -70,7 +71,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 74% | Local applicant-model smoke passed and Flutter analyze/widget QA passes; active gate is now Android real-device Malayalam QA plus admin marketplace operations. |
+| Phase 2 - Gig Posting, Applying, Choosing | 76% | Local applicant-model smoke passed, Flutter analyze/widget QA passes, and Android tooling is doctor-green; active gate is now Android real-device Malayalam QA plus admin marketplace operations. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -86,10 +87,10 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 60%; active gate, Phase 2 applicant marketplace 74%.
+Project meter: Overall MVP launch readiness 61%; active gate, Phase 2 applicant marketplace 76%.
 Next gate: repeat the passed applicant flow through Flutter on a real Android device in Malayalam, then record Flutter QA evidence.
 ```
 
 ## Next Best Build Step
 
-The next highest-leverage build step is to install/confirm Android SDK tooling and repeat the passed applicant flow on a real Android device in Malayalam.
+The next highest-leverage build step is to repeat the passed applicant flow on a real Android device in Malayalam.
