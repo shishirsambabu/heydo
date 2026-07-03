@@ -9,7 +9,8 @@ const defaultWindowsFlutter = join(defaultWindowsFlutterBin, 'flutter.bat');
 const commandEnv = { ...process.env };
 
 if (process.platform === 'win32' && existsSync(defaultWindowsFlutter)) {
-  commandEnv.PATH = `${defaultWindowsFlutterBin};${commandEnv.PATH ?? ''}`;
+  const pathKey = Object.keys(commandEnv).find((key) => key.toLowerCase() === 'path') ?? 'Path';
+  commandEnv[pathKey] = `${defaultWindowsFlutterBin};${commandEnv[pathKey] ?? ''}`;
 }
 
 const commands = [

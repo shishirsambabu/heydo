@@ -708,7 +708,7 @@ class _RateGigScreenState extends State<RateGigScreen> {
       title: widget.title,
       children: [
         DropdownButtonFormField<int>(
-          value: _stars,
+          initialValue: _stars,
           decoration: InputDecoration(labelText: s.rating, border: const OutlineInputBorder()),
           items: [1, 2, 3, 4, 5]
               .map((stars) => DropdownMenuItem<int>(
@@ -1187,7 +1187,7 @@ class _SafetyReportScreenState extends State<SafetyReportScreen> {
       title: s.reportUnsafe,
       children: [
         DropdownButtonFormField<String>(
-          value: _reason,
+          initialValue: _reason,
           decoration: InputDecoration(labelText: s.reportReason, border: const OutlineInputBorder()),
           items: [
             DropdownMenuItem(value: 'unsafe_location', child: Text(s.unsafeLocation)),
@@ -1277,7 +1277,7 @@ class _PostGigScreenState extends State<PostGigScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 DropdownButtonFormField<String>(
-                  value: _categoryId,
+                  initialValue: _categoryId,
                   decoration: InputDecoration(labelText: s.category, border: const OutlineInputBorder()),
                   items: categories
                       .map((category) => DropdownMenuItem<String>(
