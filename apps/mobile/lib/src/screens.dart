@@ -518,6 +518,10 @@ class WorkerGigListScreen extends StatelessWidget {
     return HeydoScaffold(
       title: s.browseSafeGigs,
       children: [
+        if (app.showingCachedMarketplace) ...[
+          _offlineNotice(s.showingSavedData),
+          const SizedBox(height: 12),
+        ],
         Expanded(
           child: gigs.isEmpty
               ? Center(child: Text(s.noGigs, style: const TextStyle(fontSize: 16)))
@@ -1271,6 +1275,10 @@ class _PostGigScreenState extends State<PostGigScreen> {
     return HeydoScaffold(
       title: s.postSafeGig,
       children: [
+        if (app.showingCachedMarketplace) ...[
+          _offlineNotice(s.showingSavedData),
+          const SizedBox(height: 12),
+        ],
         Expanded(
           child: SingleChildScrollView(
             child: Column(
@@ -1383,4 +1391,21 @@ void _go(BuildContext context, Widget screen) {
 Widget _error(String msg) => Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Text(msg, style: const TextStyle(color: Colors.red, fontSize: 14)),
+    );
+
+Widget _offlineNotice(String message) => Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        border: Border.all(color: Colors.amber.shade700),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.cloud_off, color: Colors.amber.shade900),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message, style: const TextStyle(height: 1.35))),
+        ],
+      ),
     );

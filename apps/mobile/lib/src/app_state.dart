@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
@@ -6,11 +8,18 @@ import 'strings.dart';
 /// Single source of onboarding state. Phase 1 keeps it deliberately small
 /// (Provider/ChangeNotifier). The real app layers richer state management.
 class AppState extends ChangeNotifier {
-  AppState({HeydoApi? api}) : api = api ?? HeydoApi();
+  AppState({HeydoApi? api, DateTime Function()? now})
+      : api = api ?? HeydoApi(),
+        _now = now ?? DateTime.now;
 
   final HeydoApi api;
+  final DateTime Function() _now;
 
   static const _langKey = 'heydo_lang';
+  static const _marketplaceSetupCacheKey = 'heydo_public_marketplace_setup_v1';
+  static const _visibleGigsCacheKey = 'heydo_public_visible_gigs_v1';
+  static const _marketplaceSetupCacheLifetime = Duration(days: 7);
+  static const _visibleGigsCacheLifetime = Duration(minutes: 15);
 
   Lang lang = Lang.ml; // Malayalam-first default
   bool initialized = false;
@@ -59,6 +68,7 @@ class AppState extends ChangeNotifier {
 
   bool busy = false;
   String? error;
+  bool showingCachedMarketplace = false;
 
   /// Set + persist the language choice, so the app remembers it next launch.
   void setLang(Lang l) {
@@ -145,18 +155,22 @@ class AppState extends ChangeNotifier {
   Future<bool> refreshStatus() => _guard(_loadStatus);
 
   Future<bool> loadMarketplaceSetup() => _guard(() async {
-        final loadedCategories = await api.categories();
-        final loadedGuides = await api.pricingGuides();
-        final loadedProposalTokenPolicy = await api.proposalTokenPolicy();
-        final loadedProposalTokenBalance = await api.proposalTokenBalance();
-        categories = loadedCategories
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
-        pricingGuides = loadedGuides
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
-        proposalTokenPolicy = loadedProposalTokenPolicy;
-        proposalTokenBalance = loadedProposalTokenBalance;
+        try {
+          final loadedCategories = await api.categories();
+          final loadedGuides = await api.pricingGuides();
+          final loadedProposalTokenPolicy = await api.proposalTokenPolicy();
+          final loadedProposalTokenBalance = await api.proposalTokenBalance();
+          categories = _maps(loadedCategories);
+          pricingGuides = _maps(loadedGuides);
+          proposalTokenPolicy = loadedProposalTokenPolicy;
+          proposalTokenBalance = loadedProposalTokenBalance;
+          showingCachedMarketplace = false;
+          await _saveMarketplaceSetupCache();
+        } on HeydoNetworkException {
+          if (!await _restoreMarketplaceSetupCache()) rethrow;
+          showingCachedMarketplace = true;
+          proposalTokenBalance = null;
+        }
       });
 
   Map<String, dynamic>? pricingGuideFor(String categoryId) {
@@ -185,19 +199,171 @@ class AppState extends ChangeNotifier {
       });
 
   Future<bool> loadVisibleGigs() => _guard(() async {
-        final loaded = await api.gigs();
-        visibleGigs = loaded
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
-        giverReputations = {};
-        final giverIds = visibleGigs
-            .map((gig) => gig['giverId'])
-            .whereType<String>()
-            .toSet();
-        for (final giverId in giverIds) {
-          giverReputations[giverId] = await api.reputation(giverId);
+        try {
+          final loaded = await api.gigs();
+          visibleGigs = _maps(loaded);
+          giverReputations = {};
+          final giverIds = visibleGigs
+              .map((gig) => gig['giverId'])
+              .whereType<String>()
+              .toSet();
+          for (final giverId in giverIds) {
+            giverReputations[giverId] = await api.reputation(giverId);
+          }
+          showingCachedMarketplace = false;
+          await _saveVisibleGigsCache();
+        } on HeydoNetworkException {
+          if (!await _restoreVisibleGigsCache()) rethrow;
+          showingCachedMarketplace = true;
         }
       });
+
+  List<Map<String, dynamic>> _maps(Iterable<dynamic> values) => values
+      .whereType<Map<String, dynamic>>()
+      .map(Map<String, dynamic>.from)
+      .toList(growable: false);
+
+  Future<void> _saveMarketplaceSetupCache() => _savePublicCache(
+        _marketplaceSetupCacheKey,
+        {
+          'savedAt': _now().toUtc().toIso8601String(),
+          'categories': categories
+              .map((value) => _selectFields(value, const [
+                    'id',
+                    'nameMl',
+                    'nameEn',
+                  ]))
+              .toList(growable: false),
+          'pricingGuides': pricingGuides
+              .map((value) => _selectFields(value, const [
+                    'categoryId',
+                    'minBudgetAmount',
+                    'suggestedBudgetAmount',
+                    'highReviewAmount',
+                    'notes',
+                  ]))
+              .toList(growable: false),
+          'proposalTokenPolicy': _selectFields(
+            proposalTokenPolicy,
+            const [
+              'priceStepAmount',
+              'tokenUnitPriceAmount',
+              'currency',
+            ],
+          ),
+        },
+      );
+
+  Future<void> _saveVisibleGigsCache() => _savePublicCache(
+        _visibleGigsCacheKey,
+        {
+          'savedAt': _now().toUtc().toIso8601String(),
+          'visibleGigs': visibleGigs
+              .map((value) => _selectFields(value, const [
+                    'id',
+                    'giverId',
+                    'categoryId',
+                    'title',
+                    'description',
+                    'location',
+                    'scheduledAt',
+                    'budgetAmount',
+                    'currency',
+                  ]))
+              .toList(growable: false),
+          'giverReputations': giverReputations.map((giverId, value) {
+            final asGiver = value['asGiver'];
+            return MapEntry(giverId, {
+              'asGiver': asGiver is Map
+                  ? _selectFields(
+                      Map<String, dynamic>.from(asGiver),
+                      const ['heydoScore', 'averageStars', 'ratingCount'],
+                    )
+                  : <String, dynamic>{},
+            });
+          }),
+        },
+      );
+
+  Map<String, dynamic> _selectFields(
+    Map<String, dynamic> source,
+    List<String> fields,
+  ) =>
+      {
+        for (final field in fields)
+          if (source.containsKey(field)) field: source[field],
+      };
+
+  Future<void> _savePublicCache(String key, Map<String, dynamic> value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, jsonEncode(value));
+    } catch (_) {
+      // Allowlisted public read cache is best-effort and never blocks live flow.
+    }
+  }
+
+  Future<bool> _restoreMarketplaceSetupCache() async {
+    final cached = await _readFreshPublicCache(
+      _marketplaceSetupCacheKey,
+      _marketplaceSetupCacheLifetime,
+    );
+    if (cached == null) return false;
+    final loadedCategories = cached['categories'];
+    final loadedGuides = cached['pricingGuides'];
+    final loadedPolicy = cached['proposalTokenPolicy'];
+    if (loadedCategories is! List ||
+        loadedGuides is! List ||
+        loadedPolicy is! Map) {
+      return false;
+    }
+    categories = _maps(loadedCategories);
+    pricingGuides = _maps(loadedGuides);
+    proposalTokenPolicy = Map<String, dynamic>.from(loadedPolicy);
+    return true;
+  }
+
+  Future<bool> _restoreVisibleGigsCache() async {
+    final cached = await _readFreshPublicCache(
+      _visibleGigsCacheKey,
+      _visibleGigsCacheLifetime,
+    );
+    if (cached == null) return false;
+    final loadedGigs = cached['visibleGigs'];
+    final loadedReputations = cached['giverReputations'];
+    if (loadedGigs is! List || loadedReputations is! Map) return false;
+    visibleGigs = _maps(loadedGigs);
+    giverReputations = loadedReputations.map(
+      (key, value) => MapEntry(
+        key.toString(),
+        value is Map ? Map<String, dynamic>.from(value) : <String, dynamic>{},
+      ),
+    );
+    return true;
+  }
+
+  Future<Map<String, dynamic>?> _readFreshPublicCache(
+    String key,
+    Duration lifetime,
+  ) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(key);
+      if (raw == null) return null;
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return null;
+      final cache = Map<String, dynamic>.from(decoded);
+      final savedAt = DateTime.tryParse(cache['savedAt'] as String? ?? '');
+      final age = savedAt == null ? null : _now().toUtc().difference(savedAt);
+      if (age == null || age.isNegative || age > lifetime) {
+        await prefs.remove(key);
+        return null;
+      }
+      return cache;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<bool> loadMyGigs() => _guard(() async {
         await _loadMyGigs();

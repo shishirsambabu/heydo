@@ -138,5 +138,8 @@ class S {
   String get networkTimeout => _t(
       'നെറ്റ്‌വർക്ക് മന്ദഗതിയിലാണ്. വീണ്ടും ശ്രമിക്കുക.',
       'The network is taking too long. Try again.');
+  String get showingSavedData => _t(
+      'ഓഫ്‌ലൈനാണ്. അവസാനം സംരക്ഷിച്ച വിവരങ്ങളാണ് കാണിക്കുന്നത്. പ്രവർത്തനങ്ങൾക്ക് ഇന്റർനെറ്റ് ആവശ്യമാണ്.',
+      'You are offline. Showing recently saved information. Actions require internet.');
   String get somethingWrong => _t('എന്തോ പിഴവ് സംഭവിച്ചു', 'Something went wrong');
 }
