@@ -58,13 +58,13 @@ const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
 ];
 
 const PROJECT_METER = {
-  overall: 61,
-  activeGate: 76,
+  overall: 63,
+  activeGate: 82,
   gateName: 'Phase 2 applicant marketplace',
-  proof: 'Local Phase 2 smoke passed, Flutter mobile QA passes analyze/widget tests, and Android tooling is doctor-green.',
-  nextGate: 'Repeat the passed applicant flow through Flutter on a real Android device in Malayalam, then record Flutter QA evidence.',
+  proof: 'Local Phase 2 smoke passed, Flutter QA is clean, and Android emulator runtime plus Malayalam mock-OTP authentication are proven.',
+  nextGate: 'Repeat the emulator-proven flow on a real Android device in Malayalam, then test low-connectivity recovery and record the evidence.',
   blockers: [
-    'Run the giver post, 3 worker applications, selection, lifecycle, and dual-rating flow on Android',
+    'Run the giver post, 3 worker applications, selection, lifecycle, and dual-rating flow on a physical Android device',
     'Confirm Malayalam copy and low-connectivity behavior during the mobile run',
     'Confirm admin category/listing moderation and marketplace health visibility during mobile QA',
     'Deploy durable backend URL and pass npm run deploy:readiness',

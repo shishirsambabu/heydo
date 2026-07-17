@@ -29,6 +29,7 @@ apps/mobile/.flutter-plugins*
 apps/mobile/.flutter-plugins-dependencies
 apps/mobile/android/local.properties
 .android-sdk/
+.android-avd/
 .android-cmdline-tools.zip
 apps/mobile/ios/Flutter/Generated.xcconfig
 apps/mobile/ios/Flutter/flutter_export_environment.sh
