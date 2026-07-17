@@ -132,5 +132,11 @@ class S {
   // Generic
   String get next => _t('അടുത്തത്', 'Next');
   String get loading => _t('കാത്തിരിക്കൂ…', 'Please wait…');
+  String get networkUnavailable => _t(
+      'ഇന്റർനെറ്റ് ബന്ധം ലഭ്യമല്ല. ബന്ധം പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.',
+      'No internet connection. Check your connection and try again.');
+  String get networkTimeout => _t(
+      'നെറ്റ്‌വർക്ക് മന്ദഗതിയിലാണ്. വീണ്ടും ശ്രമിക്കുക.',
+      'The network is taking too long. Try again.');
   String get somethingWrong => _t('എന്തോ പിഴവ് സംഭവിച്ചു', 'Something went wrong');
 }

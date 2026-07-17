@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -18,9 +19,21 @@ String defaultApiBase() {
 }
 
 class HeydoApi {
-  HeydoApi({String? baseUrl}) : baseUrl = baseUrl ?? defaultApiBase();
+  HeydoApi({
+    String? baseUrl,
+    http.Client? client,
+    this.requestTimeout = const Duration(seconds: 12),
+    this.safeGetRetries = 1,
+    Future<void> Function(Duration)? retryDelay,
+  })  : baseUrl = baseUrl ?? defaultApiBase(),
+        _client = client ?? http.Client(),
+        _retryDelay = retryDelay ?? Future<void>.delayed;
 
   final String baseUrl;
+  final http.Client _client;
+  final Duration requestTimeout;
+  final int safeGetRetries;
+  final Future<void> Function(Duration) _retryDelay;
   String? _token;
 
   void setToken(String token) => _token = token;
@@ -31,27 +44,57 @@ class HeydoApi {
       };
 
   Future<Map<String, dynamic>> _post(String path, [Map<String, dynamic>? body]) async {
-    final res = await http.post(
-      Uri.parse('$baseUrl$path'),
-      headers: _headers,
-      body: jsonEncode(body ?? {}),
+    final res = await _networkRequest(
+      () => _client.post(
+        Uri.parse('$baseUrl$path'),
+        headers: _headers,
+        body: jsonEncode(body ?? {}),
+      ),
+      retryNetworkFailures: false,
     );
     return _decode(res);
   }
 
   Future<Map<String, dynamic>> _get(String path) async {
-    final res = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    final res = await _getResponse(path);
     return _decode(res);
   }
 
   Future<List<dynamic>> _getList(String path) async {
-    final res = await http.get(Uri.parse('$baseUrl$path'), headers: _headers);
+    final res = await _getResponse(path);
     if (res.statusCode >= 400) {
       throw HeydoApiException(res.statusCode, res.body);
     }
     if (res.body.isEmpty) return [];
     final decoded = jsonDecode(res.body);
     return decoded is List<dynamic> ? decoded : [];
+  }
+
+  Future<http.Response> _getResponse(String path) => _networkRequest(
+        () => _client.get(Uri.parse('$baseUrl$path'), headers: _headers),
+        retryNetworkFailures: true,
+      );
+
+  Future<http.Response> _networkRequest(
+    Future<http.Response> Function() request, {
+    required bool retryNetworkFailures,
+  }) async {
+    final attempts = retryNetworkFailures ? safeGetRetries + 1 : 1;
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      try {
+        return await request().timeout(requestTimeout);
+      } on TimeoutException {
+        if (attempt == attempts - 1) {
+          throw const HeydoNetworkException(HeydoNetworkFailure.timeout);
+        }
+      } on http.ClientException {
+        if (attempt == attempts - 1) {
+          throw const HeydoNetworkException(HeydoNetworkFailure.unavailable);
+        }
+      }
+      await _retryDelay(const Duration(milliseconds: 350));
+    }
+    throw const HeydoNetworkException(HeydoNetworkFailure.unavailable);
   }
 
   Map<String, dynamic> _decode(http.Response res) {
@@ -165,4 +208,15 @@ class HeydoApiException implements Exception {
   final String body;
   @override
   String toString() => 'HeydoApiException($status): $body';
+}
+
+enum HeydoNetworkFailure { timeout, unavailable }
+
+class HeydoNetworkException implements Exception {
+  const HeydoNetworkException(this.failure);
+
+  final HeydoNetworkFailure failure;
+
+  @override
+  String toString() => 'HeydoNetworkException($failure)';
 }

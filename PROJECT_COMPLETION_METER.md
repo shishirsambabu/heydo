@@ -1,12 +1,12 @@
 # Heydo Project Completion Meter
 
-Last updated: 2026-07-16
+Last updated: 2026-07-17
 
 This meter is a practical launch-readiness tracker, not a vanity percentage. It moves only when code, configuration, tests, or operational gates are actually completed.
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 63%**
+**Overall MVP launch readiness: 64%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
@@ -16,14 +16,14 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 78% | Main flows exist, backend applicant loop is proven, Flutter analyze/tests pass, Android SDK/toolchain is doctor-green, and the app now builds, installs, launches, renders Malayalam, and completes mock OTP authentication on an Android 36 emulator; real-device Malayalam and low-connectivity QA are still pending. |
-| Localization, accessibility, offline resilience | 30% | Product principles are defined; full Malayalam, accessibility, and offline behavior need deeper implementation and QA. |
+| Mobile app readiness | 81% | Main flows exist, backend applicant loop is proven, Flutter analyze/tests pass, Android SDK/toolchain is doctor-green, and the app builds and launches in Malayalam on Android. API reads now use bounded retry/timeout behavior while state-changing writes are never automatically retried; physical-device lifecycle QA remains. |
+| Localization, accessibility, offline resilience | 38% | Malayalam network failure guidance, bounded request timeouts, one safe GET retry, and no automatic POST retries are implemented and tested. Full cached/offline workflows, accessibility, and physical low-connectivity QA remain. |
 | Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
 
 ## Current Gate
 
-**Phase 2 applicant marketplace gate: 82%**
+**Phase 2 applicant marketplace gate: 84%**
 
 The pre-Phase-2 safety hardening evidence is complete. Phase 2 is now the active build phase: prove the applicant-model marketplace end to end on a real device, in Malayalam, with verified users.
 
@@ -57,6 +57,9 @@ Done:
 - Android SDK/toolchain is installed on D: and `flutter doctor -v` reports no issues.
 - Android 36 emulator QA now builds and installs the debug APK, launches against the local backend, renders Malayalam without visible overflow, requests a mock OTP, verifies it, and reaches the worker/giver role screen.
 - The Windows Android build now disables incompatible cross-drive Kotlin incremental caching, preventing Pub-cache sources on C: from breaking builds rooted on D:.
+- Mobile API requests now fail within a bounded timeout, retry safe reads once after transient network loss, and never automatically retry state-changing writes such as gig posts or applications.
+- Malayalam and English offline/timeout recovery messages are wired into app state, with focused tests proving retry, timeout, and no-duplicate-write behavior.
+- The hardened APK rebuilt and launched on the Android emulator in Malayalam, and the emulator survived airplane-mode disable/restore during QA.
 
 Still required before we call Phase 2 complete:
 
@@ -73,7 +76,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 82% | Local applicant-model smoke passed, Flutter analyze/widget QA passes, and the Android emulator build plus Malayalam mock-OTP flow is proven; active gate is now physical Android Malayalam/low-connectivity QA plus admin marketplace operations. |
+| Phase 2 - Gig Posting, Applying, Choosing | 84% | Local applicant-model smoke passed, Flutter QA passes, Android Malayalam runtime is proven, and network timeout/safe-retry behavior is tested; active gate is physical Android lifecycle/low-connectivity QA plus admin marketplace operations. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -89,10 +92,10 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 63%; active gate, Phase 2 applicant marketplace 82%.
-Next gate: repeat the emulator-proven flow through Flutter on a real Android device in Malayalam, then test low-connectivity behavior and record Flutter QA evidence.
+Project meter: Overall MVP launch readiness 64%; active gate, Phase 2 applicant marketplace 84%.
+Next gate: run the complete applicant lifecycle through Flutter on a real Android device in Malayalam, interrupt and restore connectivity during reads and writes, and record the evidence.
 ```
 
 ## Next Best Build Step
 
-The next highest-leverage build step is to repeat the emulator-proven applicant flow on a real Android device in Malayalam and exercise network interruption/recovery.
+The next highest-leverage build step is to connect a physical Android device and run the complete applicant flow in Malayalam while interrupting and restoring connectivity.

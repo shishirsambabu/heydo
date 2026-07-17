@@ -83,6 +83,11 @@ class AppState extends ChangeNotifier {
     try {
       await action();
       return true;
+    } on HeydoNetworkException catch (e) {
+      error = e.failure == HeydoNetworkFailure.timeout
+          ? s.networkTimeout
+          : s.networkUnavailable;
+      return false;
     } on HeydoApiException catch (e) {
       error = 'Error ${e.status}';
       return false;
