@@ -89,6 +89,8 @@ export interface AdminDecisionNote {
 }
 
 export type AdminDecisionReasonAction =
+  | 'category.activate'
+  | 'category.deactivate'
   | 'gig.approve'
   | 'gig.reject'
   | 'gig.flag'
@@ -125,6 +127,15 @@ export const ADMIN_DECISION_REASON_CATALOG: Record<
   AdminDecisionReasonAction,
   AdminDecisionReason[]
 > = {
+  'category.activate': [
+    { code: 'category_launch_ready', label: 'Category is ready for launch' },
+    { code: 'category_safety_review_complete', label: 'Category safety review is complete' },
+  ],
+  'category.deactivate': [
+    { code: 'category_safety_pause', label: 'Pause category for safety review' },
+    { code: 'category_operations_pause', label: 'Pause category for operations review' },
+    { code: 'category_pricing_review', label: 'Pause category for pricing review' },
+  ],
   'gig.approve': [
     { code: 'caller_verified_scope', label: 'Caller verified safe scope' },
     { code: 'pricing_and_location_reasonable', label: 'Pricing and location are reasonable' },
@@ -343,6 +354,30 @@ export interface MarketplaceEconomicsSummary {
   pendingReviewGigCount: number;
 }
 
+export interface AdminCategoryView extends Category {
+  pricingGuide?: PricingGuide;
+  totalGigCount: number;
+  openGigCount: number;
+  visibleGigCount: number;
+  pendingReviewGigCount: number;
+}
+
+export interface MarketplaceHealthSummary {
+  generatedAt: string;
+  totalCategoryCount: number;
+  activeCategoryCount: number;
+  inactiveCategoryCount: number;
+  categoriesMissingPricingGuideCount: number;
+  totalGigCount: number;
+  openGigCount: number;
+  visibleGigCount: number;
+  pendingReviewGigCount: number;
+  flaggedGigCount: number;
+  rejectedGigCount: number;
+  openSafetyReportCount: number;
+  highSeverityOpenSafetyReportCount: number;
+}
+
 export interface ProposalTokenPolicy {
   priceStepAmount: number;
   tokenUnitPriceAmount: number;
@@ -406,6 +441,85 @@ export class MarketplaceService {
 
   listCategories(): Promise<Category[]> {
     return this.categories.listActive();
+  }
+
+  async listCategoriesForAdmin(): Promise<AdminCategoryView[]> {
+    const [categories, gigs] = await Promise.all([this.categories.listAll(), this.gigs.list()]);
+    return categories.map((category) => {
+      const categoryGigs = gigs.filter((gig) => gig.categoryId === category.id);
+      return {
+        ...category,
+        pricingGuide: pricingGuideFor(category.id),
+        totalGigCount: categoryGigs.length,
+        openGigCount: categoryGigs.filter((gig) => !['completed', 'cancelled'].includes(gig.status)).length,
+        visibleGigCount: categoryGigs.filter((gig) => gig.visibilityStatus === 'visible').length,
+        pendingReviewGigCount: categoryGigs.filter(
+          (gig) => gig.visibilityStatus === 'pending_review',
+        ).length,
+      };
+    });
+  }
+
+  async setCategoryActive(
+    categoryId: string,
+    active: boolean,
+    adminId: string,
+    decisionNote: AdminDecisionNote,
+  ): Promise<AdminCategoryView> {
+    const category = await this.categories.findById(categoryId);
+    if (!category) {
+      throw new MarketplaceError('Category not found', 'not_found');
+    }
+    if (category.active !== active) {
+      await this.categories.save({ ...category, active });
+      const gigs = await this.gigs.list({ categoryId });
+      this.audit.record({
+        actorId: adminId,
+        actorRole: 'fraud_analyst',
+        action: active ? 'marketplace.category_activated' : 'marketplace.category_deactivated',
+        targetType: 'category',
+        targetId: categoryId,
+        metadata: {
+          previousActive: category.active,
+          active,
+          openGigCount: gigs.filter((gig) => !['completed', 'cancelled'].includes(gig.status)).length,
+          decision: summarizeDecision(
+            decisionNote,
+            active ? 'Category activated by admin' : 'Category deactivated by admin',
+          ),
+        },
+      });
+    }
+    const categories = await this.listCategoriesForAdmin();
+    return categories.find((item) => item.id === categoryId)!;
+  }
+
+  async marketplaceHealthForAdmin(): Promise<MarketplaceHealthSummary> {
+    const [categories, gigs, safetyReports] = await Promise.all([
+      this.categories.listAll(),
+      this.gigs.list(),
+      this.safetyReports.list(),
+    ]);
+    const openSafetyReports = safetyReports.filter((report) => report.status !== 'closed');
+    return {
+      generatedAt: new Date(this.now()).toISOString(),
+      totalCategoryCount: categories.length,
+      activeCategoryCount: categories.filter((category) => category.active).length,
+      inactiveCategoryCount: categories.filter((category) => !category.active).length,
+      categoriesMissingPricingGuideCount: categories.filter(
+        (category) => !pricingGuideFor(category.id),
+      ).length,
+      totalGigCount: gigs.length,
+      openGigCount: gigs.filter((gig) => !['completed', 'cancelled'].includes(gig.status)).length,
+      visibleGigCount: gigs.filter((gig) => gig.visibilityStatus === 'visible').length,
+      pendingReviewGigCount: gigs.filter((gig) => gig.visibilityStatus === 'pending_review').length,
+      flaggedGigCount: gigs.filter((gig) => gig.visibilityStatus === 'flagged').length,
+      rejectedGigCount: gigs.filter((gig) => gig.visibilityStatus === 'rejected').length,
+      openSafetyReportCount: openSafetyReports.length,
+      highSeverityOpenSafetyReportCount: openSafetyReports.filter((report) =>
+        ['high', 'critical'].includes(report.severity),
+      ).length,
+    };
   }
 
   listPricingGuides(): PricingGuide[] {

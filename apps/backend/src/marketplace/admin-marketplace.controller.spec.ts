@@ -34,6 +34,19 @@ describe('AdminMarketplaceController RBAC metadata', () => {
       'dispute_officer',
       'super_admin',
     ]);
+    expect(rolesFor('marketplaceHealth')).toEqual([
+      'support',
+      'finance',
+      'fraud_analyst',
+      'dispute_officer',
+      'super_admin',
+    ]);
+    expect(rolesFor('categories')).toEqual([
+      'support',
+      'fraud_analyst',
+      'dispute_officer',
+      'super_admin',
+    ]);
     expect(rolesFor('phaseGateEvidence')).toEqual([
       'fraud_analyst',
       'dispute_officer',
@@ -88,6 +101,7 @@ describe('AdminMarketplaceController RBAC metadata', () => {
     const trustOperatorRoles = ['fraud_analyst', 'dispute_officer', 'super_admin'];
 
     expect(rolesFor('pendingReview')).toEqual(trustOperatorRoles);
+    expect(rolesFor('setCategoryStatus')).toEqual(trustOperatorRoles);
     expect(rolesFor('approve')).toEqual(trustOperatorRoles);
     expect(rolesFor('reject')).toEqual(trustOperatorRoles);
     expect(rolesFor('flag')).toEqual(trustOperatorRoles);

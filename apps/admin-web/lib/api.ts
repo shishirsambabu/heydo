@@ -127,6 +127,35 @@ export interface MarketplaceEconomicsSummary {
   pendingReviewGigCount: number;
 }
 
+export interface MarketplaceCategoryAdminView {
+  id: string;
+  nameMl: string;
+  nameEn: string;
+  group: 'home' | 'creative' | 'care' | 'events' | 'local';
+  active: boolean;
+  pricingGuide?: AdminGig['pricingGuide'];
+  totalGigCount: number;
+  openGigCount: number;
+  visibleGigCount: number;
+  pendingReviewGigCount: number;
+}
+
+export interface MarketplaceHealthSummary {
+  generatedAt: string;
+  totalCategoryCount: number;
+  activeCategoryCount: number;
+  inactiveCategoryCount: number;
+  categoriesMissingPricingGuideCount: number;
+  totalGigCount: number;
+  openGigCount: number;
+  visibleGigCount: number;
+  pendingReviewGigCount: number;
+  flaggedGigCount: number;
+  rejectedGigCount: number;
+  openSafetyReportCount: number;
+  highSeverityOpenSafetyReportCount: number;
+}
+
 export interface SafetyReport {
   id: string;
   gigId: string;
@@ -177,6 +206,8 @@ export interface RatingReviewItem {
 }
 
 export type AdminDecisionReasonAction =
+  | 'category.activate'
+  | 'category.deactivate'
   | 'gig.approve'
   | 'gig.reject'
   | 'gig.flag'
@@ -416,6 +447,25 @@ export function listReviewGigs(): Promise<AdminGig[]> {
 
 export function getMarketplaceEconomics(): Promise<MarketplaceEconomicsSummary> {
   return authed('/admin/marketplace/economics') as Promise<MarketplaceEconomicsSummary>;
+}
+
+export function getMarketplaceHealth(): Promise<MarketplaceHealthSummary> {
+  return authed('/admin/marketplace/health') as Promise<MarketplaceHealthSummary>;
+}
+
+export function listMarketplaceCategories(): Promise<MarketplaceCategoryAdminView[]> {
+  return authed('/admin/marketplace/categories') as Promise<MarketplaceCategoryAdminView[]>;
+}
+
+export function setMarketplaceCategoryStatus(
+  categoryId: string,
+  status: 'active' | 'inactive',
+  payload: AdminDecisionPayload,
+) {
+  return authed(`/admin/marketplace/categories/${encodeURIComponent(categoryId)}/status`, {
+    method: 'POST',
+    body: JSON.stringify({ status, ...payload }),
+  });
 }
 
 export function getDecisionReasons(): Promise<AdminDecisionReasonCatalog> {

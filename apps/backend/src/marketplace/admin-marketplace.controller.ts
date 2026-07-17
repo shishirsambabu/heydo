@@ -71,6 +71,10 @@ class ProposalTokenGrantDto {
   @IsString() @MinLength(10) note!: string;
 }
 
+class CategoryStatusDto extends ModerationDto {
+  @IsIn(['active', 'inactive']) status!: 'active' | 'inactive';
+}
+
 const PHASE_GATE_ID = 'pre_phase_2_safety_hardening';
 const PHASE_GATE_EVIDENCE_CODES = [
   'didit_worker_live',
@@ -171,6 +175,38 @@ export class AdminMarketplaceController {
   @Roles('finance', 'fraud_analyst', 'dispute_officer', 'super_admin')
   economics() {
     return this.marketplace.marketplaceEconomicsForAdmin();
+  }
+
+  @Get('health')
+  @Roles('support', 'finance', 'fraud_analyst', 'dispute_officer', 'super_admin')
+  marketplaceHealth() {
+    return this.marketplace.marketplaceHealthForAdmin();
+  }
+
+  @Get('categories')
+  @Roles('support', 'fraud_analyst', 'dispute_officer', 'super_admin')
+  categories() {
+    return this.marketplace.listCategoriesForAdmin();
+  }
+
+  @Post('categories/:categoryId/status')
+  @Roles('fraud_analyst', 'dispute_officer', 'super_admin')
+  setCategoryStatus(
+    @Param('categoryId') categoryId: string,
+    @CurrentUser() principal: AuthPrincipal,
+    @Body() dto: CategoryStatusDto,
+  ) {
+    return this.wrap(async () => {
+      this.audit.assertHealthyForSensitiveAction();
+      await this.adminSessions.assertFresh(principal);
+      const active = dto.status === 'active';
+      return this.marketplace.setCategoryActive(
+        categoryId,
+        active,
+        principal.sub,
+        decisionFromDto(active ? 'category.activate' : 'category.deactivate', dto),
+      );
+    });
   }
 
   @Get('gigs/:gigId/money-trail')

@@ -20,6 +20,7 @@ export interface GigFilters {
 
 export interface CategoryRepository {
   listActive(): Promise<Category[]>;
+  listAll(): Promise<Category[]>;
   findById(id: string): Promise<Category | null>;
   save(category: Category): Promise<void>;
 }
@@ -99,6 +100,12 @@ export class InMemoryCategoryRepository implements CategoryRepository {
     return [...this.items.values()]
       .filter((category) => category.active)
       .map((category) => ({ ...category }));
+  }
+
+  async listAll(): Promise<Category[]> {
+    return [...this.items.values()]
+      .map((category) => ({ ...category }))
+      .sort((a, b) => a.group.localeCompare(b.group) || a.nameEn.localeCompare(b.nameEn));
   }
 
   async findById(id: string): Promise<Category | null> {

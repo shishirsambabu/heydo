@@ -75,6 +75,45 @@ describe('MarketplaceService', () => {
     }
   });
 
+  it('lets trust admins pause a category without removing its operational history', async () => {
+    const { svc, audit } = service();
+
+    const paused = await svc.setCategoryActive('cat_plumbing', false, 'admin_1', {
+      reasonCode: 'category_safety_pause',
+      note: 'Pausing new plumbing posts while safety guidance is reviewed.',
+    });
+
+    expect(paused).toMatchObject({ id: 'cat_plumbing', active: false, totalGigCount: 0 });
+    await expect(svc.listCategories()).resolves.not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'cat_plumbing' })]),
+    );
+    await expect(svc.listCategoriesForAdmin()).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'cat_plumbing', active: false })]),
+    );
+    expect(audit.entries()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: 'marketplace.category_deactivated',
+          targetType: 'category',
+          targetId: 'cat_plumbing',
+        }),
+      ]),
+    );
+  });
+
+  it('reports consolidated category, gig, and safety health for operators', async () => {
+    const { svc } = service();
+
+    await expect(svc.marketplaceHealthForAdmin()).resolves.toMatchObject({
+      activeCategoryCount: DEFAULT_CATEGORIES.filter((category) => category.active).length,
+      inactiveCategoryCount: DEFAULT_CATEGORIES.filter((category) => !category.active).length,
+      categoriesMissingPricingGuideCount: 0,
+      totalGigCount: 0,
+      openSafetyReportCount: 0,
+      highSeverityOpenSafetyReportCount: 0,
+    });
+  });
+
   it('blocks unverified givers from posting gigs', async () => {
     const { svc, givers } = service();
     await givers.save({

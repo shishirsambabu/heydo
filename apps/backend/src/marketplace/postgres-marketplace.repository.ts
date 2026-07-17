@@ -156,6 +156,16 @@ export class PostgresCategoryRepository implements CategoryRepository {
     return rows.map(toCategory);
   }
 
+  async listAll(): Promise<Category[]> {
+    await this.ensureDefaults();
+    const rows = await this.pg.query<CategoryRow>(
+      `SELECT id, "nameMl", "nameEn", "group", active
+       FROM "Category"
+       ORDER BY "group", "nameEn"`,
+    );
+    return rows.map(toCategory);
+  }
+
   async findById(id: string): Promise<Category | null> {
     await this.ensureDefaults();
     const [row] = await this.pg.query<CategoryRow>(
@@ -182,7 +192,12 @@ export class PostgresCategoryRepository implements CategoryRepository {
 
   private async ensureDefaults(): Promise<void> {
     for (const category of DEFAULT_CATEGORIES) {
-      await this.save(category);
+      await this.pg.query(
+        `INSERT INTO "Category" (id, "nameMl", "nameEn", "group", active)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id) DO NOTHING`,
+        [category.id, category.nameMl, category.nameEn, category.group, category.active],
+      );
     }
   }
 }

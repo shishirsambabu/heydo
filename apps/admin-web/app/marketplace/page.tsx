@@ -18,6 +18,7 @@ import {
   getGigMoneyTrail,
   getDecisionReasons,
   getMarketplaceEconomics,
+  getMarketplaceHealth,
   getOfficerName,
   getOperatorPolicyMatrix,
   getPhaseGateStatus,
@@ -30,7 +31,10 @@ import {
   listSafetyReportEvidenceRefs,
   listActiveSafetyReports,
   listReviewGigs,
+  listMarketplaceCategories,
+  MarketplaceCategoryAdminView,
   MarketplaceEconomicsSummary,
+  MarketplaceHealthSummary,
   moderateGig,
   openSafetyReportFromRating,
   OperatorPolicyMatrixEntry,
@@ -41,10 +45,11 @@ import {
   resolveSafetyDispute,
   reviewSafetyReport,
   SafetyReport,
+  setMarketplaceCategoryStatus,
   suspendWorkerFromSafetyReport,
 } from '../../lib/api';
 
-type QueueTab = 'gigs' | 'ratings' | 'reports';
+type QueueTab = 'gigs' | 'ratings' | 'reports' | 'categories';
 type ContextRow = { label: string; value: string };
 type ContextPanel = { title: string; rows: ContextRow[] };
 
@@ -58,15 +63,14 @@ const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
 ];
 
 const PROJECT_METER = {
-  overall: 65,
-  activeGate: 86,
+  overall: 66,
+  activeGate: 89,
   gateName: 'Phase 2 applicant marketplace',
-  proof: 'Local Phase 2 smoke and Flutter QA pass; Android Malayalam runtime, bounded timeout, safe-read retry, no-write-retry, and allowlisted public offline cache behavior are proven.',
+  proof: 'Local Phase 2 smoke and Flutter QA pass; Android Malayalam runtime, bounded timeout, safe-read retry, no-write-retry, public offline cache, and audited category operations are proven.',
   nextGate: 'Run the complete applicant lifecycle on a real Android device in Malayalam, interrupt and restore connectivity, then record the evidence.',
   blockers: [
     'Run the giver post, 3 worker applications, selection, lifecycle, and dual-rating flow on a physical Android device',
     'Confirm Malayalam copy and low-connectivity behavior during the mobile run',
-    'Confirm admin category/listing moderation and marketplace health visibility during mobile QA',
     'Deploy durable backend URL and pass npm run deploy:readiness',
   ],
 };
@@ -78,6 +82,8 @@ export default function MarketplaceSafetyPage() {
   const [ratings, setRatings] = useState<RatingReviewItem[]>([]);
   const [reports, setReports] = useState<SafetyReport[]>([]);
   const [economics, setEconomics] = useState<MarketplaceEconomicsSummary | null>(null);
+  const [health, setHealth] = useState<MarketplaceHealthSummary | null>(null);
+  const [categories, setCategories] = useState<MarketplaceCategoryAdminView[]>([]);
   const [reasons, setReasons] = useState<AdminDecisionReasonCatalog | null>(null);
   const [policyMatrix, setPolicyMatrix] = useState<OperatorPolicyMatrixEntry[]>([]);
   const [phaseGateStatus, setPhaseGateStatus] = useState<PhaseGateStatus | null>(null);
@@ -93,8 +99,9 @@ export default function MarketplaceSafetyPage() {
       gigs: gigs.length,
       ratings: ratings.length,
       reports: reports.length,
+      categories: categories.length,
     }),
-    [gigs.length, ratings.length, reports.length],
+    [categories.length, gigs.length, ratings.length, reports.length],
   );
 
   const load = useCallback(async () => {
@@ -108,6 +115,8 @@ export default function MarketplaceSafetyPage() {
         ratingItems,
         reportItems,
         economicsSummary,
+        healthSummary,
+        categoryItems,
         reasonCatalog,
         policyItems,
         gateStatus,
@@ -116,6 +125,8 @@ export default function MarketplaceSafetyPage() {
           listLowRatingReviews(),
           listActiveSafetyReports(),
           getMarketplaceEconomics(),
+          getMarketplaceHealth(),
+          listMarketplaceCategories(),
           getDecisionReasons(),
           getOperatorPolicyMatrix(),
           getPhaseGateStatus(),
@@ -124,6 +135,8 @@ export default function MarketplaceSafetyPage() {
       setRatings(ratingItems);
       setReports(reportItems);
       setEconomics(economicsSummary);
+      setHealth(healthSummary);
+      setCategories(categoryItems);
       setReasons(reasonCatalog);
       setPolicyMatrix(policyItems);
       setPhaseGateStatus(gateStatus);
@@ -202,6 +215,26 @@ export default function MarketplaceSafetyPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gig moderation failed');
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function onCategoryStatus(category: MarketplaceCategoryAdminView) {
+    setError(null);
+    setNotice(null);
+    setContextPanel(null);
+    const status = category.active ? 'inactive' : 'active';
+    const action = category.active ? 'category.deactivate' : 'category.activate';
+    const payload = chooseDecisionPayload(action);
+    if (!payload) return;
+    setActingId(category.id);
+    try {
+      await setMarketplaceCategoryStatus(category.id, status, payload);
+      await load();
+      setNotice(`${category.nameEn} is now ${status}. Existing gig records were preserved.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Category status update failed');
     } finally {
       setActingId(null);
     }
@@ -621,6 +654,8 @@ export default function MarketplaceSafetyPage() {
         gateStatus={phaseGateStatus}
       />
 
+      {health && <MarketplaceHealthPanel health={health} />}
+
       <div className="tabs">
         <button className={tab === 'gigs' ? 'active' : ''} onClick={() => setTab('gigs')}>
           Gig review <span>{counts.gigs}</span>
@@ -630,6 +665,9 @@ export default function MarketplaceSafetyPage() {
         </button>
         <button className={tab === 'ratings' ? 'active' : ''} onClick={() => setTab('ratings')}>
           Low ratings <span>{counts.ratings}</span>
+        </button>
+        <button className={tab === 'categories' ? 'active' : ''} onClick={() => setTab('categories')}>
+          Categories <span>{health?.activeCategoryCount ?? counts.categories}</span>
         </button>
       </div>
 
@@ -707,6 +745,38 @@ export default function MarketplaceSafetyPage() {
             </div>
           ))}
         />
+      )}
+
+      {!loading && tab === 'categories' && (
+        <div className="category-list">
+          {categories.map((category) => (
+            <div className="category-row" key={category.id}>
+              <div className="category-name">
+                <strong>{category.nameMl}</strong>
+                <span>{category.nameEn} · {formatStatusLabel(category.group)}</span>
+              </div>
+              <div className="category-metrics">
+                <span>Open <b>{category.openGigCount}</b></span>
+                <span>Live <b>{category.visibleGigCount}</b></span>
+                <span>Review <b>{category.pendingReviewGigCount}</b></span>
+                <span>
+                  Guardrail{' '}
+                  <b>{category.pricingGuide ? `INR ${category.pricingGuide.minBudgetAmount}+` : 'missing'}</b>
+                </span>
+              </div>
+              <span className={`pill ${category.active ? 'ok' : 'warn'}`}>
+                {category.active ? 'Active' : 'Inactive'}
+              </span>
+              <button
+                className={category.active ? 'btn btn-danger' : 'btn btn-primary'}
+                disabled={actingId === category.id}
+                onClick={() => void onCategoryStatus(category)}
+              >
+                {category.active ? 'Pause new posts' : 'Activate'}
+              </button>
+            </div>
+          ))}
+        </div>
       )}
 
       {!loading && tab === 'reports' && (
@@ -856,6 +926,32 @@ export default function MarketplaceSafetyPage() {
         />
       )}
     </div>
+  );
+}
+
+function MarketplaceHealthPanel({ health }: { health: MarketplaceHealthSummary }) {
+  const pricingHealthy = health.categoriesMissingPricingGuideCount === 0;
+  return (
+    <section className="health-panel" aria-labelledby="marketplace-health-heading">
+      <div className="health-heading">
+        <div>
+          <div className="label">Operations snapshot</div>
+          <h2 id="marketplace-health-heading">Marketplace health</h2>
+        </div>
+        <span className="muted">Updated {new Date(health.generatedAt).toLocaleString()}</span>
+      </div>
+      <div className="health-grid">
+        <div><span>Categories</span><b>{health.activeCategoryCount}/{health.totalCategoryCount}</b><small>active</small></div>
+        <div><span>Open gigs</span><b>{health.openGigCount}</b><small>{health.visibleGigCount} live</small></div>
+        <div><span>Needs review</span><b>{health.pendingReviewGigCount + health.flaggedGigCount}</b><small>{health.rejectedGigCount} rejected</small></div>
+        <div><span>Open safety</span><b>{health.openSafetyReportCount}</b><small>{health.highSeverityOpenSafetyReportCount} high/critical</small></div>
+        <div>
+          <span>Pricing guides</span>
+          <b className={pricingHealthy ? 'ok-text' : 'warn-text'}>{pricingHealthy ? 'Complete' : `${health.categoriesMissingPricingGuideCount} missing`}</b>
+          <small>guardrail coverage</small>
+        </div>
+      </div>
+    </section>
   );
 }
 
