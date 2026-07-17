@@ -261,3 +261,21 @@ model AuditLog {
   @@index([targetType, targetId])
   @@index([actorId])
 }
+
+model Notification {
+  id         String    @id
+  userId     String
+  type       String
+  titleMl    String
+  titleEn    String
+  bodyMl     String
+  bodyEn     String
+  gigId      String?
+  dedupeKey  String    @unique
+  pushStatus String    @default("not_configured")
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}

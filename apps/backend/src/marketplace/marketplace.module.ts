@@ -8,6 +8,8 @@ import { IdentityModule } from '../identity/identity.module';
 import { GiverProfileRepository, UserRepository } from '../identity/identity.repository';
 import { MoneyModule } from '../money/money.module';
 import { MoneyService } from '../money/money.service';
+import { NotificationModule } from '../notifications/notification.module';
+import { NotificationService } from '../notifications/notification.service';
 import { VerificationModule } from '../verification/verification.module';
 import { VerificationService } from '../verification/verification.service';
 import { MarketplaceController } from './marketplace.controller';
@@ -54,7 +56,15 @@ import {
 import { MarketplaceService } from './marketplace.service';
 
 @Module({
-  imports: [SecurityModule, CommonModule, DatabaseModule, IdentityModule, VerificationModule, MoneyModule],
+  imports: [
+    SecurityModule,
+    CommonModule,
+    DatabaseModule,
+    IdentityModule,
+    VerificationModule,
+    MoneyModule,
+    NotificationModule,
+  ],
   controllers: [MarketplaceController, AdminMarketplaceController],
   providers: [
     {
@@ -153,6 +163,7 @@ import { MarketplaceService } from './marketplace.service';
         VerificationService,
         AuditService,
         MoneyService,
+        NotificationService,
       ],
       useFactory: (
         categories: CategoryRepository,
@@ -169,6 +180,7 @@ import { MarketplaceService } from './marketplace.service';
         verification: VerificationService,
         audit: AuditService,
         money: MoneyService,
+        notifications: NotificationService,
       ) =>
         new MarketplaceService(
           categories,
@@ -187,6 +199,7 @@ import { MarketplaceService } from './marketplace.service';
           undefined,
           undefined,
           money,
+          notifications,
         ),
     },
   ],

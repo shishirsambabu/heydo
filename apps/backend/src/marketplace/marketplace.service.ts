@@ -4,6 +4,7 @@ import { AuditService } from '../common/audit/audit.service';
 import { GiverProfileRepository, UserRepository } from '../identity/identity.repository';
 import { GigMoneyTrail, MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
+import { CreateNotificationInput, NotificationService } from '../notifications/notification.service';
 import {
   Assignment,
   Category,
@@ -437,6 +438,7 @@ export class MarketplaceService {
     private readonly now: () => number = () => Date.now(),
     private readonly id: () => string = randomId,
     private readonly money?: MoneyService,
+    private readonly notifications?: NotificationService,
   ) {}
 
   listCategories(): Promise<Category[]> {
@@ -876,6 +878,16 @@ export class MarketplaceService {
         proposalTokenBalanceAfter: debitedAccount.balance,
       },
     });
+    await this.notify({
+      userId: gig.giverId,
+      type: 'application_received',
+      titleMl: 'പുതിയ അപേക്ഷ',
+      titleEn: 'New application',
+      bodyMl: `${gig.title} ജോലിക്ക് ഒരു തൊഴിലാളി അപേക്ഷിച്ചു.`,
+      bodyEn: `A worker applied for ${gig.title}.`,
+      gigId,
+      dedupeKey: `application:${application.id}:giver`,
+    });
     return application;
   }
 
@@ -943,6 +955,32 @@ export class MarketplaceService {
         workerPayoutAmount: assignment.workerPayoutAmount,
       },
     });
+    await Promise.all([
+      this.notify({
+        userId: selected.workerId,
+        type: 'application_selected',
+        titleMl: 'നിങ്ങളെ തിരഞ്ഞെടുത്തു',
+        titleEn: 'You were selected',
+        bodyMl: `${gig.title} ജോലിക്കായി നിങ്ങളെ തിരഞ്ഞെടുത്തു.`,
+        bodyEn: `You were selected for ${gig.title}.`,
+        gigId,
+        dedupeKey: `selection:${gigId}:${selected.workerId}:selected`,
+      }),
+      ...applications
+        .filter((application) => application.id !== selected.id)
+        .map((application) =>
+          this.notify({
+            userId: application.workerId,
+            type: 'application_not_selected',
+            titleMl: 'അപേക്ഷയുടെ വിവരം',
+            titleEn: 'Application update',
+            bodyMl: `${gig.title} ജോലിക്ക് മറ്റൊരു തൊഴിലാളിയെ തിരഞ്ഞെടുത്തു.`,
+            bodyEn: `Another worker was selected for ${gig.title}.`,
+            gigId,
+            dedupeKey: `selection:${gigId}:${application.workerId}:not_selected`,
+          }),
+        ),
+    ]);
     return {
       gig: assignedGig,
       assignment,
@@ -1682,7 +1720,35 @@ export class MarketplaceService {
       targetType: 'gig',
       targetId: gigId,
     });
+    const recipientId = actorId === gig.giverId ? assignment.workerId : gig.giverId;
+    const copy = notificationCopyForTransition(next, gig.title);
+    await this.notify({
+      userId: recipientId,
+      type: copy.type,
+      titleMl: copy.titleMl,
+      titleEn: copy.titleEn,
+      bodyMl: copy.bodyMl,
+      bodyEn: copy.bodyEn,
+      gigId,
+      dedupeKey: `gig:${gigId}:${next}:${recipientId}`,
+    });
     return updated;
+  }
+
+  private async notify(input: CreateNotificationInput): Promise<void> {
+    if (!this.notifications) return;
+    try {
+      await this.notifications.create(input);
+    } catch {
+      this.audit.record({
+        actorId: 'system',
+        actorRole: 'system',
+        action: 'notification.enqueue_failed',
+        targetType: 'user',
+        targetId: input.userId,
+        metadata: { type: input.type, gigId: input.gigId, dedupeKey: input.dedupeKey },
+      });
+    }
   }
 
   async rateGig(gigId: string, raterId: string, input: RateGigInput): Promise<Rating> {
@@ -2064,6 +2130,37 @@ function summarizeDecision(decisionNote: AdminDecisionNote | undefined, fallback
   return {
     reasonCode,
     noteLength: note.length,
+  };
+}
+
+function notificationCopyForTransition(
+  status: Extract<GigStatus, 'in_progress' | 'completed' | 'cancelled'>,
+  gigTitle: string,
+): Omit<CreateNotificationInput, 'userId' | 'gigId' | 'dedupeKey'> {
+  if (status === 'in_progress') {
+    return {
+      type: 'gig_started',
+      titleMl: 'ജോലി ആരംഭിച്ചു',
+      titleEn: 'Gig started',
+      bodyMl: `${gigTitle} ജോലി ആരംഭിച്ചു.`,
+      bodyEn: `${gigTitle} has started.`,
+    };
+  }
+  if (status === 'completed') {
+    return {
+      type: 'gig_completed',
+      titleMl: 'ജോലി പൂർത്തിയായി',
+      titleEn: 'Gig completed',
+      bodyMl: `${gigTitle} പൂർത്തിയായതായി സ്ഥിരീകരിച്ചു.`,
+      bodyEn: `${gigTitle} was confirmed complete.`,
+    };
+  }
+  return {
+    type: 'gig_cancelled',
+    titleMl: 'ജോലി റദ്ദാക്കി',
+    titleEn: 'Gig cancelled',
+    bodyMl: `${gigTitle} ജോലി റദ്ദാക്കി.`,
+    bodyEn: `${gigTitle} was cancelled.`,
   };
 }
 

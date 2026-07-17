@@ -12,9 +12,15 @@ import 'package:http/http.dart' as http;
 /// Real-device QA override: --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000
 String defaultApiBase() {
   const configuredBase = String.fromEnvironment('HEYDO_API_BASE');
-  if (configuredBase != '') return configuredBase;
-  if (kIsWeb) return 'http://localhost:3000';
-  if (defaultTargetPlatform == TargetPlatform.android) return 'http://10.0.2.2:3000';
+  if (configuredBase != '') {
+    return configuredBase;
+  }
+  if (kIsWeb) {
+    return 'http://localhost:3000';
+  }
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    return 'http://10.0.2.2:3000';
+  }
   return 'http://localhost:3000';
 }
 
@@ -43,7 +49,8 @@ class HeydoApi {
         if (_token != null) 'Authorization': 'Bearer $_token',
       };
 
-  Future<Map<String, dynamic>> _post(String path, [Map<String, dynamic>? body]) async {
+  Future<Map<String, dynamic>> _post(String path,
+      [Map<String, dynamic>? body]) async {
     final res = await _networkRequest(
       () => _client.post(
         Uri.parse('$baseUrl$path'),
@@ -126,12 +133,24 @@ class HeydoApi {
   // Dev-only: simulate the vendor result callback.
   Future<Map<String, dynamic>> submitVkycResult(String sessionId) =>
       _post('/verification/result', {'sessionId': sessionId});
-  Future<Map<String, dynamic>> verificationStatus() => _get('/verification/status');
-  Future<Map<String, dynamic>> giverVerificationStatus() => _get('/verification/giver/status');
+  Future<Map<String, dynamic>> verificationStatus() =>
+      _get('/verification/status');
+  Future<Map<String, dynamic>> giverVerificationStatus() =>
+      _get('/verification/giver/status');
+
+  // --- Notifications ---
+  Future<List<dynamic>> notifications() => _getList('/notifications');
+  Future<Map<String, dynamic>> notificationSummary() =>
+      _get('/notifications/summary');
+  Future<Map<String, dynamic>> markNotificationRead(String notificationId) =>
+      _post('/notifications/$notificationId/read');
+  Future<Map<String, dynamic>> markAllNotificationsRead() =>
+      _post('/notifications/read-all');
 
   // --- Marketplace ---
   Future<List<dynamic>> categories() => _getList('/marketplace/categories');
-  Future<List<dynamic>> pricingGuides() => _getList('/marketplace/pricing-guides');
+  Future<List<dynamic>> pricingGuides() =>
+      _getList('/marketplace/pricing-guides');
   Future<Map<String, dynamic>> proposalTokenPolicy() =>
       _get('/marketplace/proposal-token-policy');
   Future<Map<String, dynamic>> proposalTokenBalance() =>
@@ -154,8 +173,10 @@ class HeydoApi {
       });
   Future<List<dynamic>> gigs() => _getList('/marketplace/gigs');
   Future<List<dynamic>> myGigs() => _getList('/marketplace/my-gigs');
-  Future<List<dynamic>> myApplications() => _getList('/marketplace/my-applications');
-  Future<Map<String, dynamic>> myReputation() => _get('/marketplace/my-reputation');
+  Future<List<dynamic>> myApplications() =>
+      _getList('/marketplace/my-applications');
+  Future<Map<String, dynamic>> myReputation() =>
+      _get('/marketplace/my-reputation');
   Future<Map<String, dynamic>> reputation(String userId) =>
       _get('/marketplace/reputation/$userId');
   Future<List<dynamic>> applications(String gigId) =>
@@ -166,7 +187,8 @@ class HeydoApi {
     int? proposedPrice,
   }) =>
       _post('/marketplace/gigs/$gigId/applications', {
-        if (messageMl != null && messageMl.trim().isNotEmpty) 'messageMl': messageMl.trim(),
+        if (messageMl != null && messageMl.trim().isNotEmpty)
+          'messageMl': messageMl.trim(),
         if (proposedPrice != null) 'proposedPrice': proposedPrice,
       });
   Future<Map<String, dynamic>> selectApplication({
@@ -187,7 +209,8 @@ class HeydoApi {
   }) =>
       _post('/marketplace/gigs/$gigId/ratings', {
         'stars': stars,
-        if (comment != null && comment.trim().isNotEmpty) 'comment': comment.trim(),
+        if (comment != null && comment.trim().isNotEmpty)
+          'comment': comment.trim(),
       });
   Future<Map<String, dynamic>> raiseSafetyReport({
     required String gigId,

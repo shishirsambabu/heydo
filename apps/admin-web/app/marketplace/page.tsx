@@ -63,13 +63,14 @@ const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
 ];
 
 const PROJECT_METER = {
-  overall: 66,
-  activeGate: 89,
+  overall: 68,
+  activeGate: 93,
   gateName: 'Phase 2 applicant marketplace',
-  proof: 'Local Phase 2 smoke and Flutter QA pass; Android Malayalam runtime, bounded timeout, safe-read retry, no-write-retry, public offline cache, and audited category operations are proven.',
+  proof: 'Local Phase 2 smoke and Flutter QA pass; Android Malayalam runtime, bounded timeout, safe-read retry, public offline cache, audited category operations, and durable deduplicated in-app notifications are proven.',
   nextGate: 'Run the complete applicant lifecycle on a real Android device in Malayalam, interrupt and restore connectivity, then record the evidence.',
   blockers: [
     'Run the giver post, 3 worker applications, selection, lifecycle, and dual-rating flow on a physical Android device',
+    'Configure a production push provider and prove delivery on a real device',
     'Confirm Malayalam copy and low-connectivity behavior during the mobile run',
     'Deploy durable backend URL and pass npm run deploy:readiness',
   ],

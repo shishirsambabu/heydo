@@ -16,12 +16,14 @@ class LanguageToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     return TextButton.icon(
-      onPressed: () =>
-          context.read<AppState>().setLang(app.lang == Lang.ml ? Lang.en : Lang.ml),
+      onPressed: () => context
+          .read<AppState>()
+          .setLang(app.lang == Lang.ml ? Lang.en : Lang.ml),
       icon: const Icon(Icons.translate, color: Colors.white, size: 20),
       label: Text(
         app.lang == Lang.ml ? 'EN' : 'മല',
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        style:
+            const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -48,7 +50,8 @@ class LanguageScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 36),
-        Text(s.chooseLanguage, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        Text(s.chooseLanguage,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
         const SizedBox(height: 24),
         BigButton(
           label: s.malayalam,
@@ -114,7 +117,8 @@ class _PhoneScreenState extends State<PhoneScreen> {
           busy: app.busy,
           onPressed: () async {
             final phone = '+91${_ctrl.text.trim()}';
-            if (await context.read<AppState>().requestOtp(phone) && context.mounted) {
+            if (await context.read<AppState>().requestOtp(phone) &&
+                context.mounted) {
               _go(context, const OtpScreen());
             }
           },
@@ -149,7 +153,8 @@ class _OtpScreenState extends State<OtpScreen> {
       actions: const [LanguageToggle()],
       children: [
         const SizedBox(height: 12),
-        Text('${s.otpSentTo} ${app.phone}', style: const TextStyle(fontSize: 15)),
+        Text('${s.otpSentTo} ${app.phone}',
+            style: const TextStyle(fontSize: 15)),
         // Dev convenience only (mock SMS). Never shown in production.
         if (app.devCode != null)
           Padding(
@@ -213,7 +218,8 @@ class _RoleScreenState extends State<RoleScreen> {
         TextField(
           controller: _name,
           style: const TextStyle(fontSize: 20),
-          decoration: InputDecoration(labelText: s.yourName, border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+              labelText: s.yourName, border: const OutlineInputBorder()),
         ),
         const SizedBox(height: 24),
         BigButton(
@@ -221,8 +227,10 @@ class _RoleScreenState extends State<RoleScreen> {
           icon: Icons.handyman,
           busy: app.busy,
           onPressed: () async {
-            final name = _name.text.trim().isEmpty ? 'Worker' : _name.text.trim();
-            if (await context.read<AppState>().selectWorker(name) && context.mounted) {
+            final name =
+                _name.text.trim().isEmpty ? 'Worker' : _name.text.trim();
+            if (await context.read<AppState>().selectWorker(name) &&
+                context.mounted) {
               _go(context, const VkycScreen());
             }
           },
@@ -234,8 +242,10 @@ class _RoleScreenState extends State<RoleScreen> {
           filled: false,
           busy: app.busy,
           onPressed: () async {
-            final name = _name.text.trim().isEmpty ? 'Giver' : _name.text.trim();
-            if (await context.read<AppState>().selectGiver(name) && context.mounted) {
+            final name =
+                _name.text.trim().isEmpty ? 'Giver' : _name.text.trim();
+            if (await context.read<AppState>().selectGiver(name) &&
+                context.mounted) {
               _go(context, const VkycScreen());
             }
           },
@@ -264,7 +274,8 @@ class _VkycScreenState extends State<VkycScreen> {
       title: s.verifyIdentity,
       children: [
         const SizedBox(height: 12),
-        const Icon(Icons.video_camera_front, size: 64, color: HeydoColors.heydoGreen),
+        const Icon(Icons.video_camera_front,
+            size: 64, color: HeydoColors.heydoGreen),
         const SizedBox(height: 16),
         Text(
           app.role == 'giver' ? s.giverVkycExplainer : s.vkycExplainer,
@@ -298,7 +309,8 @@ class _VkycScreenState extends State<VkycScreen> {
             icon: Icons.check_circle,
             busy: app.busy,
             onPressed: () async {
-              if (await context.read<AppState>().completeVkycDemo() && context.mounted) {
+              if (await context.read<AppState>().completeVkycDemo() &&
+                  context.mounted) {
                 _go(context, const StatusScreen());
               }
             },
@@ -323,8 +335,18 @@ class StatusScreen extends StatelessWidget {
           Icons.verified,
           app.role == 'giver' ? s.giverApprovedMsg : s.approvedMsg
         ),
-      'pending' => (s.statusPending, Colors.orange, Icons.hourglass_top, s.pendingMsg),
-      'rejected' => (s.statusRejected, Colors.red, Icons.cancel, s.somethingWrong),
+      'pending' => (
+          s.statusPending,
+          Colors.orange,
+          Icons.hourglass_top,
+          s.pendingMsg
+        ),
+      'rejected' => (
+          s.statusRejected,
+          Colors.red,
+          Icons.cancel,
+          s.somethingWrong
+        ),
       _ => (s.statusUnverified, Colors.grey, Icons.person_outline, ''),
     };
     return HeydoScaffold(
@@ -335,21 +357,26 @@ class StatusScreen extends StatelessWidget {
         const SizedBox(height: 16),
         Center(
             child: Text(label,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: color))),
+                style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.w700, color: color))),
         const SizedBox(height: 16),
-        Text(msg, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
+        Text(msg,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 16, height: 1.4)),
         const SizedBox(height: 24),
         if (app.canApply)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: HeydoColors.mintSurface, borderRadius: BorderRadius.circular(12)),
+                color: HeydoColors.mintSurface,
+                borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
               const Icon(Icons.work, color: HeydoColors.heydoGreen),
               const SizedBox(width: 10),
               Expanded(
                   child: Text(s.canApplyYes,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600))),
             ]),
           ),
         if (app.canApply) ...[
@@ -359,7 +386,8 @@ class StatusScreen extends StatelessWidget {
             icon: Icons.work,
             busy: app.busy,
             onPressed: () async {
-              if (await context.read<AppState>().loadVisibleGigs() && context.mounted) {
+              if (await context.read<AppState>().loadVisibleGigs() &&
+                  context.mounted) {
                 _go(context, const WorkerGigListScreen());
               }
             },
@@ -371,7 +399,8 @@ class StatusScreen extends StatelessWidget {
             filled: false,
             busy: app.busy,
             onPressed: () async {
-              if (await context.read<AppState>().loadMyApplications() && context.mounted) {
+              if (await context.read<AppState>().loadMyApplications() &&
+                  context.mounted) {
                 _go(context, const WorkerApplicationListScreen());
               }
             },
@@ -380,12 +409,28 @@ class StatusScreen extends StatelessWidget {
         if (app.canApply || app.canPost) ...[
           const SizedBox(height: 10),
           BigButton(
+            label: app.unreadNotificationCount == 0
+                ? s.notifications
+                : '${s.notifications} (${app.unreadNotificationCount})',
+            icon: Icons.notifications,
+            filled: false,
+            busy: app.busy,
+            onPressed: () async {
+              if (await context.read<AppState>().loadNotifications() &&
+                  context.mounted) {
+                _go(context, const NotificationScreen());
+              }
+            },
+          ),
+          const SizedBox(height: 10),
+          BigButton(
             label: s.myReputation,
             icon: Icons.verified_user,
             filled: false,
             busy: app.busy,
             onPressed: () async {
-              if (await context.read<AppState>().loadMyReputation() && context.mounted) {
+              if (await context.read<AppState>().loadMyReputation() &&
+                  context.mounted) {
                 _go(context, const ReputationScreen());
               }
             },
@@ -396,13 +441,16 @@ class StatusScreen extends StatelessWidget {
             margin: const EdgeInsets.only(top: 12),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: HeydoColors.mintSurface, borderRadius: BorderRadius.circular(12)),
+                color: HeydoColors.mintSurface,
+                borderRadius: BorderRadius.circular(12)),
             child: Row(children: [
-              const Icon(Icons.home_repair_service, color: HeydoColors.heydoGreen),
+              const Icon(Icons.home_repair_service,
+                  color: HeydoColors.heydoGreen),
               const SizedBox(width: 10),
               Expanded(
                   child: Text(s.canPostYes,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600))),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600))),
             ]),
           ),
         if (app.canPost) ...[
@@ -412,7 +460,8 @@ class StatusScreen extends StatelessWidget {
             icon: Icons.add_business,
             busy: app.busy,
             onPressed: () async {
-              if (await context.read<AppState>().loadMarketplaceSetup() && context.mounted) {
+              if (await context.read<AppState>().loadMarketplaceSetup() &&
+                  context.mounted) {
                 _go(context, const PostGigScreen());
               }
             },
@@ -424,7 +473,8 @@ class StatusScreen extends StatelessWidget {
             filled: false,
             busy: app.busy,
             onPressed: () async {
-              if (await context.read<AppState>().loadMyGigs() && context.mounted) {
+              if (await context.read<AppState>().loadMyGigs() &&
+                  context.mounted) {
                 _go(context, const GiverGigListScreen());
               }
             },
@@ -443,6 +493,124 @@ class StatusScreen extends StatelessWidget {
   }
 }
 
+class NotificationScreen extends StatelessWidget {
+  const NotificationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final s = app.s;
+
+    return HeydoScaffold(
+      title: s.notifications,
+      actions: [
+        if (app.unreadNotificationCount > 0)
+          IconButton(
+            tooltip: s.markAllRead,
+            icon: const Icon(Icons.done_all),
+            onPressed: app.busy
+                ? null
+                : () => context.read<AppState>().markAllNotificationsRead(),
+          ),
+      ],
+      children: [
+        Expanded(
+          child: app.notifications.isEmpty
+              ? Center(
+                  child: Text(
+                    s.noNotifications,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                )
+              : ListView.separated(
+                  itemCount: app.notifications.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final notification = app.notifications[index];
+                    final unread = notification['readAt'] == null;
+                    final title = app.lang == Lang.ml
+                        ? notification['titleMl']
+                        : notification['titleEn'];
+                    final body = app.lang == Lang.ml
+                        ? notification['bodyMl']
+                        : notification['bodyEn'];
+                    return Material(
+                      color: unread ? HeydoColors.mintSurface : Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: unread && !app.busy
+                            ? () => context
+                                .read<AppState>()
+                                .markNotificationRead(
+                                    notification['id'] as String)
+                            : null,
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 88),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                unread
+                                    ? Icons.notifications_active
+                                    : Icons.notifications_none,
+                                color: unread
+                                    ? HeydoColors.heydoGreen
+                                    : Colors.black45,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      title?.toString() ?? s.notifications,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: unread
+                                            ? FontWeight.w700
+                                            : FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      body?.toString() ?? '',
+                                      style: const TextStyle(
+                                          fontSize: 14, height: 1.35),
+                                    ),
+                                    if (unread) ...[
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        s.unread,
+                                        style: const TextStyle(
+                                          color: HeydoColors.heydoGreen,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        if (app.error != null) _error(app.error!),
+      ],
+    );
+  }
+}
+
 class ReputationScreen extends StatelessWidget {
   const ReputationScreen({super.key});
 
@@ -451,8 +619,10 @@ class ReputationScreen extends StatelessWidget {
     final app = context.watch<AppState>();
     final s = app.s;
     final reputation = app.myReputation ?? {};
-    final asWorker = (reputation['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
-    final asGiver = (reputation['asGiver'] as Map?)?.cast<String, dynamic>() ?? {};
+    final asWorker =
+        (reputation['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
+    final asGiver =
+        (reputation['asGiver'] as Map?)?.cast<String, dynamic>() ?? {};
 
     return HeydoScaffold(
       title: s.myReputation,
@@ -489,7 +659,9 @@ class _ScorePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
           const SizedBox(height: 10),
           Text(
             score == null ? s.noScoreYet : '${s.heydoScore}: $score',
@@ -497,7 +669,9 @@ class _ScorePanel extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            averageStars == null ? s.noScoreYet : '$averageStars / 5 · $ratingCount ${s.ratingsCount}',
+            averageStars == null
+                ? s.noScoreYet
+                : '$averageStars / 5 · $ratingCount ${s.ratingsCount}',
             style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
         ],
@@ -524,7 +698,8 @@ class WorkerGigListScreen extends StatelessWidget {
         ],
         Expanded(
           child: gigs.isEmpty
-              ? Center(child: Text(s.noGigs, style: const TextStyle(fontSize: 16)))
+              ? Center(
+                  child: Text(s.noGigs, style: const TextStyle(fontSize: 16)))
               : ListView.separated(
                   itemCount: gigs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -554,7 +729,9 @@ class WorkerApplicationListScreen extends StatelessWidget {
       children: [
         Expanded(
           child: applications.isEmpty
-              ? Center(child: Text(s.noApplications, style: const TextStyle(fontSize: 16)))
+              ? Center(
+                  child: Text(s.noApplications,
+                      style: const TextStyle(fontSize: 16)))
               : ListView.separated(
                   itemCount: applications.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -580,14 +757,18 @@ class _WorkerApplicationCard extends StatelessWidget {
     final app = context.watch<AppState>();
     final s = app.s;
     final gig = (view['gig'] as Map?)?.cast<String, dynamic>() ?? {};
-    final application = (view['application'] as Map?)?.cast<String, dynamic>() ?? {};
+    final application =
+        (view['application'] as Map?)?.cast<String, dynamic>() ?? {};
     final assignment = (view['assignment'] as Map?)?.cast<String, dynamic>();
     final title = (gig['title'] ?? '') as String;
     final location = (gig['location'] ?? '') as String;
     final gigStatus = (gig['status'] ?? '') as String;
     final applicationStatus = (application['status'] ?? '') as String;
-    final agreedAmount = assignment?['agreedAmount'] ?? application['proposedPrice'] ?? gig['budgetAmount'];
-    final negotiationTokenCost = (application['negotiationTokenCost'] ?? 0) as int;
+    final agreedAmount = assignment?['agreedAmount'] ??
+        application['proposedPrice'] ??
+        gig['budgetAmount'];
+    final negotiationTokenCost =
+        (application['negotiationTokenCost'] ?? 0) as int;
     final canStart = applicationStatus == 'selected' && gigStatus == 'assigned';
     final canCancel = applicationStatus == 'selected' &&
         (gigStatus == 'assigned' || gigStatus == 'in_progress');
@@ -602,7 +783,9 @@ class _WorkerApplicationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Text('$location · ${s.agreedAmount}: ₹$agreedAmount',
               style: const TextStyle(fontSize: 14, color: Colors.black54)),
@@ -626,7 +809,9 @@ class _WorkerApplicationCard extends StatelessWidget {
               onPressed: app.busy
                   ? null
                   : () async {
-                      final ok = await context.read<AppState>().startGig(gig['id'] as String);
+                      final ok = await context
+                          .read<AppState>()
+                          .startGig(gig['id'] as String);
                       if (ok && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(s.gigStarted)),
@@ -713,7 +898,8 @@ class _RateGigScreenState extends State<RateGigScreen> {
       children: [
         DropdownButtonFormField<int>(
           initialValue: _stars,
-          decoration: InputDecoration(labelText: s.rating, border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+              labelText: s.rating, border: const OutlineInputBorder()),
           items: [1, 2, 3, 4, 5]
               .map((stars) => DropdownMenuItem<int>(
                     value: stars,
@@ -737,7 +923,8 @@ class _RateGigScreenState extends State<RateGigScreen> {
                   asWorker: widget.asWorker,
                 );
             if (ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.ratingSent)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(s.ratingSent)));
               Navigator.of(context).pop();
             }
           },
@@ -762,7 +949,8 @@ class GiverGigListScreen extends StatelessWidget {
       children: [
         Expanded(
           child: gigs.isEmpty
-              ? Center(child: Text(s.noMyGigs, style: const TextStyle(fontSize: 16)))
+              ? Center(
+                  child: Text(s.noMyGigs, style: const TextStyle(fontSize: 16)))
               : ListView.separated(
                   itemCount: gigs.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -805,9 +993,12 @@ class _GiverGigCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('$location · ₹$budget', style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          Text('$location · ₹$budget',
+              style: const TextStyle(fontSize: 14, color: Colors.black54)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -823,7 +1014,10 @@ class _GiverGigCard extends StatelessWidget {
                 ? null
                 : () async {
                     final gigId = gig['id'] as String;
-                    if (await context.read<AppState>().loadApplications(gigId) && context.mounted) {
+                    if (await context
+                            .read<AppState>()
+                            .loadApplications(gigId) &&
+                        context.mounted) {
                       _go(context, ApplicantListScreen(gig: gig));
                     }
                   },
@@ -836,7 +1030,9 @@ class _GiverGigCard extends StatelessWidget {
               onPressed: app.busy
                   ? null
                   : () async {
-                      final ok = await context.read<AppState>().completeGig(gig['id'] as String);
+                      final ok = await context
+                          .read<AppState>()
+                          .completeGig(gig['id'] as String);
                       if (ok && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text(s.gigCompleted)),
@@ -908,7 +1104,9 @@ class ApplicantListScreen extends StatelessWidget {
         const SizedBox(height: 12),
         Expanded(
           child: applications.isEmpty
-              ? Center(child: Text(s.noApplicants, style: const TextStyle(fontSize: 16)))
+              ? Center(
+                  child: Text(s.noApplicants,
+                      style: const TextStyle(fontSize: 16)))
               : ListView.separated(
                   itemCount: applications.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -937,10 +1135,12 @@ class _ApplicantCard extends StatelessWidget {
     final workerId = (application['workerId'] ?? '') as String;
     final message = (application['messageMl'] ?? '') as String;
     final proposedPrice = application['proposedPrice'] ?? gig['budgetAmount'];
-    final negotiationTokenCost = (application['negotiationTokenCost'] ?? 0) as int;
+    final negotiationTokenCost =
+        (application['negotiationTokenCost'] ?? 0) as int;
     final status = (application['status'] ?? '') as String;
     final reputation = app.applicantReputations[workerId];
-    final asWorker = (reputation?['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
+    final asWorker =
+        (reputation?['asWorker'] as Map?)?.cast<String, dynamic>() ?? {};
     final score = asWorker['heydoScore'];
     final averageStars = asWorker['averageStars'];
     final ratingCount = asWorker['ratingCount'] ?? 0;
@@ -954,7 +1154,9 @@ class _ApplicantCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(workerId, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(workerId,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           if (negotiationTokenCost > 0) ...[
             const SizedBox(height: 4),
             Text('${s.proposalTokens}: $negotiationTokenCost',
@@ -1013,7 +1215,8 @@ class _StatusPill extends StatelessWidget {
         color: HeydoColors.mintSurface,
         borderRadius: BorderRadius.circular(999),
       ),
-      child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+      child: Text(label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
     );
   }
 }
@@ -1033,7 +1236,8 @@ class _GigCard extends StatelessWidget {
     final budget = gig['budgetAmount'];
     final giverId = (gig['giverId'] ?? '') as String;
     final reputation = app.giverReputations[giverId];
-    final asGiver = (reputation?['asGiver'] as Map?)?.cast<String, dynamic>() ?? {};
+    final asGiver =
+        (reputation?['asGiver'] as Map?)?.cast<String, dynamic>() ?? {};
     final score = asGiver['heydoScore'];
     final averageStars = asGiver['averageStars'];
     final ratingCount = asGiver['ratingCount'] ?? 0;
@@ -1047,9 +1251,12 @@ class _GigCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(title,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          Text('$location · ₹$budget', style: const TextStyle(fontSize: 14, color: Colors.black54)),
+          Text('$location · ₹$budget',
+              style: const TextStyle(fontSize: 14, color: Colors.black54)),
           const SizedBox(height: 8),
           Text(
             score == null
@@ -1112,19 +1319,24 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
     final s = app.s;
     final budget = (widget.gig['budgetAmount'] as num?)?.toInt() ?? 0;
     final proposedPrice = int.tryParse(_price.text.trim());
-    final tokenStep = (app.proposalTokenPolicy['priceStepAmount'] as num?)?.toInt() ?? 500;
-    final proposalTokens = _proposalTokenEstimate(budget, proposedPrice, tokenStep);
-    final proposalTokenBalance = (app.proposalTokenBalance?['balance'] as num?)?.toInt();
+    final tokenStep =
+        (app.proposalTokenPolicy['priceStepAmount'] as num?)?.toInt() ?? 500;
+    final proposalTokens =
+        _proposalTokenEstimate(budget, proposedPrice, tokenStep);
+    final proposalTokenBalance =
+        (app.proposalTokenBalance?['balance'] as num?)?.toInt();
     return HeydoScaffold(
       title: s.apply,
       children: [
-        Text(widget.gig['title'] as String? ?? '', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+        Text(widget.gig['title'] as String? ?? '',
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
         const SizedBox(height: 12),
         _field(_message, s.applicationMessage, maxLines: 3),
         const SizedBox(height: 12),
         _field(_price, s.proposedPrice, keyboardType: TextInputType.number),
         const SizedBox(height: 8),
-        Text(s.fairCounteroffer, style: const TextStyle(fontSize: 13, color: Colors.black54)),
+        Text(s.fairCounteroffer,
+            style: const TextStyle(fontSize: 13, color: Colors.black54)),
         if (proposalTokens > 0) ...[
           const SizedBox(height: 6),
           Text('${s.proposalTokens}: $proposalTokens',
@@ -1148,7 +1360,8 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
                   proposedPrice: price,
                 );
             if (ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.applicationSent)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(s.applicationSent)));
             }
           },
         ),
@@ -1158,7 +1371,8 @@ class _ApplyGigScreenState extends State<ApplyGigScreen> {
   }
 }
 
-int _proposalTokenEstimate(int budgetAmount, int? proposedPrice, int tokenStepAmount) {
+int _proposalTokenEstimate(
+    int budgetAmount, int? proposedPrice, int tokenStepAmount) {
   final delta = (proposedPrice ?? budgetAmount) - budgetAmount;
   if (delta <= 0 || tokenStepAmount <= 0) return 0;
   return (delta / tokenStepAmount).ceil();
@@ -1192,14 +1406,22 @@ class _SafetyReportScreenState extends State<SafetyReportScreen> {
       children: [
         DropdownButtonFormField<String>(
           initialValue: _reason,
-          decoration: InputDecoration(labelText: s.reportReason, border: const OutlineInputBorder()),
+          decoration: InputDecoration(
+              labelText: s.reportReason, border: const OutlineInputBorder()),
           items: [
-            DropdownMenuItem(value: 'unsafe_location', child: Text(s.unsafeLocation)),
+            DropdownMenuItem(
+                value: 'unsafe_location', child: Text(s.unsafeLocation)),
             DropdownMenuItem(value: 'harassment', child: Text(s.harassment)),
-            DropdownMenuItem(value: 'off_platform_payment', child: Text(s.offPlatformPayment)),
-            DropdownMenuItem(value: 'sexual_misconduct', child: Text(s.sexualMisconduct)),
-            DropdownMenuItem(value: 'drugs_or_illegal_activity', child: Text(s.illegalActivity)),
-            DropdownMenuItem(value: 'violence_or_threat', child: Text(s.violenceThreat)),
+            DropdownMenuItem(
+                value: 'off_platform_payment',
+                child: Text(s.offPlatformPayment)),
+            DropdownMenuItem(
+                value: 'sexual_misconduct', child: Text(s.sexualMisconduct)),
+            DropdownMenuItem(
+                value: 'drugs_or_illegal_activity',
+                child: Text(s.illegalActivity)),
+            DropdownMenuItem(
+                value: 'violence_or_threat', child: Text(s.violenceThreat)),
             DropdownMenuItem(value: 'fraud', child: Text(s.fraud)),
             DropdownMenuItem(value: 'other', child: Text(s.other)),
           ],
@@ -1215,17 +1437,20 @@ class _SafetyReportScreenState extends State<SafetyReportScreen> {
           busy: app.busy,
           onPressed: () async {
             if (_details.text.trim().length < 10) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.fillAllFields)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(s.fillAllFields)));
               return;
             }
             final ok = await context.read<AppState>().raiseSafetyReport(
                   gigId: widget.gig['id'] as String,
                   reason: _reason,
-                  severity: _highRiskReasons.contains(_reason) ? 'high' : 'medium',
+                  severity:
+                      _highRiskReasons.contains(_reason) ? 'high' : 'medium',
                   description: _details.text.trim(),
                 );
             if (ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.reportSent)));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(SnackBar(content: Text(s.reportSent)));
             }
           },
         ),
@@ -1269,8 +1494,10 @@ class _PostGigScreenState extends State<PostGigScreen> {
     final app = context.watch<AppState>();
     final s = app.s;
     final categories = app.categories;
-    _categoryId ??= categories.isNotEmpty ? categories.first['id'] as String? : null;
-    final guide = _categoryId == null ? null : app.pricingGuideFor(_categoryId!);
+    _categoryId ??=
+        categories.isNotEmpty ? categories.first['id'] as String? : null;
+    final guide =
+        _categoryId == null ? null : app.pricingGuideFor(_categoryId!);
 
     return HeydoScaffold(
       title: s.postSafeGig,
@@ -1286,11 +1513,14 @@ class _PostGigScreenState extends State<PostGigScreen> {
               children: [
                 DropdownButtonFormField<String>(
                   initialValue: _categoryId,
-                  decoration: InputDecoration(labelText: s.category, border: const OutlineInputBorder()),
+                  decoration: InputDecoration(
+                      labelText: s.category,
+                      border: const OutlineInputBorder()),
                   items: categories
                       .map((category) => DropdownMenuItem<String>(
                             value: category['id'] as String,
-                            child: Text((category['nameMl'] ?? category['nameEn']) as String),
+                            child: Text((category['nameMl'] ??
+                                category['nameEn']) as String),
                           ))
                       .toList(),
                   onChanged: (value) => setState(() => _categoryId = value),
@@ -1302,7 +1532,8 @@ class _PostGigScreenState extends State<PostGigScreen> {
                 const SizedBox(height: 12),
                 _field(_location, s.gigLocation),
                 const SizedBox(height: 12),
-                _field(_budget, s.budgetInr, keyboardType: TextInputType.number),
+                _field(_budget, s.budgetInr,
+                    keyboardType: TextInputType.number),
                 if (guide != null) ...[
                   const SizedBox(height: 12),
                   _GuideBox(guide: guide, label: s.fairPriceGuide),
@@ -1319,7 +1550,8 @@ class _PostGigScreenState extends State<PostGigScreen> {
                         _description.text.trim().isEmpty ||
                         _location.text.trim().isEmpty ||
                         budget == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s.fillAllFields)));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(s.fillAllFields)));
                       return;
                     }
                     final posted = await context.read<AppState>().postGig(
@@ -1337,7 +1569,8 @@ class _PostGigScreenState extends State<PostGigScreen> {
                       'rejected' => s.gigRejected,
                       _ => s.gigUnderReview,
                     };
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(message)));
                   },
                 ),
                 if (app.error != null) _error(app.error!),
@@ -1360,7 +1593,8 @@ Widget _field(
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+      decoration:
+          InputDecoration(labelText: label, border: const OutlineInputBorder()),
     );
 
 class _GuideBox extends StatelessWidget {
@@ -1374,7 +1608,8 @@ class _GuideBox extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: HeydoColors.mintSurface, borderRadius: BorderRadius.circular(12)),
+          color: HeydoColors.mintSurface,
+          borderRadius: BorderRadius.circular(12)),
       child: Text(
         '$label: ₹${guide['minBudgetAmount']} - ₹${guide['highReviewAmount']} · ${guide['notes']}',
         style: const TextStyle(fontSize: 14, height: 1.35),

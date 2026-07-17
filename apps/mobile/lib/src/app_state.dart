@@ -56,6 +56,8 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> myGigs = [];
   List<Map<String, dynamic>> myApplications = [];
   List<Map<String, dynamic>> currentApplications = [];
+  List<Map<String, dynamic>> notifications = [];
+  int unreadNotificationCount = 0;
   Map<String, Map<String, dynamic>> giverReputations = {};
   Map<String, Map<String, dynamic>> applicantReputations = {};
   Map<String, dynamic>? myReputation;
@@ -121,15 +123,13 @@ class AppState extends ChangeNotifier {
         api.setToken(res['token'] as String);
       });
 
-  Future<bool> selectWorker(String name) =>
-      _guard(() async {
+  Future<bool> selectWorker(String name) => _guard(() async {
         role = 'worker';
         canPost = false;
         await api.selectRole('worker', name);
       });
 
-  Future<bool> selectGiver(String name) =>
-      _guard(() async {
+  Future<bool> selectGiver(String name) => _guard(() async {
         role = 'giver';
         canApply = false;
         await api.selectRole('giver', name);
@@ -193,7 +193,10 @@ class AppState extends ChangeNotifier {
           title: title,
           description: description,
           location: location,
-          scheduledAt: DateTime.now().add(const Duration(days: 1)).toUtc().toIso8601String(),
+          scheduledAt: DateTime.now()
+              .add(const Duration(days: 1))
+              .toUtc()
+              .toIso8601String(),
           budgetAmount: budgetAmount,
         );
       });
@@ -370,10 +373,8 @@ class AppState extends ChangeNotifier {
       });
 
   Future<void> _loadMyGigs() async {
-        final loaded = await api.myGigs();
-        myGigs = loaded
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
+    final loaded = await api.myGigs();
+    myGigs = loaded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   Future<bool> loadMyApplications() => _guard(() async {
@@ -381,10 +382,9 @@ class AppState extends ChangeNotifier {
       });
 
   Future<void> _loadMyApplications() async {
-        final loaded = await api.myApplications();
-        myApplications = loaded
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
+    final loaded = await api.myApplications();
+    myApplications =
+        loaded.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   Future<bool> loadMyReputation() => _guard(() async {
@@ -393,9 +393,8 @@ class AppState extends ChangeNotifier {
 
   Future<bool> loadApplications(String gigId) => _guard(() async {
         final loaded = await api.applications(gigId);
-        currentApplications = loaded
-            .whereType<Map<String, dynamic>>()
-            .toList(growable: false);
+        currentApplications =
+            loaded.whereType<Map<String, dynamic>>().toList(growable: false);
         applicantReputations = {};
         final workerIds = currentApplications
             .map((application) => application['workerId'])
@@ -441,7 +440,8 @@ class AppState extends ChangeNotifier {
         await _loadMyGigs();
       });
 
-  Future<bool> cancelGig(String gigId, {required bool asWorker}) => _guard(() async {
+  Future<bool> cancelGig(String gigId, {required bool asWorker}) =>
+      _guard(() async {
         lastGigTransition = await api.cancelGig(gigId);
         if (asWorker) {
           await _loadMyApplications();
@@ -484,6 +484,40 @@ class AppState extends ChangeNotifier {
         );
       });
 
+  Future<bool> loadNotifications() => _guard(() async {
+        notifications = _maps(await api.notifications());
+        await _loadNotificationSummary();
+      });
+
+  Future<bool> markNotificationRead(String notificationId) => _guard(() async {
+        final updated = await api.markNotificationRead(notificationId);
+        notifications = notifications
+            .map((notification) => notification['id'] == notificationId
+                ? Map<String, dynamic>.from(updated)
+                : notification)
+            .toList(growable: false);
+        unreadNotificationCount = notifications
+            .where((notification) => notification['readAt'] == null)
+            .length;
+      });
+
+  Future<bool> markAllNotificationsRead() => _guard(() async {
+        await api.markAllNotificationsRead();
+        final readAt = _now().toUtc().toIso8601String();
+        notifications = notifications
+            .map((notification) => {
+                  ...notification,
+                  'readAt': notification['readAt'] ?? readAt,
+                })
+            .toList(growable: false);
+        unreadNotificationCount = 0;
+      });
+
+  Future<void> _loadNotificationSummary() async {
+    final summary = await api.notificationSummary();
+    unreadNotificationCount = (summary['unreadCount'] as num?)?.toInt() ?? 0;
+  }
+
   Future<void> _loadStatus() async {
     final res = role == 'giver'
         ? await api.giverVerificationStatus()
@@ -491,5 +525,12 @@ class AppState extends ChangeNotifier {
     verificationStatus = (res['status'] as String?) ?? 'unverified';
     canApply = (res['canApply'] as bool?) ?? false;
     canPost = (res['canPost'] as bool?) ?? false;
+    if (canApply || canPost) {
+      try {
+        await _loadNotificationSummary();
+      } catch (_) {
+        // Notification availability must never block the identity gate.
+      }
+    }
   }
 }

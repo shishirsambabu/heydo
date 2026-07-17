@@ -150,6 +150,40 @@ async function ingest() {
   }, null, 2));
 }
 
+async function refreshAuth() {
+  await requireBackend();
+  const state = await loadState();
+  const refreshSubject = async (subject) => {
+    const otp = await request('/auth/otp/request', {
+      method: 'POST',
+      body: { phone: subject.phone },
+    });
+    if (!otp.payload.devCode) {
+      throw new Error('Dev OTP code missing. Refresh auth requires the local dev OTP sender.');
+    }
+    const login = await request('/auth/otp/verify', {
+      method: 'POST',
+      body: { phone: subject.phone, code: otp.payload.devCode },
+    });
+    if (login.payload.user.id !== subject.userId) {
+      throw new Error(`Refusing to replace ${subject.displayName} with a different user.`);
+    }
+    return { ...subject, token: login.payload.token };
+  };
+  const refreshed = {
+    ...state,
+    giver: await refreshSubject(state.giver),
+    workers: await Promise.all(state.workers.map(refreshSubject)),
+    authRefreshedAt: new Date().toISOString(),
+  };
+  await saveState(refreshed);
+  console.log(JSON.stringify({
+    status: 'auth_refreshed',
+    users: 1 + refreshed.workers.length,
+    next: 'Run: node scripts/phase2-smoke.mjs run',
+  }, null, 2));
+}
+
 async function ingestSubject(subject, officerToken) {
   const result = await request('/verification/result', {
     method: 'POST',
@@ -216,6 +250,19 @@ async function run() {
   const ready = await getPhase2Readiness(state);
   if (!ready.ready) {
     throw new Error(`Phase 2 smoke not ready: ${JSON.stringify(ready, null, 2)}`);
+  }
+
+  const officerToken = await adminToken();
+  for (const worker of state.workers) {
+    await request(`/admin/marketplace/proposal-tokens/${worker.userId}/grant`, {
+      method: 'POST',
+      token: officerToken,
+      body: {
+        amount: 3,
+        reasonCode: 'support_adjustment',
+        note: 'Automated Phase 2 counter-rate smoke refill.',
+      },
+    });
   }
 
   const scheduledAt = new Date(Date.now() + 48 * 3600 * 1000).toISOString();
@@ -334,6 +381,7 @@ async function main() {
   const command = process.argv[2] ?? 'help';
   if (command === 'setup') return setup();
   if (command === 'ingest') return ingest();
+  if (command === 'refresh-auth') return refreshAuth();
   if (command === 'run') return run();
   if (command === 'all') {
     await setup();
@@ -343,6 +391,7 @@ async function main() {
   console.log(`Usage:
   node scripts/phase2-smoke.mjs setup
   node scripts/phase2-smoke.mjs ingest
+  node scripts/phase2-smoke.mjs refresh-auth
   node scripts/phase2-smoke.mjs run
   node scripts/phase2-smoke.mjs all
 

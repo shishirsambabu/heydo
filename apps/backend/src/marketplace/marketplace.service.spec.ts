@@ -3,6 +3,8 @@ import { GiverProfileRepository, UserRepository } from '../identity/identity.rep
 import { InMemoryMoneyRepository } from '../money/money.repository';
 import { MoneyService } from '../money/money.service';
 import { VerificationService } from '../verification/verification.service';
+import { InMemoryNotificationRepository } from '../notifications/notification.repository';
+import { NotificationService } from '../notifications/notification.service';
 import { DEFAULT_CATEGORIES, DEFAULT_PRICING_GUIDES } from './marketplace.entities';
 import {
   InMemoryApplicationRepository,
@@ -28,6 +30,8 @@ function service(
   const safetyReports = new InMemorySafetyReportRepository();
   const evidenceVaultRefs = new InMemoryEvidenceVaultRefRepository();
   let id = 0;
+  const notificationRepo = new InMemoryNotificationRepository();
+  const notifications = new NotificationService(notificationRepo);
   const svc = new MarketplaceService(
     new InMemoryCategoryRepository(),
     new InMemoryGigRepository(),
@@ -52,8 +56,18 @@ function service(
           () => `money_${++id}`,
         )
       : undefined,
+    notifications,
   );
-  return { svc, users, givers, audit, moneyRepo, safetyReports, evidenceVaultRefs };
+  return {
+    svc,
+    users,
+    givers,
+    audit,
+    moneyRepo,
+    safetyReports,
+    evidenceVaultRefs,
+    notifications,
+  };
 }
 
 describe('MarketplaceService', () => {
@@ -551,7 +565,7 @@ describe('MarketplaceService', () => {
   });
 
   it('runs post -> apply -> choose -> start -> complete', async () => {
-    const { svc, givers, moneyRepo } = service(async () => true, true);
+    const { svc, givers, moneyRepo, notifications } = service(async () => true, true);
     await givers.save({
       userId: 'giver_1',
       displayName: 'Giver',
@@ -654,6 +668,21 @@ describe('MarketplaceService', () => {
     await expect(svc.transitionGig(gig.id, 'giver_1', 'cancelled')).rejects.toMatchObject({
       code: 'invalid_state',
     });
+    await expect(notifications.list('giver_1')).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'application_received', gigId: gig.id }),
+        expect.objectContaining({ type: 'gig_started', gigId: gig.id }),
+      ]),
+    );
+    await expect(notifications.list('worker_1')).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'application_selected', gigId: gig.id }),
+        expect.objectContaining({ type: 'gig_completed', gigId: gig.id }),
+      ]),
+    );
+    await expect(notifications.list('worker_2')).resolves.toEqual([
+      expect.objectContaining({ type: 'application_not_selected', gigId: gig.id }),
+    ]);
   });
 
   it('accepts dual-side ratings only after completion and keeps audit comment-safe', async () => {

@@ -15,7 +15,8 @@ class S {
   // App
   String get appName => 'Heydo';
   // Primary brand tagline: "Trust who shows up."
-  String get tagline => _t('വന്നെത്തുന്നവരെ വിശ്വസിക്കാം', 'Trust who shows up');
+  String get tagline =>
+      _t('വന്നെത്തുന്നവരെ വിശ്വസിക്കാം', 'Trust who shows up');
 
   // Language screen
   String get chooseLanguage => _t('ഭാഷ തിരഞ്ഞെടുക്കുക', 'Choose your language');
@@ -32,12 +33,15 @@ class S {
 
   // Role
   String get chooseRole => _t('നിങ്ങൾ ആരാണ്?', 'Who are you?');
-  String get iAmWorker => _t('എനിക്ക് ജോലി വേണം (തൊഴിലാളി)', 'I want work (Worker)');
-  String get iAmGiver => _t('എനിക്ക് ജോലി ചെയ്യിക്കണം (നൽകുന്നയാൾ)', 'I need a job done (Giver)');
+  String get iAmWorker =>
+      _t('എനിക്ക് ജോലി വേണം (തൊഴിലാളി)', 'I want work (Worker)');
+  String get iAmGiver =>
+      _t('എനിക്ക് ജോലി ചെയ്യിക്കണം (നൽകുന്നയാൾ)', 'I need a job done (Giver)');
   String get yourName => _t('നിങ്ങളുടെ പേര്', 'Your name');
 
   // Consent / VKYC
-  String get verifyIdentity => _t('നിങ്ങളുടെ ഐഡന്റിറ്റി പരിശോധിക്കാം', 'Let’s verify your identity');
+  String get verifyIdentity =>
+      _t('നിങ്ങളുടെ ഐഡന്റിറ്റി പരിശോധിക്കാം', 'Let’s verify your identity');
   String get vkycExplainer => _t(
       'ഒരു ചെറിയ വീഡിയോ പരിശോധനയിലൂടെ നിങ്ങൾ യഥാർത്ഥ വ്യക്തിയാണെന്ന് ഉറപ്പാക്കുന്നു. നിങ്ങളുടെ ആധാർ നമ്പർ ഞങ്ങൾ സൂക്ഷിക്കില്ല.',
       'A short video check confirms you are a real person. We never store your Aadhaar number.');
@@ -47,8 +51,10 @@ class S {
   String get giverVkycExplainer => _t(
       'ജോലി പോസ്റ്റ് ചെയ്യുന്നവരും വീഡിയോ പരിശോധന പൂർത്തിയാക്കണം. ഇത് തൊഴിലാളികളുടെ സുരക്ഷയ്ക്കാണ്.',
       'Gig posters must complete video verification too. This protects workers and keeps Heydo safe.');
-  String get startVkyc => _t('വീഡിയോ പരിശോധന തുടങ്ങുക', 'Start video verification');
-  String get simulateResult => _t('പരിശോധന പൂർത്തിയാക്കുക (ഡെമോ)', 'Complete verification (demo)');
+  String get startVkyc =>
+      _t('വീഡിയോ പരിശോധന തുടങ്ങുക', 'Start video verification');
+  String get simulateResult =>
+      _t('പരിശോധന പൂർത്തിയാക്കുക (ഡെമോ)', 'Complete verification (demo)');
 
   // Status
   String get statusUnverified => _t('പരിശോധിച്ചിട്ടില്ല', 'Not verified');
@@ -61,20 +67,25 @@ class S {
   String get approvedMsg => _t(
       'അഭിനന്ദനങ്ങൾ! ഇപ്പോൾ നിങ്ങൾക്ക് ജോലികൾക്ക് അപേക്ഷിക്കാം.',
       'Congratulations! You can now apply to gigs.');
-  String get canApplyYes => _t('ജോലികൾക്ക് അപേക്ഷിക്കാം', 'You can apply to gigs');
+  String get canApplyYes =>
+      _t('ജോലികൾക്ക് അപേക്ഷിക്കാം', 'You can apply to gigs');
   String get giverApprovedMsg => _t(
       'അഭിനന്ദനങ്ങൾ! ഇപ്പോൾ നിങ്ങൾക്ക് സുരക്ഷിതമായി ജോലികൾ പോസ്റ്റ് ചെയ്യാം.',
       'Congratulations! You can now post safe gigs.');
   String get canPostYes => _t('ജോലി പോസ്റ്റ് ചെയ്യാം', 'You can post gigs');
-  String get manageMyGigs => _t('എന്റെ ജോലികൾ നിയന്ത്രിക്കുക', 'Manage my gigs');
-  String get noMyGigs => _t('ഇപ്പോൾ നിങ്ങളുടെ ജോലികളില്ല', 'No gigs posted yet');
+  String get manageMyGigs =>
+      _t('എന്റെ ജോലികൾ നിയന്ത്രിക്കുക', 'Manage my gigs');
+  String get noMyGigs =>
+      _t('ഇപ്പോൾ നിങ്ങളുടെ ജോലികളില്ല', 'No gigs posted yet');
   String get viewApplicants => _t('അപേക്ഷകർ കാണുക', 'View applicants');
   String get applicants => _t('അപേക്ഷകർ', 'Applicants');
   String get noApplicants => _t('ഇപ്പോൾ അപേക്ഷകളില്ല', 'No applications yet');
   String get selectWorker => _t('തൊഴിലാളിയെ തിരഞ്ഞെടുക്കുക', 'Select worker');
-  String get workerSelected => _t('തൊഴിലാളിയെ തിരഞ്ഞെടുത്തു', 'Worker selected');
+  String get workerSelected =>
+      _t('തൊഴിലാളിയെ തിരഞ്ഞെടുത്തു', 'Worker selected');
   String get agreedAmount => _t('ഒപ്പുവെച്ച തുക', 'Agreed amount');
-  String get postSafeGig => _t('സുരക്ഷിത ജോലി പോസ്റ്റ് ചെയ്യുക', 'Post a safe gig');
+  String get postSafeGig =>
+      _t('സുരക്ഷിത ജോലി പോസ്റ്റ് ചെയ്യുക', 'Post a safe gig');
   String get category => _t('വിഭാഗം', 'Category');
   String get gigTitle => _t('ജോലിയുടെ പേര്', 'Gig title');
   String get gigDescription => _t('ജോലിയുടെ വിശദാംശങ്ങൾ', 'Gig details');
@@ -83,16 +94,20 @@ class S {
   String get fairPriceGuide => _t('ന്യായമായ നിരക്ക്', 'Fair price guide');
   String get submitGig => _t('ജോലി സമർപ്പിക്കുക', 'Submit gig');
   String get gigVisible => _t('ജോലി ലൈവായി', 'Gig is live');
-  String get gigUnderReview => _t('സുരക്ഷാ പരിശോധനയ്ക്കായി പിടിച്ചിരിക്കുന്നു', 'Held for safety review');
-  String get gigRejected => _t('സുരക്ഷാ നയപ്രകാരം നിരസിച്ചു', 'Rejected by safety policy');
-  String get fillAllFields => _t('എല്ലാ വിവരങ്ങളും പൂരിപ്പിക്കുക', 'Fill all fields');
+  String get gigUnderReview => _t(
+      'സുരക്ഷാ പരിശോധനയ്ക്കായി പിടിച്ചിരിക്കുന്നു', 'Held for safety review');
+  String get gigRejected =>
+      _t('സുരക്ഷാ നയപ്രകാരം നിരസിച്ചു', 'Rejected by safety policy');
+  String get fillAllFields =>
+      _t('എല്ലാ വിവരങ്ങളും പൂരിപ്പിക്കുക', 'Fill all fields');
   String get browseSafeGigs => _t('സുരക്ഷിത ജോലികൾ കാണുക', 'Browse safe gigs');
   String get myApplications => _t('എന്റെ അപേക്ഷകൾ', 'My applications');
   String get myReputation => _t('എന്റെ വിശ്വാസ സ്കോർ', 'My reputation');
   String get heydoScore => _t('Heydo സ്കോർ', 'Heydo Score');
   String get asWorker => _t('തൊഴിലാളിയായി', 'As worker');
   String get asGiver => _t('ജോലി നൽകുന്നയാളായി', 'As giver');
-  String get noScoreYet => _t('ആദ്യ റേറ്റിംഗിന് ശേഷം സ്കോർ വരും', 'Score appears after the first rating');
+  String get noScoreYet => _t('ആദ്യ റേറ്റിംഗിന് ശേഷം സ്കോർ വരും',
+      'Score appears after the first rating');
   String get ratingsCount => _t('റേറ്റിംഗുകൾ', 'ratings');
   String get noGigs => _t('ഇപ്പോൾ ലൈവ് ജോലികളില്ല', 'No live gigs right now');
   String get noApplications => _t('ഇപ്പോൾ അപേക്ഷകളില്ല', 'No applications yet');
@@ -109,25 +124,39 @@ class S {
   String get ratingComment => _t('അഭിപ്രായം', 'Comment');
   String get submitRating => _t('റേറ്റിംഗ് അയയ്ക്കുക', 'Submit rating');
   String get ratingSent => _t('റേറ്റിംഗ് അയച്ചു', 'Rating sent');
-  String get fairCounteroffer => _t('ന്യായമായ നിരക്ക് ചോദിക്കുക', 'Ask fair rate');
+  String get fairCounteroffer =>
+      _t('ന്യായമായ നിരക്ക് ചോദിക്കുക', 'Ask fair rate');
   String get proposedPrice => _t('നിങ്ങളുടെ നിരക്ക് (₹)', 'Your rate (₹)');
   String get applicationMessage => _t('നിങ്ങളുടെ സന്ദേശം', 'Your message');
   String get applicationSent => _t('അപേക്ഷ അയച്ചു', 'Application sent');
-  String get reportUnsafe => _t('സുരക്ഷാ പ്രശ്നം റിപ്പോർട്ട് ചെയ്യുക', 'Report safety issue');
+  String get reportUnsafe =>
+      _t('സുരക്ഷാ പ്രശ്നം റിപ്പോർട്ട് ചെയ്യുക', 'Report safety issue');
   String get reportReason => _t('കാരണം', 'Reason');
   String get reportDetails => _t('എന്താണ് സംഭവിച്ചത്?', 'What happened?');
-  String get reportSent => _t('സുരക്ഷാ റിപ്പോർട്ട് അയച്ചു', 'Safety report sent');
+  String get reportSent =>
+      _t('സുരക്ഷാ റിപ്പോർട്ട് അയച്ചു', 'Safety report sent');
   String get unsafeLocation => _t('സുരക്ഷിതമല്ലാത്ത സ്ഥലം', 'Unsafe location');
   String get harassment => _t('പീഡനം', 'Harassment');
-  String get offPlatformPayment => _t('ആപ്പിന് പുറത്തുള്ള പണം', 'Off-platform payment');
+  String get offPlatformPayment =>
+      _t('ആപ്പിന് പുറത്തുള്ള പണം', 'Off-platform payment');
   String get sexualMisconduct => _t('ലൈംഗിക ദുരുപയോഗം', 'Sexual misconduct');
-  String get illegalActivity => _t('മയക്കുമരുന്ന് അല്ലെങ്കിൽ നിയമവിരുദ്ധ പ്രവർത്തനം', 'Drugs or illegal activity');
-  String get violenceThreat => _t('അക്രമം അല്ലെങ്കിൽ ഭീഷണി', 'Violence or threat');
+  String get illegalActivity => _t(
+      'മയക്കുമരുന്ന് അല്ലെങ്കിൽ നിയമവിരുദ്ധ പ്രവർത്തനം',
+      'Drugs or illegal activity');
+  String get violenceThreat =>
+      _t('അക്രമം അല്ലെങ്കിൽ ഭീഷണി', 'Violence or threat');
   String get fraud => _t('വഞ്ചന', 'Fraud');
   String get other => _t('മറ്റുള്ളവ', 'Other');
 
   String get proposalTokens => _t('Proposal tokens', 'Proposal tokens');
-  String get proposalTokenBalance => _t('Proposal token balance', 'Proposal token balance');
+  String get proposalTokenBalance =>
+      _t('Proposal token balance', 'Proposal token balance');
+  String get notifications => _t('അറിയിപ്പുകൾ', 'Notifications');
+  String get noNotifications =>
+      _t('പുതിയ അറിയിപ്പുകളില്ല', 'No notifications yet');
+  String get markAllRead =>
+      _t('എല്ലാം വായിച്ചതായി അടയാളപ്പെടുത്തുക', 'Mark all as read');
+  String get unread => _t('വായിക്കാത്തത്', 'Unread');
 
   // Generic
   String get next => _t('അടുത്തത്', 'Next');
@@ -141,5 +170,6 @@ class S {
   String get showingSavedData => _t(
       'ഓഫ്‌ലൈനാണ്. അവസാനം സംരക്ഷിച്ച വിവരങ്ങളാണ് കാണിക്കുന്നത്. പ്രവർത്തനങ്ങൾക്ക് ഇന്റർനെറ്റ് ആവശ്യമാണ്.',
       'You are offline. Showing recently saved information. Actions require internet.');
-  String get somethingWrong => _t('എന്തോ പിഴവ് സംഭവിച്ചു', 'Something went wrong');
+  String get somethingWrong =>
+      _t('എന്തോ പിഴവ് സംഭവിച്ചു', 'Something went wrong');
 }

@@ -415,3 +415,25 @@ CREATE INDEX IF NOT EXISTS "AdminSession_expiresAt_idx"
   ON "AdminSession"("expiresAt");
 CREATE INDEX IF NOT EXISTS "AdminSession_stepUpRequiredAt_idx"
   ON "AdminSession"("stepUpRequiredAt");
+
+CREATE TABLE IF NOT EXISTS "Notification" (
+  id text PRIMARY KEY,
+  "userId" text NOT NULL,
+  type text NOT NULL,
+  "titleMl" text NOT NULL,
+  "titleEn" text NOT NULL,
+  "bodyMl" text NOT NULL,
+  "bodyEn" text NOT NULL,
+  "gigId" text,
+  "dedupeKey" text NOT NULL UNIQUE,
+  "pushStatus" text NOT NULL DEFAULT 'not_configured',
+  "readAt" timestamptz,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "Notification_pushStatus_check"
+    CHECK ("pushStatus" IN ('pending', 'sent', 'failed', 'not_configured'))
+);
+
+CREATE INDEX IF NOT EXISTS "Notification_userId_createdAt_idx"
+  ON "Notification"("userId", "createdAt" DESC);
+CREATE INDEX IF NOT EXISTS "Notification_userId_readAt_idx"
+  ON "Notification"("userId", "readAt");

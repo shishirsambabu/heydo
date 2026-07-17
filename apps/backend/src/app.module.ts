@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { IdentityModule } from './identity/identity.module';
 import { VerificationModule } from './verification/verification.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
+import { NotificationModule } from './notifications/notification.module';
 
 /**
  * Root module — Phase 1 (Identity Loop / VKYC).
@@ -21,6 +22,7 @@ import { MarketplaceModule } from './marketplace/marketplace.module';
     AuthModule,
     IdentityModule,
     VerificationModule,
+    NotificationModule,
     MarketplaceModule,
   ],
   controllers: [HealthController],
