@@ -16,18 +16,37 @@ Heydo authentication and only when `HEYDO_FIREBASE_ENABLED=true` is supplied.
 The Firebase client identifiers below are application configuration, not the
 backend service-account credential. Do not put private keys in Dart defines.
 
+## Prepare local configuration
+
+Create the gitignored configuration file:
+
+```powershell
+cd D:\heydo
+npm run firebase:readiness -- init
+```
+
+Fill `apps/mobile/firebase.local.json` with the Android app values. Then add the
+backend values to `D:\heydo\.env.local`:
+
+```dotenv
+PUSH_PROVIDER=fcm
+FIREBASE_PROJECT_ID=your-firebase-project-id
+GOOGLE_APPLICATION_CREDENTIALS=C:\path\outside\the\repo\service-account.json
+```
+
+Validate both sides without printing any identifiers or credentials:
+
+```powershell
+npm run firebase:readiness
+```
+
 ## Run on Android
 
 ```powershell
 cd D:\heydo\apps\mobile
 & "$env:USERPROFILE\development\flutter\bin\flutter.bat" run `
-  --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000 `
-  --dart-define=HEYDO_FIREBASE_ENABLED=true `
-  --dart-define=HEYDO_FIREBASE_API_KEY=YOUR_ANDROID_API_KEY `
-  --dart-define=HEYDO_FIREBASE_APP_ID=YOUR_ANDROID_APP_ID `
-  --dart-define=HEYDO_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID `
-  --dart-define=HEYDO_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID `
-  --dart-define=HEYDO_FIREBASE_STORAGE_BUCKET=YOUR_STORAGE_BUCKET
+  --dart-define-from-file=firebase.local.json `
+  --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000
 ```
 
 After OTP login, accept notification permission. The app registers the token

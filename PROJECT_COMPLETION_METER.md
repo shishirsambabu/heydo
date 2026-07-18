@@ -70,6 +70,7 @@ Done:
 - Initial and rotated FCM tokens register through the owner-scoped backend API without being logged or exposed; locale changes re-register the active token and foreground messages refresh the durable inbox.
 - Android and iOS now use permanent application identity `in.heydo.app`; the Android debug APK builds successfully with Firebase disabled by default.
 - Thirteen Flutter tests pass, including push token rotation, locale synchronization, foreground refresh, and proof that Firebase failure cannot block OTP login.
+- `npm run firebase:readiness` now validates permanent app IDs, gitignored mobile client configuration, backend FCM mode, service-account shape/file presence, and three-way project-ID agreement without printing sensitive values.
 
 Still required before we call Phase 2 complete:
 

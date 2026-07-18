@@ -11,6 +11,8 @@
     "build": "npm run build --workspace apps/backend",
     "db:schema:apply": "npm run db:schema:apply --workspace apps/backend",
     "deploy:readiness": "npm run deploy:readiness --workspace apps/backend",
+    "firebase:readiness": "node scripts/firebase-readiness.mjs",
+    "firebase:readiness:test": "node --test scripts/firebase-readiness.test.mjs",
     "mobile:qa": "node apps/mobile/scripts/check-flutter-qa.mjs",
     "mobile:setup:windows": "powershell -ExecutionPolicy Bypass -File apps/mobile/scripts/setup-flutter-windows.ps1 -UpdateUserPath",
     "phase2:smoke": "node scripts/phase2-smoke.mjs",
