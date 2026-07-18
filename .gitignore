@@ -13,6 +13,9 @@ build/
 !.env.example
 *.pem
 *.key
+**/google-services.json
+**/GoogleService-Info.plist
+*firebase*service-account*.json
 
 # Logs
 logs/

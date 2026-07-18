@@ -1,19 +1,32 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'api.dart';
+import 'push_notifications.dart';
 import 'strings.dart';
 
 /// Single source of onboarding state. Phase 1 keeps it deliberately small
 /// (Provider/ChangeNotifier). The real app layers richer state management.
 class AppState extends ChangeNotifier {
-  AppState({HeydoApi? api, DateTime Function()? now})
-      : api = api ?? HeydoApi(),
+  AppState({
+    HeydoApi? api,
+    PushNotifications? pushNotifications,
+    DateTime Function()? now,
+  })  : api = api ?? HeydoApi(),
+        _pushNotifications =
+            pushNotifications ?? const DisabledPushNotifications(),
         _now = now ?? DateTime.now;
 
   final HeydoApi api;
+  final PushNotifications _pushNotifications;
   final DateTime Function() _now;
+  StreamSubscription<String>? _pushTokenSubscription;
+  StreamSubscription<void>? _foregroundMessageSubscription;
+  String? _lastPushToken;
+  bool _authenticated = false;
+  bool _pushStarted = false;
 
   static const _langKey = 'heydo_lang';
   static const _marketplaceSetupCacheKey = 'heydo_public_marketplace_setup_v1';
@@ -77,6 +90,10 @@ class AppState extends ChangeNotifier {
     lang = l;
     notifyListeners();
     _persistLang(l);
+    final token = _lastPushToken;
+    if (_authenticated && token != null) {
+      unawaited(_registerPushToken(token));
+    }
   }
 
   Future<void> _persistLang(Lang l) async {
@@ -121,7 +138,55 @@ class AppState extends ChangeNotifier {
   Future<bool> verifyOtp(String code) => _guard(() async {
         final res = await api.verifyOtp(phone, code);
         api.setToken(res['token'] as String);
+        _authenticated = true;
+        unawaited(_enablePushNotifications());
       });
+
+  Future<void> _enablePushNotifications() async {
+    if (_pushStarted || !_authenticated) return;
+    _pushStarted = true;
+    try {
+      final token = await _pushNotifications.initialize();
+      _pushTokenSubscription = _pushNotifications.tokenRefreshes.listen(
+        (refreshedToken) => unawaited(_registerPushToken(refreshedToken)),
+      );
+      _foregroundMessageSubscription =
+          _pushNotifications.foregroundMessages.listen(
+        (_) => unawaited(_refreshNotificationsQuietly()),
+      );
+      if (token != null && token.isNotEmpty) {
+        await _registerPushToken(token);
+      }
+    } catch (_) {
+      // Push is best-effort and must never block authentication or core work.
+    }
+  }
+
+  Future<void> _registerPushToken(String token) async {
+    if (!_authenticated || token.isEmpty) return;
+    try {
+      await api.registerPushDevice(
+        platform:
+            defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
+        token: token,
+        locale: lang == Lang.ml ? 'ml' : 'en',
+      );
+      _lastPushToken = token;
+    } catch (_) {
+      // Rotation retries naturally; never surface or log a device token.
+    }
+  }
+
+  Future<void> _refreshNotificationsQuietly() async {
+    if (!_authenticated) return;
+    try {
+      notifications = _maps(await api.notifications());
+      await _loadNotificationSummary();
+      notifyListeners();
+    } catch (_) {
+      // The durable inbox can be refreshed manually when connectivity returns.
+    }
+  }
 
   Future<bool> selectWorker(String name) => _guard(() async {
         role = 'worker';
@@ -532,5 +597,12 @@ class AppState extends ChangeNotifier {
         // Notification availability must never block the identity gate.
       }
     }
+  }
+
+  @override
+  void dispose() {
+    unawaited(_pushTokenSubscription?.cancel());
+    unawaited(_foregroundMessageSubscription?.cancel());
+    super.dispose();
   }
 }

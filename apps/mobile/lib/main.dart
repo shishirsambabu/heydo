@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'src/app_state.dart';
+import 'src/push_notifications.dart';
 import 'src/screens.dart';
 import 'src/theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  final app = AppState();
+  final app = AppState(pushNotifications: FirebasePushNotifications());
   app.init(); // load the saved language choice (Malayalam-first by default)
   runApp(HeydoApp(app: app));
 }
