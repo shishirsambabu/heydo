@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:heydo/src/api.dart';
@@ -72,6 +73,28 @@ void main() {
           'POST /notifications/ntf_1/read',
         ],
       );
+    });
+
+    test('registers and revokes a push device without retrying writes', () async {
+      final calls = <String>[];
+      final client = MockClient((request) async {
+        calls.add('${request.method} ${request.url.path}');
+        if (request.url.path == '/notifications/devices' && request.method == 'POST') {
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(body['token'], 'fcm-token-that-is-long-enough-for-validation');
+          return http.Response(jsonEncode({'id': 'dev_1', 'platform': 'android', 'locale': 'ml', 'active': true}), 201);
+        }
+        if (request.url.path == '/notifications/devices/dev_1/revoke') {
+          return http.Response(jsonEncode({'id': 'dev_1', 'active': false}), 201);
+        }
+        return http.Response('{}', 404);
+      });
+      final api = HeydoApi(baseUrl: 'http://test', client: client);
+
+      final device = await api.registerPushDevice(platform: 'android', token: 'fcm-token-that-is-long-enough-for-validation', locale: 'ml');
+      expect(device['id'], 'dev_1');
+      expect((await api.revokePushDevice('dev_1'))['active'], isFalse);
+      expect(calls, ['POST /notifications/devices', 'POST /notifications/devices/dev_1/revoke']);
     });
 
     test('never automatically retries a POST', () async {

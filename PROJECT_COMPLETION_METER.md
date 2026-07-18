@@ -1,29 +1,29 @@
 # Heydo Project Completion Meter
 
-Last updated: 2026-07-17
+Last updated: 2026-07-18
 
 This meter is a practical launch-readiness tracker, not a vanity percentage. It moves only when code, configuration, tests, or operational gates are actually completed.
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 65%**
+**Overall MVP launch readiness: 70%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
 | Foundation, repo, architecture, AWS/RDS setup | 78% | Core decisions, RDS configuration, and latest schema application are in place; production deployment still pending. |
 | Identity and VKYC trust loop | 86% | Didit webhook is integrated, signed callback persistence is covered by tests, readiness and redacted callback lookup are visible in admin, CLI readiness exists, worker/giver KYC gates exist, and live worker/giver Didit evidence has been recorded. |
-| Marketplace core | 79% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, proposal tokens, and the repeatable Phase 2 applicant smoke are built and passed locally; public marketplace reads now have a short-lived offline fallback, while real-device mobile QA and notifications remain. |
+| Marketplace core | 84% | Posting, applying, choosing, lifecycle, Malayalam launch categories, pricing guides, proposal tokens, durable in-app notifications, and the repeatable Phase 2 applicant smoke are built and passed locally; real-device mobile and push QA remain. |
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 83% | Main flows exist, backend applicant loop is proven, Flutter analyze/tests pass, Android SDK/toolchain is doctor-green, and the app builds and launches in Malayalam on Android. API reads use bounded retry/timeout behavior, public marketplace reads have an allowlisted cache, and state-changing writes are never automatically retried; physical-device lifecycle QA remains. |
+| Mobile app readiness | 85% | Main flows exist, backend applicant loop is proven, Flutter analyze/tests pass, Android SDK/toolchain is doctor-green, and the app builds and launches in Malayalam on Android. The API supports owner-scoped push device registration and revocation; Firebase Messaging client wiring and physical-device proof remain. |
 | Localization, accessibility, offline resilience | 46% | Malayalam network recovery guidance, bounded request timeouts, one safe GET retry, no automatic POST retries, and time-limited offline public marketplace reads are implemented and tested. Private/authenticated data and writes remain online-only; accessibility and physical low-connectivity QA remain. |
 | Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
 
 ## Current Gate
 
-**Phase 2 applicant marketplace gate: 86%**
+**Phase 2 applicant marketplace gate: 95%**
 
 The pre-Phase-2 safety hardening evidence is complete. Phase 2 is now the active build phase: prove the applicant-model marketplace end to end on a real device, in Malayalam, with verified users.
 
@@ -62,6 +62,9 @@ Done:
 - The hardened APK rebuilt and launched on the Android emulator in Malayalam, and the emulator survived airplane-mode disable/restore during QA.
 - The Flutter marketplace now falls back to a 7-day cache for public categories/pricing rules and a 15-minute cache for visible gig cards and public giver scores when the network is unavailable.
 - Offline cache writes use explicit field allowlists, discard unexpected identity/contact/internal fields, never cache token balances or authenticated/private records, and never queue marketplace writes.
+- Push registration tokens are encrypted at rest, fingerprinted for deduplication, redacted from API responses, and revocable only by their authenticated owner.
+- Push attempts now have a durable delivery audit trail; successful FCM sends, failures, and invalid-token deactivation are covered by backend tests.
+- The backend implements the FCM HTTP v1 provider using short-lived Google credentials and remains truthfully `not_configured` until Firebase is enabled.
 - Malayalam and English offline banners clearly state that saved information is being shown and actions still require internet; the full Flutter analyze/test gate passes with 9 tests.
 
 Still required before we call Phase 2 complete:
@@ -71,6 +74,7 @@ Still required before we call Phase 2 complete:
 - Confirm admin can moderate categories/listings and see live marketplace health during a mobile-driven run.
 - Run real-device Malayalam QA against the backend.
 - Deploy the backend to a durable HTTPS URL, configure `API_PUBLIC_URL`, `CORS_ORIGINS`, production secrets, and update Didit from the temporary tunnel.
+- Provision Firebase, add Flutter Firebase Messaging configuration, and prove a lifecycle push on a physical Android device.
 
 ## Phase Position
 
@@ -79,7 +83,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 86% | Local applicant-model smoke passed, Flutter QA passes, Android Malayalam runtime is proven, and network timeout/safe-retry plus allowlisted public-cache behavior is tested; active gate is physical Android lifecycle/low-connectivity QA plus admin marketplace operations. |
+| Phase 2 - Gig Posting, Applying, Choosing | 95% | Local applicant-model smoke passed, durable in-app and FCM-ready push infrastructure is built, and Android Malayalam runtime plus network/cache behavior is proven; active gate is Firebase client setup and physical Android lifecycle/low-connectivity QA. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -95,7 +99,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 65%; active gate, Phase 2 applicant marketplace 86%.
+Project meter: Overall MVP launch readiness 70%; active gate, Phase 2 applicant marketplace 95%.
 Next gate: run the complete applicant lifecycle through Flutter on a real Android device in Malayalam, interrupt and restore connectivity during reads and writes, and record the evidence.
 ```
 

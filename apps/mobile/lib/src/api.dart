@@ -146,6 +146,19 @@ class HeydoApi {
       _post('/notifications/$notificationId/read');
   Future<Map<String, dynamic>> markAllNotificationsRead() =>
       _post('/notifications/read-all');
+  Future<List<dynamic>> pushDevices() => _getList('/notifications/devices');
+  Future<Map<String, dynamic>> registerPushDevice({
+    required String platform,
+    required String token,
+    required String locale,
+  }) =>
+      _post('/notifications/devices', {
+        'platform': platform,
+        'token': token,
+        'locale': locale,
+      });
+  Future<Map<String, dynamic>> revokePushDevice(String deviceId) =>
+      _post('/notifications/devices/$deviceId/revoke');
 
   // --- Marketplace ---
   Future<List<dynamic>> categories() => _getList('/marketplace/categories');

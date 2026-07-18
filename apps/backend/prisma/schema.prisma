@@ -275,7 +275,42 @@ model Notification {
   pushStatus String    @default("not_configured")
   readAt     DateTime?
   createdAt  DateTime  @default(now())
+  deliveries PushDelivery[]
 
   @@index([userId, createdAt])
   @@index([userId, readAt])
+}
+
+model PushDevice {
+  id               String   @id
+  userId           String
+  platform         String
+  tokenFingerprint String   @unique
+  encryptedToken   String
+  locale           String   @default("ml")
+  active           Boolean  @default(true)
+  lastSeenAt       DateTime
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @default(now())
+  deliveries       PushDelivery[]
+
+  @@index([userId, active])
+}
+
+model PushDelivery {
+  id                String       @id
+  notificationId    String
+  deviceId          String
+  status            String       @default("pending")
+  attempts          Int          @default(0)
+  providerMessageId String?
+  errorCode         String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @default(now())
+  notification      Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  device            PushDevice   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([notificationId, deviceId])
+  @@index([notificationId])
+  @@index([status, updatedAt])
 }

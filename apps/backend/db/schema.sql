@@ -437,3 +437,42 @@ CREATE INDEX IF NOT EXISTS "Notification_userId_createdAt_idx"
   ON "Notification"("userId", "createdAt" DESC);
 CREATE INDEX IF NOT EXISTS "Notification_userId_readAt_idx"
   ON "Notification"("userId", "readAt");
+
+CREATE TABLE IF NOT EXISTS "PushDevice" (
+  id text PRIMARY KEY,
+  "userId" text NOT NULL,
+  platform text NOT NULL,
+  "tokenFingerprint" text NOT NULL UNIQUE,
+  "encryptedToken" text NOT NULL,
+  locale text NOT NULL DEFAULT 'ml',
+  active boolean NOT NULL DEFAULT true,
+  "lastSeenAt" timestamptz NOT NULL,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "PushDevice_platform_check" CHECK (platform IN ('android', 'ios')),
+  CONSTRAINT "PushDevice_locale_check" CHECK (locale IN ('ml', 'en'))
+);
+
+CREATE INDEX IF NOT EXISTS "PushDevice_userId_active_idx"
+  ON "PushDevice"("userId", active);
+
+CREATE TABLE IF NOT EXISTS "PushDelivery" (
+  id text PRIMARY KEY,
+  "notificationId" text NOT NULL REFERENCES "Notification"(id) ON DELETE CASCADE,
+  "deviceId" text NOT NULL REFERENCES "PushDevice"(id) ON DELETE CASCADE,
+  status text NOT NULL DEFAULT 'pending',
+  attempts integer NOT NULL DEFAULT 0,
+  "providerMessageId" text,
+  "errorCode" text,
+  "createdAt" timestamptz NOT NULL DEFAULT now(),
+  "updatedAt" timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT "PushDelivery_status_check"
+    CHECK (status IN ('pending', 'sent', 'failed', 'invalid_token', 'not_configured')),
+  CONSTRAINT "PushDelivery_attempts_check" CHECK (attempts >= 0),
+  CONSTRAINT "PushDelivery_notification_device_unique" UNIQUE ("notificationId", "deviceId")
+);
+
+CREATE INDEX IF NOT EXISTS "PushDelivery_notificationId_idx"
+  ON "PushDelivery"("notificationId");
+CREATE INDEX IF NOT EXISTS "PushDelivery_status_updatedAt_idx"
+  ON "PushDelivery"(status, "updatedAt");

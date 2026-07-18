@@ -9,6 +9,7 @@ import {
 } from './notification.repository';
 import { NotificationService } from './notification.service';
 import { PostgresNotificationRepository } from './postgres-notification.repository';
+import { FcmPushProvider, PUSH_PROVIDER } from './push.provider';
 
 @Module({
   imports: [SecurityModule, DatabaseModule],
@@ -23,6 +24,11 @@ import { PostgresNotificationRepository } from './postgres-notification.reposito
           : new InMemoryNotificationRepository(),
     },
     PostgresNotificationRepository,
+    {
+      provide: PUSH_PROVIDER,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => new FcmPushProvider(config),
+    },
     NotificationService,
   ],
   exports: [NotificationService],
