@@ -24,6 +24,7 @@ class AppState extends ChangeNotifier {
   final DateTime Function() _now;
   StreamSubscription<String>? _pushTokenSubscription;
   StreamSubscription<void>? _foregroundMessageSubscription;
+  StreamSubscription<void>? _notificationOpenSubscription;
   String? _lastPushToken;
   bool _authenticated = false;
   bool _pushStarted = false;
@@ -71,6 +72,7 @@ class AppState extends ChangeNotifier {
   List<Map<String, dynamic>> currentApplications = [];
   List<Map<String, dynamic>> notifications = [];
   int unreadNotificationCount = 0;
+  int notificationOpenSequence = 0;
   Map<String, Map<String, dynamic>> giverReputations = {};
   Map<String, Map<String, dynamic>> applicantReputations = {};
   Map<String, dynamic>? myReputation;
@@ -154,8 +156,15 @@ class AppState extends ChangeNotifier {
           _pushNotifications.foregroundMessages.listen(
         (_) => unawaited(_refreshNotificationsQuietly()),
       );
+      _notificationOpenSubscription =
+          _pushNotifications.notificationOpens.listen(
+        (_) => unawaited(_handleNotificationOpen()),
+      );
       if (token != null && token.isNotEmpty) {
         await _registerPushToken(token);
+      }
+      if (await _pushNotifications.consumeInitialNotificationOpen()) {
+        await _handleNotificationOpen();
       }
     } catch (_) {
       // Push is best-effort and must never block authentication or core work.
@@ -186,6 +195,13 @@ class AppState extends ChangeNotifier {
     } catch (_) {
       // The durable inbox can be refreshed manually when connectivity returns.
     }
+  }
+
+  Future<void> _handleNotificationOpen() async {
+    if (!_authenticated) return;
+    await _refreshNotificationsQuietly();
+    notificationOpenSequence++;
+    notifyListeners();
   }
 
   Future<bool> selectWorker(String name) => _guard(() async {
@@ -603,6 +619,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     unawaited(_pushTokenSubscription?.cancel());
     unawaited(_foregroundMessageSubscription?.cancel());
+    unawaited(_notificationOpenSubscription?.cancel());
     super.dispose();
   }
 }

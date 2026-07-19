@@ -6,7 +6,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 71%**
+**Overall MVP launch readiness: 72%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
@@ -16,14 +16,14 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Safety and abuse prevention | 88% | Safety reports, evidence refs, escalation packages, abusive-user actions, gig quarantine, low-rating triage, admin visibility, operator policy matrix, and the pre-Phase-2 evidence gate are built and exercised. |
 | Admin / ops panel | 80% | Gig review, VKYC readiness, safety queues, economics, token grants, audit trails, phase-gate evidence, decision context, project meter, and operator policy matrix are present; RBAC hardening still needs final pass. |
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
-| Mobile app readiness | 89% | Main flows exist, backend applicant loop is proven, Flutter analyze and 13 tests pass, Android SDK/toolchain is doctor-green, and the app builds under permanent ID `in.heydo.app`. Firebase Messaging initializes only after authentication, registers and rotates tokens, tracks locale, and refreshes the foreground inbox; Firebase project provisioning and physical-device delivery proof remain. |
+| Mobile app readiness | 91% | Main flows exist, backend applicant loop is proven, Flutter analyze and 15 tests pass, Android SDK/toolchain is doctor-green, and the app builds under permanent ID `in.heydo.app`. Firebase Messaging initializes only after authentication, registers and rotates tokens, tracks locale, refreshes the foreground inbox, and routes background/cold-start taps into one durable inbox; Firebase project provisioning and physical-device delivery proof remain. |
 | Localization, accessibility, offline resilience | 46% | Malayalam network recovery guidance, bounded request timeouts, one safe GET retry, no automatic POST retries, and time-limited offline public marketplace reads are implemented and tested. Private/authenticated data and writes remain online-only; accessibility and physical low-connectivity QA remain. |
 | Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
 
 ## Current Gate
 
-**Phase 2 applicant marketplace gate: 97%**
+**Phase 2 applicant marketplace gate: 98%**
 
 The pre-Phase-2 safety hardening evidence is complete. Phase 2 is now the active build phase: prove the applicant-model marketplace end to end on a real device, in Malayalam, with verified users.
 
@@ -71,6 +71,8 @@ Done:
 - Android and iOS now use permanent application identity `in.heydo.app`; the Android debug APK builds successfully with Firebase disabled by default.
 - Thirteen Flutter tests pass, including push token rotation, locale synchronization, foreground refresh, and proof that Firebase failure cannot block OTP login.
 - `npm run firebase:readiness` now validates permanent app IDs, gitignored mobile client configuration, backend FCM mode, service-account shape/file presence, and three-way project-ID agreement without printing sensitive values.
+- Background and terminated-state notification taps now refresh authoritative inbox state and open a single durable notification screen; duplicate opens cannot stack multiple inbox routes.
+- Flutter analysis, 15 tests, and a fresh Android debug APK build pass with the notification-open lifecycle wired.
 
 Still required before we call Phase 2 complete:
 
@@ -88,7 +90,7 @@ Still required before we call Phase 2 complete:
 | Phase 0 - Foundation & Blueprint | 80% | Mostly complete, but roadmap metadata needs updating and final decision records should be kept current. |
 | Phase 1 - Identity Loop / VKYC | 72% | Built enough for integration testing; final gate needs real workflow validation and mobile/device QA. |
 | Safety Hardening Before Phase 2 | 100% | Required live Didit worker/giver and callback evidence has been recorded; keep the close-gate audit decision in admin. |
-| Phase 2 - Gig Posting, Applying, Choosing | 97% | Local applicant-model smoke passed, durable in-app and FCM push infrastructure is built, and Android Malayalam runtime plus network/cache behavior is proven; active gate is live Firebase provisioning and physical Android lifecycle/push/low-connectivity QA. |
+| Phase 2 - Gig Posting, Applying, Choosing | 98% | Local applicant-model smoke passed, durable in-app and FCM push infrastructure including notification-tap routing is built, and Android Malayalam runtime plus network/cache behavior is proven; active gate is live Firebase provisioning and physical Android lifecycle/push/low-connectivity QA. |
 | Phase 3 - Money / Escrow / Payouts | 22% | Modeled, not production-safe yet. This is the next major risk area after Phase 2. |
 | Phases 4-9 | 10% | Mostly vision/spec level with some enabling groundwork. |
 
@@ -104,7 +106,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 71%; active gate, Phase 2 applicant marketplace 97%.
+Project meter: Overall MVP launch readiness 72%; active gate, Phase 2 applicant marketplace 98%.
 Next gate: provision Firebase for `in.heydo.app`, prove one lifecycle notification on a physical Android device, then run the complete applicant lifecycle in Malayalam while interrupting and restoring connectivity.
 ```
 

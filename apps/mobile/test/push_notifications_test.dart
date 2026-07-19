@@ -10,15 +10,31 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 class FakePushNotifications implements PushNotifications {
-  FakePushNotifications({this.initialToken, this.initializationError});
+  FakePushNotifications({
+    this.initialToken,
+    this.initializationError,
+    this.initialNotificationOpen = false,
+  });
 
   final String? initialToken;
   final Object? initializationError;
+  bool initialNotificationOpen;
   final tokenController = StreamController<String>.broadcast();
   final messageController = StreamController<void>.broadcast();
+  final openController = StreamController<void>.broadcast();
+
+  @override
+  Future<bool> consumeInitialNotificationOpen() async {
+    final opened = initialNotificationOpen;
+    initialNotificationOpen = false;
+    return opened;
+  }
 
   @override
   Stream<void> get foregroundMessages => messageController.stream;
+
+  @override
+  Stream<void> get notificationOpens => openController.stream;
 
   @override
   Future<String?> initialize() async {
@@ -32,6 +48,7 @@ class FakePushNotifications implements PushNotifications {
   Future<void> close() async {
     await tokenController.close();
     await messageController.close();
+    await openController.close();
   }
 }
 
@@ -93,6 +110,42 @@ void main() {
     await settleAsyncWork();
     expect(notificationReads, 1);
     expect(state.unreadNotificationCount, 1);
+
+    push.openController.add(null);
+    await settleAsyncWork();
+    expect(notificationReads, 2);
+    expect(state.notificationOpenSequence, 1);
+
+    state.dispose();
+    await push.close();
+  });
+
+  test('consumes a terminated-state notification open only once', () async {
+    var notificationReads = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/auth/otp/verify') {
+        return http.Response('{"token":"heydo-access-token"}', 201);
+      }
+      if (request.url.path == '/notifications') {
+        notificationReads++;
+        return http.Response('[]', 200);
+      }
+      if (request.url.path == '/notifications/summary') {
+        return http.Response('{"unreadCount":0}', 200);
+      }
+      return http.Response('{}', 404);
+    });
+    final push = FakePushNotifications(initialNotificationOpen: true);
+    final state = AppState(
+      api: HeydoApi(baseUrl: 'http://heydo.test', client: client),
+      pushNotifications: push,
+    );
+
+    expect(await state.verifyOtp('123456'), isTrue);
+    await settleAsyncWork();
+    expect(notificationReads, 1);
+    expect(state.notificationOpenSequence, 1);
+    expect(await push.consumeInitialNotificationOpen(), isFalse);
 
     state.dispose();
     await push.close();

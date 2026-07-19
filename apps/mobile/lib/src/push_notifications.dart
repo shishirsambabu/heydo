@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 
 abstract class PushNotifications {
   Future<String?> initialize();
+  Future<bool> consumeInitialNotificationOpen();
   Stream<String> get tokenRefreshes;
   Stream<void> get foregroundMessages;
+  Stream<void> get notificationOpens;
 }
 
 class DisabledPushNotifications implements PushNotifications {
@@ -15,7 +17,13 @@ class DisabledPushNotifications implements PushNotifications {
   Future<String?> initialize() async => null;
 
   @override
+  Future<bool> consumeInitialNotificationOpen() async => false;
+
+  @override
   Stream<void> get foregroundMessages => const Stream.empty();
+
+  @override
+  Stream<void> get notificationOpens => const Stream.empty();
 
   @override
   Stream<String> get tokenRefreshes => const Stream.empty();
@@ -37,6 +45,7 @@ class FirebasePushNotifications implements PushNotifications {
       String.fromEnvironment('HEYDO_FIREBASE_STORAGE_BUCKET');
 
   bool _initialized = false;
+  bool _initialNotificationOpen = false;
 
   bool get _supported =>
       !kIsWeb &&
@@ -62,6 +71,8 @@ class FirebasePushNotifications implements PushNotifications {
       );
       await FirebaseMessaging.instance.setAutoInitEnabled(true);
       _initialized = true;
+      _initialNotificationOpen =
+          await FirebaseMessaging.instance.getInitialMessage() != null;
     }
 
     final permission = await FirebaseMessaging.instance.requestPermission(
@@ -77,8 +88,20 @@ class FirebasePushNotifications implements PushNotifications {
   }
 
   @override
+  Future<bool> consumeInitialNotificationOpen() async {
+    final opened = _initialNotificationOpen;
+    _initialNotificationOpen = false;
+    return opened;
+  }
+
+  @override
   Stream<void> get foregroundMessages => _initialized
       ? FirebaseMessaging.onMessage.map<void>((_) {})
+      : const Stream.empty();
+
+  @override
+  Stream<void> get notificationOpens => _initialized
+      ? FirebaseMessaging.onMessageOpenedApp.map<void>((_) {})
       : const Stream.empty();
 
   @override

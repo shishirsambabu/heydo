@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:heydo/main.dart';
 import 'package:provider/provider.dart';
 
 import 'package:heydo/src/app_state.dart';
@@ -25,5 +26,24 @@ void main() {
     final en = S(Lang.en);
     expect(ml.sendOtp, isNot(equals(en.sendOtp)));
     expect(ml.appName, 'Heydo');
+  });
+
+  testWidgets('notification open event navigates to one durable inbox',
+      (tester) async {
+    final app = AppState();
+    await tester.pumpWidget(HeydoApp(app: app));
+
+    app.notificationOpenSequence++;
+    app.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationScreen), findsOneWidget);
+
+    app.notificationOpenSequence++;
+    app.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationScreen), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    app.dispose();
   });
 }
