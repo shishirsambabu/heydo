@@ -42,11 +42,20 @@ npm run mobile:qa
 
 ## Manual Real-Device Check
 
+Before the phone run, check that Firebase, backend health, and a real Android
+phone are all ready:
+
+```powershell
+cd D:\heydo
+$env:HEYDO_API_BASE="http://YOUR_PC_LAN_IP:3000"
+npm run mobile:device:qa
+```
+
 Run on a mid-range Android device before marking a phase done:
 
 ```powershell
 cd apps/mobile
-flutter run --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000
+flutter run --dart-define-from-file=firebase.local.json --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000
 ```
 
 Use your PC's LAN IP when testing on a physical Android phone. For the Android emulator, omit the dart define; the app defaults to `http://10.0.2.2:3000`.

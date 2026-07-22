@@ -7,6 +7,7 @@ const mobileRoot = new URL('..', import.meta.url);
 const defaultWindowsFlutterBin = join(homedir(), 'development', 'flutter', 'bin');
 const defaultWindowsFlutter = join(defaultWindowsFlutterBin, 'flutter.bat');
 const commandEnv = { ...process.env };
+const commandTimeoutMs = Number.parseInt(process.env.HEYDO_FLUTTER_QA_TIMEOUT_MS ?? '300000', 10);
 
 if (process.platform === 'win32' && existsSync(defaultWindowsFlutter)) {
   const pathKey = Object.keys(commandEnv).find((key) => key.toLowerCase() === 'path') ?? 'Path';
@@ -34,7 +35,7 @@ for (const [command, args] of commands) {
     env: commandEnv,
     shell: process.platform === 'win32',
     stdio: 'inherit',
-    timeout: 120000,
+    timeout: Number.isFinite(commandTimeoutMs) ? commandTimeoutMs : 300000,
   });
 
   if (result.error?.code === 'ETIMEDOUT') {
@@ -60,4 +61,4 @@ for (const [command, args] of commands) {
 
 console.log('\nHeydo mobile QA checks passed.');
 console.log('\nFor real-device Phase 2 QA, run from apps/mobile:');
-console.log('  flutter run --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000');
+console.log('  flutter run --dart-define-from-file=firebase.local.json --dart-define=HEYDO_API_BASE=http://YOUR_PC_LAN_IP:3000');

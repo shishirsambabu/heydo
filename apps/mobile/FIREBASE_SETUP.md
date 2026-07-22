@@ -40,6 +40,13 @@ Validate both sides without printing any identifiers or credentials:
 npm run firebase:readiness
 ```
 
+Then check the complete phone QA preflight:
+
+```powershell
+$env:HEYDO_API_BASE="http://YOUR_PC_LAN_IP:3000"
+npm run mobile:device:qa
+```
+
 ## Run on Android
 
 ```powershell

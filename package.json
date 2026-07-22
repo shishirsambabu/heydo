@@ -13,6 +13,8 @@
     "deploy:readiness": "npm run deploy:readiness --workspace apps/backend",
     "firebase:readiness": "node scripts/firebase-readiness.mjs",
     "firebase:readiness:test": "node --test scripts/firebase-readiness.test.mjs",
+    "mobile:device:qa": "node scripts/mobile-device-qa.mjs",
+    "mobile:device:qa:test": "node --test scripts/mobile-device-qa.test.mjs",
     "mobile:qa": "node apps/mobile/scripts/check-flutter-qa.mjs",
     "mobile:setup:windows": "powershell -ExecutionPolicy Bypass -File apps/mobile/scripts/setup-flutter-windows.ps1 -UpdateUserPath",
     "phase2:smoke": "node scripts/phase2-smoke.mjs",
