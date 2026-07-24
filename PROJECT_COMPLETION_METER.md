@@ -6,7 +6,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 
 ## Current Overall Meter
 
-**Overall MVP launch readiness: 73%**
+**Overall MVP launch readiness: 74%**
 
 | Area | Progress | Status |
 | --- | ---: | --- |
@@ -18,7 +18,7 @@ This meter is a practical launch-readiness tracker, not a vanity percentage. It 
 | Money, escrow, payouts | 22% | 85/15 economics are modeled; real escrow, payment collection, payout, refund, and reconciliation are not production-ready yet. |
 | Mobile app readiness | 92% | Main flows exist, backend applicant loop is proven, Flutter analyze and 15 tests pass, Android SDK/toolchain is doctor-green, and the app builds under permanent ID `in.heydo.app`. Firebase Messaging initializes only after authentication, registers and rotates tokens, tracks locale, refreshes the foreground inbox, and routes background/cold-start taps into one durable inbox. `npm run mobile:device:qa` now preflights Firebase readiness, backend health, and physical Android connection; Firebase project provisioning and physical-device delivery proof remain. |
 | Localization, accessibility, offline resilience | 46% | Malayalam network recovery guidance, bounded request timeouts, one safe GET retry, no automatic POST retries, and time-limited offline public marketplace reads are implemented and tested. Private/authenticated data and writes remain online-only; accessibility and physical low-connectivity QA remain. |
-| Production deployment and monitoring | 32% | Domain and Cloudflare are configured, and `npm run deploy:readiness` defines the durable backend gate; backend is still using temporary/local tunnel for webhook testing. |
+| Production deployment and monitoring | 36% | Domain and Cloudflare are configured, and `npm run deploy:readiness` now has tests for durable API URLs, safe CORS, Didit callback host alignment, Firebase service-account shape, and keeping backend credentials outside the repo; backend is still using temporary/local tunnel for webhook testing. |
 | Legal, compliance, ops policy | 34% | Safety and escalation rails exist; DPDP/privacy, police escalation SOP, insurance, and operating manuals need completion. |
 
 ## Current Gate
@@ -75,6 +75,7 @@ Done:
 - Flutter analysis, 15 tests, and a fresh Android debug APK build pass with the notification-open lifecycle wired.
 - `npm run mobile:device:qa` now defines the physical Android preflight: Firebase readiness, backend `/health`, and real phone connection must all pass before the full Phase 2 device run.
 - The Flutter QA helper now uses a longer configurable timeout so slow Windows Flutter startup does not fail the gate before analysis/tests can run.
+- `npm run deploy:readiness:test` now proves the durable backend gate fails closed for tunnel URLs, malformed public URLs, unsafe CORS, repo-local Firebase credentials, mismatched Firebase project ids, and secret leakage.
 
 Still required before we call Phase 2 complete:
 
@@ -108,7 +109,7 @@ Every build run should end with:
 Recommended final-response snippet:
 
 ```text
-Project meter: Overall MVP launch readiness 73%; active gate, Phase 2 applicant marketplace 98%.
+Project meter: Overall MVP launch readiness 74%; active gate, Phase 2 applicant marketplace 98%.
 Next gate: run `npm run mobile:device:qa` after Firebase is provisioned and a physical Android phone is connected, prove one lifecycle notification, then run the complete applicant lifecycle in Malayalam while interrupting and restoring connectivity.
 ```
 

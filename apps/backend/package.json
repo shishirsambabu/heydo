@@ -9,6 +9,7 @@
     "start:dev": "ts-node src/main.ts",
     "db:schema:apply": "node scripts/apply-schema.mjs",
     "deploy:readiness": "node scripts/check-deployment-readiness.mjs",
+    "deploy:readiness:test": "node --test scripts/check-deployment-readiness.test.mjs",
     "vkyc:readiness": "node scripts/check-vkyc-readiness.mjs",
     "test": "jest",
     "test:watch": "jest --watch"

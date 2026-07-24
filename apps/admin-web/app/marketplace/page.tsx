@@ -63,16 +63,16 @@ const PHASE_GATE_EVIDENCE_OPTIONS: PhaseGateEvidenceCode[] = [
 ];
 
 const PROJECT_METER = {
-  overall: 73,
+  overall: 74,
   activeGate: 98,
   gateName: 'Phase 2 applicant marketplace',
-  proof: 'Local Phase 2 smoke and 15 Flutter tests pass; Android Malayalam runtime, bounded timeout, safe-read retry, public offline cache, durable notifications, authenticated Firebase registration, token rotation, foreground refresh, single-route notification-tap handling, and the physical-device preflight script are proven.',
+  proof: 'Local Phase 2 smoke and 15 Flutter tests pass; Android Malayalam runtime, bounded timeout, safe-read retry, public offline cache, durable notifications, authenticated Firebase registration, token rotation, foreground refresh, single-route notification-tap handling, physical-device preflight, and tested durable-backend readiness are proven.',
   nextGate: 'Provision Firebase for in.heydo.app, connect a physical Android phone, pass npm run mobile:device:qa, prove a lifecycle notification, then run the complete Malayalam applicant lifecycle with connectivity interruption.',
   blockers: [
     'Run the giver post, 3 worker applications, selection, lifecycle, and dual-rating flow on a physical Android device',
     'Provision Firebase client/backend credentials and pass npm run mobile:device:qa',
     'Confirm Malayalam copy and low-connectivity behavior during the mobile run',
-    'Deploy durable backend URL and pass npm run deploy:readiness',
+    'Deploy durable backend URL and pass the stricter npm run deploy:readiness gate',
   ],
 };
 

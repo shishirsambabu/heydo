@@ -18,6 +18,10 @@ The command prints only configured/missing checks. It never prints `DATABASE_URL
 
 Local dev is expected to fail this check. Production should pass it.
 
+The check fails closed for temporary tunnels, malformed URLs, CORS origins that
+point back at the API host, Firebase service-account files inside the repo, and
+service-account JSON whose project id does not match `FIREBASE_PROJECT_ID`.
+
 ## Required Production Env
 
 ```env
@@ -47,6 +51,12 @@ DIDIT_CALLBACK_URL=https://api.heydo.in/verification/callback
 ```
 
 FCM uses the HTTP v1 API and short-lived OAuth credentials. Keep the service-account JSON outside Git; see the [official Firebase send guide](https://firebase.google.com/docs/cloud-messaging/send/v1-api).
+
+`DIDIT_CALLBACK_URL` must be HTTPS, durable, and on the same host as
+`API_PUBLIC_URL`. The Didit webhook destination remains `/webhooks/didit`.
+
+`CORS_ORIGINS` should list browser/admin app origins such as
+`https://admin.heydo.in` and must not include the API host itself.
 
 ## Health And Webhook URLs
 
